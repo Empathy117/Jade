@@ -24,6 +24,7 @@
         {
           default = pkgs.mkShell {
             packages = with pkgs; [
+              ffmpeg
               jq
               just
               nodejs_24

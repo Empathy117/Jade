@@ -6,6 +6,10 @@ default: check
 dev:
     pnpm --filter @immersive-reader/reader dev
 
+# Rebuild the immutable source manifest for the hand-authored demo.
+demo-source:
+    uv run --project pipeline --frozen python scripts/build_demo_source.py
+
 # Run all current checks.
 check:
     pnpm check

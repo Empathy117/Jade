@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "book_id": "restaurant-of-many-orders",
+  "source_revision": 1,
+  "source_sha256": "d6a87bc6b7105fb921afa0cd154d8428dfe4461773651c4a4ae803c0b093a5f1",
+  "asset_catalog_id": "restaurant-demo-assets",
+  "cues": [
+    {
+      "at": "p0002",
+      "scene_id": "scene_001",
+      "background": {
+        "asset_id": "bg_forest_dusk",
+        "transition": "crossfade",
+        "duration_ms": 1800
+      },
+      "music": {
+        "asset_id": "bgm_forest_stillness",
+        "transition": "crossfade",
+        "duration_ms": 2600,
+        "gain": 0.34
+      },
+      "ambience": [
+        {
+          "asset_id": "amb_mountain_wind",
+          "gain": 0.28
+        }
+      ],
+      "clear_text": false
+    },
+    {
+      "at": "p0021",
+      "scene_id": "scene_002",
+      "background": {
+        "asset_id": "bg_restaurant_exterior",
+        "transition": "crossfade",
+        "duration_ms": 1800
+      },
+      "music": {
+        "asset_id": "bgm_corridor_unease",
+        "transition": "crossfade",
+        "duration_ms": 2800,
+        "gain": 0.3
+      },
+      "clear_text": true
+    },
+    {
+      "at": "p0038",
+      "scene_id": "scene_003",
+      "background": {
+        "asset_id": "bg_blue_door_corridor",
+        "transition": "crossfade",
+        "duration_ms": 1600
+      },
+      "ambience": [
+        {
+          "asset_id": "amb_empty_room",
+          "gain": 0.2
+        }
+      ],
+      "clear_text": true
+    },
+    {
+      "at": "p0051",
+      "scene_id": "scene_004",
+      "clear_text": true
+    },
+    {
+      "at": "p0079",
+      "scene_id": "scene_005",
+      "background": {
+        "asset_id": "bg_preparation_room",
+        "transition": "crossfade",
+        "duration_ms": 1600
+      },
+      "clear_text": true
+    },
+    {
+      "at": "p0104",
+      "scene_id": "scene_005",
+      "music": {
+        "asset_id": "bgm_final_door_tension",
+        "transition": "crossfade",
+        "duration_ms": 2200,
+        "gain": 0.38
+      }
+    },
+    {
+      "at": "p0113",
+      "scene_id": "scene_006",
+      "background": {
+        "asset_id": "bg_final_door",
+        "transition": "crossfade",
+        "duration_ms": 1400
+      },
+      "clear_text": true
+    },
+    {
+      "at": "p0137",
+      "scene_id": "scene_007",
+      "background": {
+        "asset_id": "bg_forest_dawn",
+        "transition": "crossfade",
+        "duration_ms": 2200
+      },
+      "music": {
+        "asset_id": "bgm_forest_stillness",
+        "transition": "crossfade",
+        "duration_ms": 3200,
+        "gain": 0.26
+      },
+      "ambience": [
+        {
+          "asset_id": "amb_mountain_wind",
+          "gain": 0.16
+        }
+      ],
+      "clear_text": true
+    }
+  ]
+}

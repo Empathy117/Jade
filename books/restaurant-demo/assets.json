@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "catalog_id": "restaurant-demo-assets",
+  "assets": [
+    {
+      "id": "bg_forest_dusk",
+      "type": "background",
+      "path": "assets/backgrounds/forest-dusk.png",
+      "tags": ["mountain", "forest", "autumn", "dusk"],
+      "license": "Project asset",
+      "source": "OpenAI built-in image generation, 2026-08-19",
+      "attribution": null
+    },
+    {
+      "id": "bg_restaurant_exterior",
+      "type": "background",
+      "path": "assets/backgrounds/restaurant-exterior.png",
+      "tags": ["restaurant", "mountain", "warm_light", "mysterious"],
+      "license": "Project asset",
+      "source": "OpenAI built-in image generation, 2026-08-19",
+      "attribution": null
+    },
+    {
+      "id": "bg_blue_door_corridor",
+      "type": "background",
+      "path": "assets/backgrounds/blue-door-corridor.png",
+      "tags": ["corridor", "blue_doors", "warm_lamps", "empty"],
+      "license": "Project asset",
+      "source": "OpenAI built-in image generation, 2026-08-19",
+      "attribution": null
+    },
+    {
+      "id": "bg_preparation_room",
+      "type": "background",
+      "path": "assets/backgrounds/preparation-room.png",
+      "tags": ["mirror", "cream", "salt", "preparation_room"],
+      "license": "Project asset",
+      "source": "OpenAI built-in image generation, 2026-08-19",
+      "attribution": null
+    },
+    {
+      "id": "bg_final_door",
+      "type": "background",
+      "path": "assets/backgrounds/final-door.png",
+      "tags": ["final_door", "keyholes", "dark_hall", "claustrophobic"],
+      "license": "Project asset",
+      "source": "OpenAI built-in image generation, 2026-08-19",
+      "attribution": null
+    },
+    {
+      "id": "bg_forest_dawn",
+      "type": "background",
+      "path": "assets/backgrounds/forest-dawn.png",
+      "tags": ["mountain", "forest", "mist", "dawn"],
+      "license": "Project asset",
+      "source": "OpenAI built-in image generation, 2026-08-19",
+      "attribution": null
+    },
+    {
+      "id": "bgm_forest_stillness",
+      "type": "music",
+      "path": "assets/music/forest-stillness.mp3",
+      "tags": ["minimal", "uneasy", "distant", "quiet", "aftermath"],
+      "loop": true,
+      "duration_ms": 48000,
+      "license": "CC0-1.0",
+      "source": "scripts/generate_demo_audio.sh",
+      "attribution": null
+    },
+    {
+      "id": "bgm_corridor_unease",
+      "type": "music",
+      "path": "assets/music/corridor-unease.mp3",
+      "tags": ["polite", "uncanny", "minimal", "repetitive"],
+      "loop": true,
+      "duration_ms": 48000,
+      "license": "CC0-1.0",
+      "source": "scripts/generate_demo_audio.sh",
+      "attribution": null
+    },
+    {
+      "id": "bgm_final_door_tension",
+      "type": "music",
+      "path": "assets/music/final-door-tension.mp3",
+      "tags": ["realization", "dread", "low_drone", "tension_high"],
+      "loop": true,
+      "duration_ms": 48000,
+      "license": "CC0-1.0",
+      "source": "scripts/generate_demo_audio.sh",
+      "attribution": null
+    },
+    {
+      "id": "amb_mountain_wind",
+      "type": "ambience",
+      "path": "assets/ambience/mountain-wind.mp3",
+      "tags": ["mountain_wind", "dry_leaves", "wet_leaves"],
+      "loop": true,
+      "duration_ms": 48000,
+      "license": "CC0-1.0",
+      "source": "scripts/generate_demo_audio.sh",
+      "attribution": null
+    },
+    {
+      "id": "amb_empty_room",
+      "type": "ambience",
+      "path": "assets/ambience/empty-room.mp3",
+      "tags": ["empty_room", "door_hum", "low_hum", "muffled_voices"],
+      "loop": true,
+      "duration_ms": 48000,
+      "license": "CC0-1.0",
+      "source": "scripts/generate_demo_audio.sh",
+      "attribution": null
+    }
+  ]
+}

@@ -1,0 +1,148 @@
+{
+  "schema_version": 1,
+  "book_id": "restaurant-of-many-orders",
+  "source_revision": 1,
+  "source_sha256": "d6a87bc6b7105fb921afa0cd154d8428dfe4461773651c4a4ae803c0b093a5f1",
+  "scenes": [
+    {
+      "id": "scene_001",
+      "start": "p0002",
+      "end": "p0020",
+      "location": "mountain_forest",
+      "time": "dusk",
+      "weather": "windy",
+      "mood": ["arrogant", "isolated", "uneasy"],
+      "tension": 0.22,
+      "background": {
+        "tags": ["mountain", "forest", "autumn", "dusk"]
+      },
+      "music": {
+        "tags": ["minimal", "uneasy", "distant"],
+        "intensity": 0.18
+      },
+      "ambience": {
+        "tags": ["mountain_wind", "dry_leaves"]
+      }
+    },
+    {
+      "id": "scene_002",
+      "start": "p0021",
+      "end": "p0037",
+      "location": "wildcat_restaurant_exterior",
+      "time": "dusk",
+      "weather": "windy",
+      "mood": ["relieved", "curious", "deceptive_warmth"],
+      "tension": 0.28,
+      "background": {
+        "tags": ["restaurant", "mountain", "warm_light", "mysterious"]
+      },
+      "music": {
+        "tags": ["polite", "uncanny", "minimal"],
+        "intensity": 0.24
+      },
+      "ambience": {
+        "tags": ["mountain_wind"]
+      }
+    },
+    {
+      "id": "scene_003",
+      "start": "p0038",
+      "end": "p0050",
+      "location": "wildcat_restaurant_corridor",
+      "time": "night",
+      "weather": null,
+      "mood": ["amused", "curious", "subtly_wrong"],
+      "tension": 0.34,
+      "background": {
+        "tags": ["corridor", "blue_doors", "warm_lamps", "empty"]
+      },
+      "music": {
+        "tags": ["uncanny", "minimal", "polite"],
+        "intensity": 0.3
+      },
+      "ambience": {
+        "tags": ["empty_room", "distant_wind"]
+      }
+    },
+    {
+      "id": "scene_004",
+      "start": "p0051",
+      "end": "p0078",
+      "location": "wildcat_restaurant_corridor",
+      "time": "night",
+      "weather": null,
+      "mood": ["compliant", "confused", "uneasy"],
+      "tension": 0.48,
+      "background": {
+        "tags": ["corridor", "successive_doors", "empty", "uncanny"]
+      },
+      "music": {
+        "tags": ["uncanny", "repetitive", "minimal"],
+        "intensity": 0.4
+      },
+      "ambience": {
+        "tags": ["empty_room", "door_hum"]
+      }
+    },
+    {
+      "id": "scene_005",
+      "start": "p0079",
+      "end": "p0112",
+      "location": "wildcat_restaurant_preparation_room",
+      "time": "night",
+      "weather": null,
+      "mood": ["absurd", "suspicious", "terrified"],
+      "tension": 0.72,
+      "background": {
+        "tags": ["mirror", "cream", "salt", "preparation_room"]
+      },
+      "music": {
+        "tags": ["realization", "dread", "low_drone"],
+        "intensity": 0.7
+      },
+      "ambience": {
+        "tags": ["empty_room", "low_hum"]
+      }
+    },
+    {
+      "id": "scene_006",
+      "start": "p0113",
+      "end": "p0136",
+      "location": "wildcat_restaurant_final_door",
+      "time": "night",
+      "weather": null,
+      "mood": ["trapped", "terrified", "predatory"],
+      "tension": 0.98,
+      "background": {
+        "tags": ["final_door", "keyholes", "dark_hall", "claustrophobic"]
+      },
+      "music": {
+        "tags": ["tension_high", "dread", "low_drone"],
+        "intensity": 0.95
+      },
+      "ambience": {
+        "tags": ["empty_room", "muffled_voices"]
+      }
+    },
+    {
+      "id": "scene_007",
+      "start": "p0137",
+      "end": "p0149",
+      "location": "mountain_forest",
+      "time": "dawn",
+      "weather": "misty",
+      "mood": ["released", "exhausted", "uncanny_aftertaste"],
+      "tension": 0.12,
+      "background": {
+        "tags": ["mountain", "forest", "mist", "dawn"]
+      },
+      "music": {
+        "tags": ["minimal", "quiet", "aftermath"],
+        "intensity": 0.14
+      },
+      "ambience": {
+        "tags": ["mountain_wind", "wet_leaves"]
+      }
+    }
+  ]
+}
