@@ -3,9 +3,10 @@
 An experimental reader where the source book controls what is said and the
 director layer controls only how it is presented.
 
-The project is currently in Phase 1: reproducible development environment and
-minimal workspace scaffolding. Reader behavior, book importing, data schemas,
-and AI integration are intentionally not implemented yet.
+The project has completed Phase 2: reproducible development workspaces,
+versioned data contracts, and cross-document bundle validation. Reader
+behavior, book importing, and AI integration are intentionally not implemented
+yet.
 
 ## Development
 
@@ -25,6 +26,12 @@ Run all current checks:
 
 ```sh
 just check
+```
+
+Validate the bundled contract fixture:
+
+```sh
+just validate
 ```
 
 Start the placeholder Reader page:

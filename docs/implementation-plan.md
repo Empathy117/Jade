@@ -1,9 +1,9 @@
 # AI Director + Reader Runtime 执行计划
 
-> 状态：Active  
-> 最后更新：2026-08-18  
-> 当前阶段：Phase 1 技术验收完成，等待用户验收  
-> 下一阶段：Phase 2 — 数据契约与校验器
+> 状态：Active
+> 最后更新：2026-08-19
+> 当前阶段：Phase 2 — 数据契约与校验器已完成
+> 下一阶段：Phase 3 — 手工编排 Demo
 
 ## 1. 项目摘要
 
@@ -263,10 +263,16 @@ flowchart LR
       "weather": "windy",
       "mood": ["uneasy", "cold"],
       "tension": 0.25,
-      "background_tags": ["forest", "mountain", "autumn"],
-      "music_tags": ["minimal", "uneasy"],
-      "music_intensity": 0.2,
-      "ambience_tags": ["wind", "leaves"]
+      "background": {
+        "tags": ["forest", "mountain", "autumn"]
+      },
+      "music": {
+        "tags": ["minimal", "uneasy"],
+        "intensity": 0.2
+      },
+      "ambience": {
+        "tags": ["wind", "leaves"]
+      }
     }
   ]
 }
@@ -663,16 +669,16 @@ pytest    8.4.2
 
 任务：
 
-- [ ] 编写四个 JSON Schema；
-- [ ] 定义 schema version 策略；
-- [ ] 创建最小合法 fixture；
-- [ ] 实现单文件 schema 校验；
-- [ ] 实现跨文件引用校验；
-- [ ] 校验 scene 无重叠、无倒序、无缺口；
-- [ ] 校验素材文件存在；
-- [ ] 校验 source revision 和 hash 一致；
-- [ ] 将校验接入 `just validate` 和 `just check`；
-- [ ] 为常见错误提供可定位的错误消息。
+- [x] 编写四个 JSON Schema；
+- [x] 定义 schema version 策略；
+- [x] 创建最小合法 fixture；
+- [x] 实现单文件 schema 校验；
+- [x] 实现跨文件引用校验；
+- [x] 校验 scene 无重叠、无倒序、无缺口；
+- [x] 校验素材文件存在；
+- [x] 校验 source revision 和 hash 一致；
+- [x] 将校验接入 `just validate` 和 `just check`；
+- [x] 为常见错误提供可定位的错误消息。
 
 交付物：
 
@@ -687,6 +693,18 @@ pytest    8.4.2
 - 缺失 paragraph、scene 重叠、素材不存在等错误会失败；
 - 错误输出包含文件、字段路径和原因；
 - Runtime 和 Pipeline 可以共享同一契约定义。
+
+实施结果（2026-08-19）：
+
+- 四份契约采用 JSON Schema Draft 2020-12 和 `schema_version: 1`；
+- Director 的背景、音乐、环境音语义使用独立嵌套块；
+- Playback cue 省略通道表示保持状态，`null` 表示清除状态；
+- validator 同时检查 Schema、SHA-256、source identity、scene 覆盖、cue
+  顺序、素材文件、素材引用和素材通道类型；
+- `just validate` 可直接校验 bundle；
+- 合法、Schema 非法和跨文件非法 fixtures 已加入；
+- Python 测试共 15 个，全部通过；
+- 完整 `just check` 通过。
 
 ### Phase 3 — 手工编排 Demo
 
@@ -944,7 +962,7 @@ MVP 不引入远程监控，但开发模式需要可解释：
 
 ## 18. 当前下一步
 
-Phase 1 的技术验收已经完成。下一步由用户验收本阶段结果；确认后开始
-Phase 2，依次定义四个 JSON Schema、测试 fixtures 和跨文件 validator。
+Phase 2 已完成。下一步是 Phase 3：把现有短篇转成真实 `source.json`，
+人工划分场景、准备首批素材并实现第一个可以实际阅读的 Runtime。
 
-在用户确认前，不开始数据 schema 或播放器功能。
+Phase 3 是第一次产品体验验收；Phase 1 和 Phase 2 只进行工程验收。
