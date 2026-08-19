@@ -4,10 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#12110f" />
-    <title>Immersive Reader</title>
+    <title>要求特别多的餐厅 · 沉浸阅读</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <main style="min-height:100vh;display:grid;place-items:center;padding:32px;background:#12110f;color:#eee7da;font-family:system-ui,sans-serif;text-align:center">
+        <div>
+          <p style="letter-spacing:.18em;color:#b9a989">READER RUNTIME</p>
+          <h1 style="font-family:serif;font-weight:500">请通过开发服务器打开</h1>
+          <p style="line-height:1.8;color:#bdb7ac">浏览器不能从 <code>file://</code> 读取书籍数据和音频。<br>请在项目目录运行：</p>
+          <pre style="padding:16px 22px;border:1px solid #4a443b;border-radius:12px;background:#1a1815;text-align:left">cd /Users/empathy/Jade
+direnv exec . just dev</pre>
+          <p style="color:#bdb7ac">然后访问 <strong>http://localhost:5173</strong></p>
+        </div>
+      </main>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
