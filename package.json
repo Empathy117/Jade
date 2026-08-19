@@ -1,0 +1,16 @@
+{
+  "name": "immersive-reader",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.21.0",
+  "engines": {
+    "node": ">=24 <25",
+    "pnpm": ">=11.21 <12"
+  },
+  "scripts": {
+    "build": "pnpm --filter @immersive-reader/reader build",
+    "check": "pnpm --filter @immersive-reader/reader check",
+    "dev": "pnpm --filter @immersive-reader/reader dev",
+    "test": "pnpm --filter @immersive-reader/reader test"
+  }
+}
