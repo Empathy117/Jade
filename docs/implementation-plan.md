@@ -2,8 +2,8 @@
 
 > 状态：Active
 > 最后更新：2026-08-19
-> 当前阶段：Phase 2 — 数据契约与校验器已完成
-> 下一阶段：Phase 3 — 手工编排 Demo
+> 当前阶段：Phase 3 — 手工编排 Demo 已完成
+> 下一阶段：Phase 4 — 体验闸门
 
 ## 1. 项目摘要
 
@@ -661,7 +661,7 @@ pytest    8.4.2
 - Python package 构建和 1 个 pytest 通过；
 - `just dev` 启动成功，并通过本地 HTTP smoke test；
 - `nix flake check --no-build` 在当前 aarch64-darwin 平台通过；
-- Phase 2 尚未开始。
+- Phase 2、Phase 3 已在后续阶段完成。
 
 ### Phase 2 — 数据契约与校验器
 
@@ -712,20 +712,20 @@ pytest    8.4.2
 
 任务：
 
-- [ ] 将现有 TXT 整理为 demo book；
-- [ ] 人工产生 `source.json`；
-- [ ] 将约 149 个文本块划分为少量语义场景；
-- [ ] 人工编写 `direction.manual.json`；
-- [ ] 准备 5–10 张背景、3–5 首 BGM 和少量环境音；
-- [ ] 为素材建立带授权信息的 catalog；
-- [ ] 人工编写首版 `playback.json`；
-- [ ] 实现 source/playback 加载；
-- [ ] 实现段落推进、累积、滚动和清屏；
-- [ ] 实现背景双层 crossfade；
-- [ ] 引入 Howler 并实现 BGM/ambience 独立状态；
-- [ ] 实现进度保存和恢复；
-- [ ] 实现音量、字号和减少动态效果设置；
-- [ ] 完成键盘操作和纯文本降级。
+- [x] 将现有 TXT 整理为 demo book；
+- [x] 人工产生 `source.json`；
+- [x] 将 149 个文本块划分为 7 个语义场景；
+- [x] 人工编写 `direction.json`；
+- [x] 准备 6 张背景、3 首 BGM 和 2 条环境音；
+- [x] 为素材建立带授权和来源信息的 catalog；
+- [x] 人工编写首版 `playback.json`；
+- [x] 实现 source/playback 加载；
+- [x] 实现段落推进、累积、滚动和清屏；
+- [x] 实现背景双层 crossfade；
+- [x] 引入 Howler 并实现 BGM/ambience 独立状态；
+- [x] 实现进度保存和恢复；
+- [x] 实现音量、字号和减少动态效果设置；
+- [x] 完成键盘操作和纯文本降级。
 
 完成条件：
 
@@ -735,6 +735,21 @@ pytest    8.4.2
 - 背景与 BGM crossfade 无明显中断；
 - 素材失败不阻断阅读；
 - 常用桌面浏览器中无阻断问题。
+
+实施结果（2026-08-19）：
+
+- 《要求特别多的餐厅》已编译为 149 段不可变正文、7 个导演场景和
+  8 个确定播放 cue；
+- 6 张项目背景由内置图像生成能力制作，3 首 BGM 和 2 条环境音由仓库
+  脚本本地合成，所有素材均记录来源；
+- Reader 支持点击、空格、左右方向键、页脚按钮、文字累积、显式清屏、
+  进度恢复、设置持久化和纯净阅读；
+- 背景以双层 crossfade 切换，BGM 和 ambience 使用 Howler 独立淡入淡出；
+- JSON bundle validator、15 个 Python 测试、5 个前端测试、TypeScript
+  类型检查和 Vite 生产构建全部通过；
+- 在内置浏览器中完成封面、开始阅读、逐段推进、键盘推进、设置面板、
+  纯净模式和跨场景背景清理验证，控制台无错误或警告；
+- `file://` 直开时会明确提示启动开发服务器，不再呈现无功能空白页。
 
 ### Phase 4 — 体验闸门
 
