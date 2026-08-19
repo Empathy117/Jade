@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://immersive-reader.local/contracts/v1/source.schema.json",
+  "title": "Immutable book source",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "book_id",
+    "revision",
+    "title",
+    "language",
+    "source",
+    "paragraphs"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "book_id": {
+      "$ref": "#/$defs/bookId"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "language": {
+      "type": "string",
+      "pattern": "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "path", "sha256"],
+      "properties": {
+        "format": {
+          "enum": ["txt", "epub"]
+        },
+        "path": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "paragraphs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/paragraph"
+      }
+    }
+  },
+  "$defs": {
+    "bookId": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "paragraphId": {
+      "type": "string",
+      "pattern": "^p[0-9]{4,}$"
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "paragraph": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "text"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/paragraphId"
+        },
+        "kind": {
+          "enum": ["title", "chapter_heading", "prose", "epigraph"]
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

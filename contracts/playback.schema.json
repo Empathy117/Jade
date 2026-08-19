@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://immersive-reader.local/contracts/v1/playback.schema.json",
+  "title": "Resolved Reader playback cues",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "book_id",
+    "source_revision",
+    "source_sha256",
+    "asset_catalog_id",
+    "cues"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "book_id": {
+      "$ref": "#/$defs/bookId"
+    },
+    "source_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "source_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "asset_catalog_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "cues": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/cue"
+      }
+    }
+  },
+  "$defs": {
+    "bookId": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "paragraphId": {
+      "type": "string",
+      "pattern": "^p[0-9]{4,}$"
+    },
+    "sceneId": {
+      "type": "string",
+      "pattern": "^scene_[0-9]{3,}$"
+    },
+    "assetId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+    },
+    "transition": {
+      "enum": ["cut", "crossfade"]
+    },
+    "backgroundState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["asset_id", "transition", "duration_ms"],
+      "properties": {
+        "asset_id": {
+          "$ref": "#/$defs/assetId"
+        },
+        "transition": {
+          "$ref": "#/$defs/transition"
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 30000
+        }
+      }
+    },
+    "musicState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["asset_id", "transition", "duration_ms", "gain"],
+      "properties": {
+        "asset_id": {
+          "$ref": "#/$defs/assetId"
+        },
+        "transition": {
+          "$ref": "#/$defs/transition"
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 30000
+        },
+        "gain": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "ambienceState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["asset_id", "gain"],
+      "properties": {
+        "asset_id": {
+          "$ref": "#/$defs/assetId"
+        },
+        "gain": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "cue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["at", "scene_id"],
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/paragraphId"
+        },
+        "scene_id": {
+          "$ref": "#/$defs/sceneId"
+        },
+        "background": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/backgroundState"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "music": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/musicState"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ambience": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/ambienceState"
+          }
+        },
+        "clear_text": {
+          "type": "boolean"
+        }
+      },
+      "anyOf": [
+        {
+          "required": ["background"]
+        },
+        {
+          "required": ["music"]
+        },
+        {
+          "required": ["ambience"]
+        },
+        {
+          "required": ["clear_text"]
+        }
+      ]
+    }
+  }
+}
