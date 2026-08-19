@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "book_id": "fixture-book",
+  "source_revision": 1,
+  "source_sha256": "3978aa0746fa60df7511af9781d665fbf2411a341ce383d7e79d2933c6c70b21",
+  "asset_catalog_id": "fixture-assets",
+  "cues": [
+    {
+      "at": "p0002",
+      "scene_id": "scene_001",
+      "background": {
+        "asset_id": "bg_forest_rain",
+        "transition": "crossfade",
+        "duration_ms": 1600
+      },
+      "music": {
+        "asset_id": "bgm_quiet",
+        "transition": "crossfade",
+        "duration_ms": 2400,
+        "gain": 0.2
+      },
+      "ambience": [
+        {
+          "asset_id": "amb_rain",
+          "gain": 0.15
+        }
+      ],
+      "clear_text": false
+    },
+    {
+      "at": "p0004",
+      "scene_id": "scene_002",
+      "background": {
+        "asset_id": "bg_city_lights",
+        "transition": "crossfade",
+        "duration_ms": 1600
+      },
+      "clear_text": true
+    }
+  ]
+}

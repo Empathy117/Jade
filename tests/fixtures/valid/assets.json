@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "catalog_id": "fixture-assets",
+  "assets": [
+    {
+      "id": "bg_forest_rain",
+      "type": "background",
+      "path": "assets/backgrounds/forest-rain.fixture",
+      "tags": ["forest", "night", "rain"],
+      "license": "CC0-1.0",
+      "source": "fixture://backgrounds/forest-rain",
+      "attribution": null
+    },
+    {
+      "id": "bg_city_lights",
+      "type": "background",
+      "path": "assets/backgrounds/city-lights.fixture",
+      "tags": ["city", "lights", "night"],
+      "license": "CC0-1.0",
+      "source": "fixture://backgrounds/city-lights",
+      "attribution": null
+    },
+    {
+      "id": "bgm_quiet",
+      "type": "music",
+      "path": "assets/music/quiet.fixture",
+      "tags": ["minimal", "quiet"],
+      "loop": true,
+      "duration_ms": 90000,
+      "license": "CC0-1.0",
+      "source": "fixture://music/quiet",
+      "attribution": null
+    },
+    {
+      "id": "amb_rain",
+      "type": "ambience",
+      "path": "assets/ambience/rain.fixture",
+      "tags": ["light_rain", "rain"],
+      "loop": true,
+      "duration_ms": 30000,
+      "license": "CC0-1.0",
+      "source": "fixture://ambience/rain",
+      "attribution": null
+    }
+  ]
+}

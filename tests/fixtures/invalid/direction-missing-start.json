@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "book_id": "fixture-book",
+  "source_revision": 1,
+  "source_sha256": "3978aa0746fa60df7511af9781d665fbf2411a341ce383d7e79d2933c6c70b21",
+  "scenes": [
+    {
+      "id": "scene_001",
+      "end": "p0004",
+      "location": "mountain_forest",
+      "time": "night",
+      "weather": "rain",
+      "mood": ["quiet"],
+      "tension": 0.25,
+      "background": {
+        "tags": ["forest"]
+      },
+      "music": {
+        "tags": ["minimal"],
+        "intensity": 0.2
+      },
+      "ambience": {
+        "tags": ["light_rain"]
+      }
+    }
+  ]
+}

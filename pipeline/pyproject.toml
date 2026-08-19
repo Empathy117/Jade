@@ -4,7 +4,12 @@ version = "0.1.0"
 description = "Build-time pipeline for AI Director + Reader Runtime"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+  "jsonschema>=4.25,<5",
+]
+
+[project.scripts]
+immersive-reader-validate = "immersive_reader.validator:entrypoint"
 
 [build-system]
 requires = ["hatchling"]
