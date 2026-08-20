@@ -14,6 +14,8 @@ Agent 必须交付一个注册到书库的完整目录：
 books/<book-path>/
 ├── source.txt / source.epub
 ├── source.json
+├── source-assets/          # 可选；EPUB 原书附图
+├── guide.json              # 可选；正文起点与常用资料图
 ├── direction.json
 ├── assets.json
 ├── playback.json
@@ -72,10 +74,16 @@ books/<book-path>/
 just import-book path/to/book.epub books/<book-path> <book-id>
 ```
 
-TXT 检查编码和空行分段；EPUB 检查 package metadata、spine 顺序和 XHTML
-文本块。两种格式都要检查标题、段落数量、chapter heading 和题记分类。
+TXT 检查编码和空行分段；EPUB 检查 package metadata、spine 顺序、XHTML
+文本块与正文引用的栅格附图。两种格式都要检查标题、段落数量、chapter heading
+和题记分类。原书附图属于 source 层，必须保留哈希与正文锚点，不得当成背景素材。
 Importer 报告冲突时
 不得强制覆盖，应使用新 revision 或新目录并向用户说明。
+
+如果一本书存在会反复查阅的人物关系图、地图或平面图，可增加 `guide.json`，只把
+这些关键图选入资料图册；不要把封面、装饰图等所有图片无差别塞入图册。推理书的
+资料图按正文锚点随进度解锁，避免提前展示未来信息。需要保留版权页、目录或人物表
+但不宜默认播放时，可在 guide 中设置首个叙事段落为 `start_at`。
 
 ### Step 2 — 导演分析
 
@@ -172,6 +180,7 @@ just check
 - 所有素材拥有可追溯授权信息；
 - 背景、音乐、环境音职责分离且切换克制；
 - Reader 可从书库进入、恢复进度并读完整本；
+- EPUB 原书附图在正文位置可见，guide 选中的资料图可回看且不会提前解锁；
 - `production-notes.md` 已记录人工介入；
 - 相关改动以原子 Git 提交保存。
 

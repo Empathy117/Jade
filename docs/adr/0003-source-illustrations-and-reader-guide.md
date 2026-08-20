@@ -114,10 +114,10 @@ and responsive viewer behavior.
 
 ## Action items
 
-1. [ ] Extract supported spine images into deterministic `source-assets/` paths.
-2. [ ] Extend source schema and validation for immutable illustrations.
-3. [ ] Add optional `guide.json` schema and cross-document validation.
-4. [ ] Build inline illustration and reference-gallery Reader components.
-5. [ ] Configure the three reference diagrams and narrative start for
+1. [x] Extract supported spine images into deterministic `source-assets/` paths.
+2. [x] Extend source schema and validation for immutable illustrations.
+3. [x] Add optional `guide.json` schema and cross-document validation.
+4. [x] Build inline illustration and reference-gallery Reader components.
+5. [x] Configure the three reference diagrams and narrative start for
        《生尸之死》.
-6. [ ] Add importer, validator, state, build, and browser tests.
+6. [x] Add importer, validator, state, build, and browser tests.

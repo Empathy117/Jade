@@ -52,7 +52,9 @@ just import-book path/to/novel.epub books/my-novel my-novel
 ```
 
 The original TXT or EPUB bytes are preserved and hashed; `source.json` contains
-only a decoded, paragraph-addressable representation for later directing.
+a paragraph-addressable representation plus anchored, hashed EPUB raster
+illustrations. A book may add `guide.json` to select a preferred narrative start
+and recurring reference images without changing the source or Director data.
 
 Validate the complete library and every registered bundle:
 
@@ -81,6 +83,8 @@ Current Reader controls:
 - press Left Arrow or use the footer buttons to move backward;
 - press Up Arrow or use the `↑` button to review and jump to any previously
   read paragraph without losing the furthest reading position;
+- when a book defines recurring reference images, use `图` to reopen every
+  diagram unlocked by the current reading position;
 - use `Aa` for font size, audio, reduced motion, and pure reading mode;
 - progress and settings are stored locally in the browser.
 

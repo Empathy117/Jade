@@ -812,13 +812,14 @@ pytest    8.4.2
 - [x] 生成带 revision 的 `source.json`；
 - [x] 解析 EPUB container、OPF manifest/spine 和 XHTML 块级正文；
 - [x] 将 EPUB 映射到统一 `source.json` 并冻结原始 `source.epub`；
+- [x] 保留 EPUB 正文栅格附图，并支持可选 `guide.json` 正文起点与资料图册；
 - [x] 记录 Agent 优先、自动化可替换的架构决策；
 - [x] 编写标准 Agent 制书协议；
 - [x] 定义并校验 `books/library.json`；
 - [x] Reader 支持选择和切换任意已注册书籍；
 - [x] 移除 Runtime 中针对单本 Demo 的场景名、曲名和路径硬编码；
-- [ ] 用第二本真实 EPUB 完成端到端制作；
-- [ ] 为第二本书记录 Agent 自动步骤和仍需人工判断的步骤；
+- [x] 用第二本真实 EPUB 完成端到端制作；
+- [x] 为第二本书记录 Agent 自动步骤和仍需人工判断的步骤；
 - [ ] 根据实际重复劳动决定自动化候选，不预先实现通用 Matcher。
 
 完成条件：
@@ -851,7 +852,9 @@ pytest    8.4.2
 - 采用 [ADR-0002](adr/0002-compile-epub-into-unified-source.md)：EPUB 在构建期
   编译为统一 source contract，不在 Runtime 内维护第二套渲染器。
 - EPUB Importer 已实现 package metadata、manifest/spine 顺序、XHTML 块级正文、
-  原始文件冻结与安全边界，并通过合成 EPUB fixture 覆盖；真实第二本书仍待导入。
+  栅格附图提取、原始文件冻结与安全边界，并通过合成 fixture 与真实《生尸之死》
+  验证；附图与常用资料图采用 [ADR-0003](adr/0003-source-illustrations-and-reader-guide.md)
+  的 source / guide 分层。
 
 ### Phase 6 — 无人值守 Director、Matcher 与 Compiler
 
