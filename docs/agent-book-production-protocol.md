@@ -170,7 +170,17 @@ guide 的选择规则：
 - 环境音音量低于音乐，不持续占据注意力；
 - 原始下载文件不直接冒充完成资产，处理过程和改动写入来源说明。
 
-### Step 6 — 编写 Playback
+### Step 5.5 — 固定素材字节
+
+素材属于可变的 Director 层，`assets[].sha256` 因此是可选字段。音频与图片处理
+全部完成、不再打算改动之后，为整本书登记一次哈希：
+
+```sh
+just hash-assets books/<book-path>
+```
+
+此后 `just validate` 会把每个素材钉在这组字节上；任何替换或损坏都会以
+`asset_hash_mismatch` 报出。若之后确实要更换素材，先替换文件再重新运行本命令。
 
 从 `direction.json` 和最终素材生成 `playback.json`：
 
@@ -187,6 +197,7 @@ guide 的选择规则：
 至少完成：
 
 ```sh
+just hash-assets books/<book-path>
 just validate books/<book-path>
 just validate-library
 just check

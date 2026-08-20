@@ -10,7 +10,6 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
-
 SUPPORTED_ENCODINGS = (
     "utf-8",
     "utf-8-sig",
@@ -276,7 +275,8 @@ def write_source_bundle(
         target = (output_dir / relative_path).resolve()
         if not target.is_relative_to(output_dir) or target in {source_path, manifest_path}:
             raise BookImportError(
-                f"immutable source asset path escapes or collides with the bundle: {relative_path}"
+                "immutable source asset path escapes or collides with the bundle: "
+                f"{relative_path}"
             )
         extra_paths.append((target, content))
 

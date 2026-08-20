@@ -18,7 +18,6 @@ from immersive_reader.importing import (
     write_source_bundle,
 )
 
-
 MIMETYPE = b"application/epub+zip"
 CONTAINER_PATH = "META-INF/container.xml"
 MAX_EPUB_BYTES = 256 * 1024 * 1024

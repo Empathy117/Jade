@@ -3,7 +3,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from immersive_reader.importer import main
 from immersive_reader.importing import (
     ImportConflictError,

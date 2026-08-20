@@ -44,6 +44,10 @@
       "minLength": 1,
       "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+"
     },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
     "assetBase": {
       "type": "object",
       "required": [
@@ -68,6 +72,9 @@
         },
         "path": {
           "$ref": "#/$defs/relativePath"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
         },
         "tags": {
           "type": "array",

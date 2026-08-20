@@ -33,3 +33,19 @@ keeps older schemas while any stored book still depends on them.
 JSON Schema validates document shape. Cross-document ordering, references,
 hashes, scene coverage, and asset file existence are enforced by the pipeline
 validator.
+
+## Integrity
+
+The source text is immutable: `source.json` always carries the `sha256` of the
+imported TXT or EPUB and of every extracted illustration, and the validator
+fails if those bytes ever change.
+
+Assets are Director-layer material and may legitimately be replaced — a
+background can be re-rendered, a track re-encoded — so `assets[].sha256` is
+**optional**. When an asset records one, the validator holds it to those exact
+bytes; when it does not, only the file's existence is checked. Pin a finished
+catalog with:
+
+```sh
+just hash-assets books/my-novel
+```

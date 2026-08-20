@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
-from jsonschema import Draft202012Validator
-from jsonschema.exceptions import ValidationError
+from immersive_reader.documents import (
+    JsonObject,
+    ValidationIssue,
+    issue_key,
+    load_json_object,
+    resolve_inside,
+    schema_issues,
+    sha256_file,
+)
 
-JsonObject = dict[str, Any]
+__all__ = ["JsonObject", "ValidationIssue", "validate_bundle"]
 
 DOCUMENT_SCHEMAS = {
     "source.json": "source.schema.json",
@@ -23,19 +26,6 @@ DOCUMENT_SCHEMAS = {
 OPTIONAL_DOCUMENT_SCHEMAS = {
     "guide.json": "guide.schema.json",
 }
-
-
-@dataclass(frozen=True)
-class ValidationIssue:
-    """One actionable validation failure."""
-
-    document: str
-    path: str
-    code: str
-    message: str
-
-    def __str__(self) -> str:
-        return f"{self.document}:{self.path} [{self.code}] {self.message}"
 
 
 def validate_bundle(
@@ -54,13 +44,13 @@ def validate_bundle(
     for document_name, schema_name in DOCUMENT_SCHEMAS.items():
         document_path = bundle_dir / document_name
         schema_path = contracts_dir / schema_name
-        document = _load_json(document_path, document_name, issues)
-        schema = _load_json(schema_path, f"contracts/{schema_name}", issues)
+        document = load_json_object(document_path, document_name, issues)
+        schema = load_json_object(schema_path, f"contracts/{schema_name}", issues)
         if document is None or schema is None:
             continue
 
         documents[document_name] = document
-        document_issues = _validate_schema(document_name, document, schema)
+        document_issues = schema_issues(document_name, document, schema)
         issues.extend(document_issues)
         if not document_issues:
             schema_valid_documents.add(document_name)
@@ -70,12 +60,12 @@ def validate_bundle(
         if not document_path.exists():
             continue
         schema_path = contracts_dir / schema_name
-        document = _load_json(document_path, document_name, issues)
-        schema = _load_json(schema_path, f"contracts/{schema_name}", issues)
+        document = load_json_object(document_path, document_name, issues)
+        schema = load_json_object(schema_path, f"contracts/{schema_name}", issues)
         if document is None or schema is None:
             continue
         documents[document_name] = document
-        document_issues = _validate_schema(document_name, document, schema)
+        document_issues = schema_issues(document_name, document, schema)
         issues.extend(document_issues)
         if not document_issues:
             schema_valid_documents.add(document_name)
@@ -112,101 +102,7 @@ def validate_bundle(
             )
         )
 
-    return sorted(
-        issues,
-        key=lambda issue: (issue.document, issue.path, issue.code, issue.message),
-    )
-
-
-def _load_json(
-    path: Path,
-    document_name: str,
-    issues: list[ValidationIssue],
-) -> JsonObject | None:
-    if not path.is_file():
-        issues.append(
-            ValidationIssue(
-                document_name,
-                "$",
-                "file_not_found",
-                f"file does not exist: {path}",
-            )
-        )
-        return None
-
-    try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError) as error:
-        issues.append(
-            ValidationIssue(
-                document_name,
-                "$",
-                "invalid_json",
-                str(error),
-            )
-        )
-        return None
-
-    if not isinstance(value, dict):
-        issues.append(
-            ValidationIssue(
-                document_name,
-                "$",
-                "invalid_document",
-                "top-level JSON value must be an object",
-            )
-        )
-        return None
-    return value
-
-
-def _validate_schema(
-    document_name: str,
-    document: JsonObject,
-    schema: JsonObject,
-) -> list[ValidationIssue]:
-    validator = Draft202012Validator(schema)
-    return [
-        ValidationIssue(
-            document_name,
-            _error_path(error),
-            f"schema_{error.validator}",
-            error.message,
-        )
-        for error in sorted(validator.iter_errors(document), key=_schema_error_key)
-    ]
-
-
-def _schema_error_key(error: ValidationError) -> tuple[str, str]:
-    return (_json_path(list(error.absolute_path)), error.message)
-
-
-def _error_path(error: ValidationError) -> str:
-    parts = list(error.absolute_path)
-    if error.validator == "required":
-        missing = _missing_required_property(error.message)
-        if missing is not None:
-            parts.append(missing)
-    return _json_path(parts)
-
-
-def _missing_required_property(message: str) -> str | None:
-    marker = "' is a required property"
-    if marker not in message or not message.startswith("'"):
-        return None
-    return message[1 : message.index(marker)]
-
-
-def _json_path(parts: list[Any]) -> str:
-    path = "$"
-    for part in parts:
-        if isinstance(part, int):
-            path += f"[{part}]"
-        elif isinstance(part, str) and part.replace("_", "").isalnum():
-            path += f".{part}"
-        else:
-            path += f"[{json.dumps(part, ensure_ascii=False)}]"
-    return path
+    return sorted(issues, key=issue_key)
 
 
 def _validate_source(bundle_dir: Path, source: JsonObject) -> list[ValidationIssue]:
@@ -264,7 +160,7 @@ def _validate_source(bundle_dir: Path, source: JsonObject) -> list[ValidationIss
                 )
             )
         illustration_paths.add(relative_path)
-        file_path = _resolve_relative_path(
+        file_path = _resolve_in_bundle(
             bundle_dir,
             relative_path,
             "source.json",
@@ -284,7 +180,7 @@ def _validate_source(bundle_dir: Path, source: JsonObject) -> list[ValidationIss
             )
             continue
         try:
-            actual_illustration_hash = _sha256_file(file_path)
+            actual_illustration_hash = sha256_file(file_path)
         except OSError as error:
             issues.append(
                 ValidationIssue(
@@ -305,7 +201,7 @@ def _validate_source(bundle_dir: Path, source: JsonObject) -> list[ValidationIss
                 )
             )
 
-    source_path = _resolve_relative_path(
+    source_path = _resolve_in_bundle(
         bundle_dir,
         source["source"]["path"],
         "source.json",
@@ -326,7 +222,7 @@ def _validate_source(bundle_dir: Path, source: JsonObject) -> list[ValidationIss
         return issues
 
     try:
-        actual_hash = _sha256_file(source_path)
+        actual_hash = sha256_file(source_path)
     except OSError as error:
         issues.append(
             ValidationIssue(
@@ -358,7 +254,9 @@ def _validate_direction(
     scenes = direction["scenes"]
     paragraphs = source["paragraphs"]
     directable = [paragraph["id"] for paragraph in paragraphs if paragraph["kind"] != "title"]
-    directable_positions = {paragraph_id: index for index, paragraph_id in enumerate(directable)}
+    directable_positions = {
+        paragraph_id: index for index, paragraph_id in enumerate(directable)
+    }
     all_paragraph_ids = {paragraph["id"] for paragraph in paragraphs}
     scene_ids: set[str] = set()
     expected_start = 0
@@ -544,14 +442,16 @@ def _validate_assets(bundle_dir: Path, assets: JsonObject) -> list[ValidationIss
             )
         asset_ids.add(asset_id)
 
-        asset_path = _resolve_relative_path(
+        asset_path = _resolve_in_bundle(
             bundle_dir,
             asset["path"],
             "assets.json",
             f"$.assets[{index}].path",
             issues,
         )
-        if asset_path is not None and not asset_path.is_file():
+        if asset_path is None:
+            continue
+        if not asset_path.is_file():
             issues.append(
                 ValidationIssue(
                     "assets.json",
@@ -560,7 +460,50 @@ def _validate_assets(bundle_dir: Path, assets: JsonObject) -> list[ValidationIss
                     f"asset file does not exist: {asset_path}",
                 )
             )
+            continue
+
+        issues.extend(_validate_asset_integrity(asset, asset_path, index))
     return issues
+
+
+def _validate_asset_integrity(
+    asset: JsonObject,
+    asset_path: Path,
+    index: int,
+) -> list[ValidationIssue]:
+    """Check an asset against its recorded hash, when it records one.
+
+    Assets belong to the mutable Director layer, so `sha256` is optional: a
+    catalog may pin a file it wants to keep byte-identical without forcing every
+    asset to be pinned.
+    """
+
+    expected = asset.get("sha256")
+    if expected is None:
+        return []
+
+    try:
+        actual = sha256_file(asset_path)
+    except OSError as error:
+        return [
+            ValidationIssue(
+                "assets.json",
+                f"$.assets[{index}].path",
+                "asset_file_unreadable",
+                str(error),
+            )
+        ]
+
+    if actual != expected:
+        return [
+            ValidationIssue(
+                "assets.json",
+                f"$.assets[{index}].sha256",
+                "asset_hash_mismatch",
+                f"expected {expected}, got {actual}",
+            )
+        ]
+    return []
 
 
 def _validate_playback(
@@ -647,7 +590,8 @@ def _validate_playback(
                         "playback.json",
                         f"{cue_path}.scene_id",
                         "cue_scene_mismatch",
-                        f"{paragraph_id} is outside {scene_id} ({scene['start']}..{scene['end']})",
+                        f"{paragraph_id} is outside {scene_id} "
+                        f"({scene['start']}..{scene['end']})",
                     )
                 )
 
@@ -747,31 +691,19 @@ def _validate_asset_reference(
         )
 
 
-def _resolve_relative_path(
+def _resolve_in_bundle(
     root: Path,
     relative_path: str,
     document: str,
     path: str,
     issues: list[ValidationIssue],
 ) -> Path | None:
-    resolved_root = root.resolve()
-    resolved_path = (resolved_root / relative_path).resolve()
-    if not resolved_path.is_relative_to(resolved_root):
-        issues.append(
-            ValidationIssue(
-                document,
-                path,
-                "path_outside_bundle",
-                f"path escapes bundle directory: {relative_path}",
-            )
-        )
-        return None
-    return resolved_path
-
-
-def _sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as source_file:
-        for chunk in iter(lambda: source_file.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+    return resolve_inside(
+        root,
+        relative_path,
+        document,
+        path,
+        issues,
+        code="path_outside_bundle",
+        escape_message="path escapes bundle directory",
+    )

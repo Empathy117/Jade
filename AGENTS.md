@@ -24,7 +24,8 @@ Non-negotiable rules:
   `playback.json`; reference paragraph IDs only.
 - Treat background, music, and ambience as independent channels.
 - Prefer stable, restrained presentation over frequent asset changes.
-- Record a license, source, and attribution decision for every asset.
+- Record a license, source, and attribution decision for every asset, and pin
+  the finished catalog's bytes with `just hash-assets` before validating.
 - Validate the complete bundle and `books/library.json` before handoff.
 - In the real Reader, verify preferred/beginning start choices, inline source
   images, gallery unlock order, zoom, and return-to-source behavior whenever a

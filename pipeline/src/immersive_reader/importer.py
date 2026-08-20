@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from immersive_reader.epub_importing import import_epub
-from immersive_reader.importing import BookImportError, SUPPORTED_ENCODINGS, import_txt
+from immersive_reader.importing import SUPPORTED_ENCODINGS, BookImportError, import_txt
 
 
 def build_parser() -> argparse.ArgumentParser:

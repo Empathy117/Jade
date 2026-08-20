@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
-from typing import Any
 
-from jsonschema import Draft202012Validator
-from jsonschema.exceptions import ValidationError
-
-from immersive_reader.validation import ValidationIssue, validate_bundle
+from immersive_reader.documents import (
+    JsonObject,
+    ValidationIssue,
+    issue_key,
+    load_json_object,
+    resolve_inside,
+    schema_issues,
+)
+from immersive_reader.validation import validate_bundle
 
 
 def validate_library(
@@ -22,8 +25,8 @@ def validate_library(
     library_path = library_path.resolve()
     contracts_dir = (contracts_dir or Path.cwd() / "contracts").resolve()
     issues: list[ValidationIssue] = []
-    library = _load_object(library_path, "library.json", issues)
-    schema = _load_object(
+    library = load_json_object(library_path, "library.json", issues)
+    schema = load_json_object(
         contracts_dir / "library.schema.json",
         "contracts/library.schema.json",
         issues,
@@ -31,10 +34,10 @@ def validate_library(
     if library is None or schema is None:
         return issues
 
-    schema_issues = _schema_issues(library, schema)
-    issues.extend(schema_issues)
-    if schema_issues:
-        return sorted(issues, key=_issue_key)
+    library_schema_issues = schema_issues("library.json", library, schema)
+    issues.extend(library_schema_issues)
+    if library_schema_issues:
+        return sorted(issues, key=issue_key)
 
     library_root = library_path.parent
     seen_ids: set[str] = set()
@@ -64,7 +67,7 @@ def validate_library(
             )
         seen_paths.add(book_path)
 
-        bundle_dir = _resolve_inside(
+        bundle_dir = _resolve_in_library(
             library_root,
             book_path,
             f"{entry_path}.path",
@@ -83,7 +86,7 @@ def validate_library(
             )
             continue
 
-        cover_path = _resolve_inside(
+        cover_path = _resolve_in_library(
             bundle_dir,
             entry["cover"],
             f"{entry_path}.cover",
@@ -99,7 +102,9 @@ def validate_library(
                 )
             )
 
-        source = _load_object(bundle_dir / "source.json", f"{book_path}/source.json", issues)
+        source = load_json_object(
+            bundle_dir / "source.json", f"{book_path}/source.json", issues
+        )
         if source is not None:
             _validate_entry_identity(entry, source, index, issues)
 
@@ -113,12 +118,12 @@ def validate_library(
                 )
             )
 
-    return sorted(issues, key=_issue_key)
+    return sorted(issues, key=issue_key)
 
 
 def _validate_entry_identity(
-    entry: dict[str, Any],
-    source: dict[str, Any],
+    entry: JsonObject,
+    source: JsonObject,
     index: int,
     issues: list[ValidationIssue],
 ) -> None:
@@ -145,81 +150,18 @@ def _validate_entry_identity(
             )
 
 
-def _load_object(
-    path: Path,
-    document: str,
-    issues: list[ValidationIssue],
-) -> dict[str, Any] | None:
-    if not path.is_file():
-        issues.append(
-            ValidationIssue(document, "$", "file_not_found", f"file does not exist: {path}")
-        )
-        return None
-    try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError) as error:
-        issues.append(ValidationIssue(document, "$", "invalid_json", str(error)))
-        return None
-    if not isinstance(value, dict):
-        issues.append(
-            ValidationIssue(
-                document,
-                "$",
-                "invalid_document",
-                "top-level JSON value must be an object",
-            )
-        )
-        return None
-    return value
-
-
-def _schema_issues(
-    document: dict[str, Any],
-    schema: dict[str, Any],
-) -> list[ValidationIssue]:
-    validator = Draft202012Validator(schema)
-    return [
-        ValidationIssue(
-            "library.json",
-            _json_path(list(error.absolute_path)),
-            f"schema_{error.validator}",
-            error.message,
-        )
-        for error in sorted(validator.iter_errors(document), key=_schema_error_key)
-    ]
-
-
-def _schema_error_key(error: ValidationError) -> tuple[str, str]:
-    return (_json_path(list(error.absolute_path)), error.message)
-
-
-def _json_path(parts: list[Any]) -> str:
-    path = "$"
-    for part in parts:
-        path += f"[{part}]" if isinstance(part, int) else f".{part}"
-    return path
-
-
-def _resolve_inside(
+def _resolve_in_library(
     root: Path,
     relative_path: str,
     issue_path: str,
     issues: list[ValidationIssue],
 ) -> Path | None:
-    resolved_root = root.resolve()
-    resolved_path = (resolved_root / relative_path).resolve()
-    if not resolved_path.is_relative_to(resolved_root):
-        issues.append(
-            ValidationIssue(
-                "library.json",
-                issue_path,
-                "path_outside_library",
-                f"path escapes its allowed directory: {relative_path}",
-            )
-        )
-        return None
-    return resolved_path
-
-
-def _issue_key(issue: ValidationIssue) -> tuple[str, str, str, str]:
-    return (issue.document, issue.path, issue.code, issue.message)
+    return resolve_inside(
+        root,
+        relative_path,
+        "library.json",
+        issue_path,
+        issues,
+        code="path_outside_library",
+        escape_message="path escapes its allowed directory",
+    )

@@ -5,7 +5,6 @@ from pathlib import Path
 from immersive_reader.library_validation import validate_library
 from immersive_reader.library_validator import main
 
-
 ROOT = Path(__file__).resolve().parents[2]
 CONTRACTS = ROOT / "contracts"
 VALID_BUNDLE = ROOT / "tests" / "fixtures" / "valid"

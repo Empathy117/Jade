@@ -6,8 +6,6 @@ import zipfile
 from pathlib import Path
 
 import pytest
-from jsonschema import Draft202012Validator
-
 from immersive_reader.epub_importing import (
     EpubImportError,
     build_epub_source_document,
@@ -15,7 +13,7 @@ from immersive_reader.epub_importing import (
 )
 from immersive_reader.importer import main
 from immersive_reader.importing import ImportConflictError
-
+from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE_SCHEMA = ROOT / "contracts" / "source.schema.json"

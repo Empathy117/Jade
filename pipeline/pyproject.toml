@@ -9,6 +9,7 @@ dependencies = [
 ]
 
 [project.scripts]
+immersive-reader-hash-assets = "immersive_reader.asset_hasher:entrypoint"
 immersive-reader-import = "immersive_reader.importer:entrypoint"
 immersive-reader-validate-library = "immersive_reader.library_validator:entrypoint"
 immersive-reader-validate = "immersive_reader.validator:entrypoint"
@@ -20,6 +21,7 @@ build-backend = "hatchling.build"
 [dependency-groups]
 dev = [
   "pytest>=8.4,<9",
+  "ruff>=0.14,<0.15",
 ]
 
 [tool.hatch.build.targets.wheel]
