@@ -1,4 +1,4 @@
-"""Command-line interface for deterministic TXT import."""
+"""Command-line interface for deterministic TXT and EPUB import."""
 
 from __future__ import annotations
 
@@ -7,20 +7,21 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from immersive_reader.importing import SUPPORTED_ENCODINGS, TxtImportError, import_txt
+from immersive_reader.epub_importing import import_epub
+from immersive_reader.importing import BookImportError, SUPPORTED_ENCODINGS, import_txt
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="immersive-reader-import",
-        description="Import an immutable TXT file into a deterministic source.json.",
+        description="Import an immutable TXT or EPUB into a deterministic source.json.",
     )
-    parser.add_argument("input", type=Path, help="TXT file to import")
+    parser.add_argument("input", type=Path, help="TXT or EPUB file to import")
     parser.add_argument(
         "--output",
         type=Path,
         required=True,
-        help="book bundle directory that will contain source.txt and source.json",
+        help="book bundle directory that will contain the frozen source and source.json",
     )
     parser.add_argument(
         "--book-id",
@@ -29,7 +30,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--revision", type=int, default=1)
     parser.add_argument("--title", default=None, help="override the metadata title")
-    parser.add_argument("--language", default="zh-CN")
+    parser.add_argument(
+        "--language",
+        default=None,
+        help="override language metadata (TXT default: zh-CN; EPUB default: package metadata)",
+    )
     parser.add_argument(
         "--encoding",
         default="auto",
@@ -48,22 +53,40 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        result = import_txt(
-            args.input,
-            args.output,
-            book_id=args.book_id,
-            revision=args.revision,
-            title=args.title,
-            language=args.language,
-            encoding=args.encoding,
-            first_block_is_title=args.first_block_is_title,
-        )
-    except (OSError, TxtImportError) as error:
+        suffix = args.input.suffix.lower()
+        if suffix == ".txt":
+            result = import_txt(
+                args.input,
+                args.output,
+                book_id=args.book_id,
+                revision=args.revision,
+                title=args.title,
+                language=args.language or "zh-CN",
+                encoding=args.encoding,
+                first_block_is_title=args.first_block_is_title,
+            )
+        elif suffix == ".epub":
+            if args.encoding != "auto":
+                raise BookImportError("--encoding only applies to TXT input")
+            result = import_epub(
+                args.input,
+                args.output,
+                book_id=args.book_id,
+                revision=args.revision,
+                title=args.title,
+                language=args.language,
+            )
+        else:
+            raise BookImportError(
+                f"input must use a supported .txt or .epub extension: {args.input}"
+            )
+    except (OSError, BookImportError) as error:
         print(f"Import failed: {error}", file=sys.stderr)
         return 1
 
+    format_description = result.encoding or "EPUB spine"
     print(
-        f"Imported {result.paragraph_count} paragraphs as {result.encoding}: "
+        f"Imported {result.paragraph_count} paragraphs as {format_description}: "
         f"{result.manifest_path}"
     )
     print(f"Source SHA-256: {result.sha256}")

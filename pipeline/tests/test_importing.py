@@ -172,4 +172,4 @@ def test_cli_failure_is_actionable(tmp_path: Path, capsys: object) -> None:
 
     assert exit_code == 1
     captured = capsys.readouterr()  # type: ignore[attr-defined]
-    assert "input must be a .txt file" in captured.err
+    assert "supported .txt or .epub extension" in captured.err

@@ -107,8 +107,8 @@ playback semantics. Deferred unless real books prove unified import inadequate.
 
 ## Action items
 
-1. [ ] Implement safe EPUB container and package parsing.
-2. [ ] Extract spine XHTML blocks into deterministic paragraphs.
-3. [ ] Extend the unified import command and tests.
-4. [ ] Update the Agent production protocol for EPUB inputs.
+1. [x] Implement safe EPUB container and package parsing.
+2. [x] Extract spine XHTML blocks into deterministic paragraphs.
+3. [x] Extend the unified import command and tests.
+4. [x] Update the Agent production protocol for EPUB inputs.
 5. [ ] Produce the second book from a real user-provided EPUB.

@@ -32,6 +32,15 @@
       "type": "string",
       "pattern": "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$"
     },
+    "authors": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
     "source": {
       "type": "object",
       "additionalProperties": false,
@@ -57,7 +66,25 @@
             "gb18030"
           ]
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "format": { "const": "txt" }
+            },
+            "required": ["format"]
+          },
+          "then": {
+            "required": ["encoding"]
+          },
+          "else": {
+            "not": {
+              "required": ["encoding"]
+            }
+          }
+        }
+      ]
     },
     "paragraphs": {
       "type": "array",

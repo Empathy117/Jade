@@ -810,8 +810,8 @@ pytest    8.4.2
 - [x] 计算原始文件 SHA-256；
 - [x] 生成稳定、可读的 paragraph ID；
 - [x] 生成带 revision 的 `source.json`；
-- [ ] 解析 EPUB container、OPF manifest/spine 和 XHTML 块级正文；
-- [ ] 将 EPUB 映射到统一 `source.json` 并冻结原始 `source.epub`；
+- [x] 解析 EPUB container、OPF manifest/spine 和 XHTML 块级正文；
+- [x] 将 EPUB 映射到统一 `source.json` 并冻结原始 `source.epub`；
 - [x] 记录 Agent 优先、自动化可替换的架构决策；
 - [x] 编写标准 Agent 制书协议；
 - [x] 定义并校验 `books/library.json`；
@@ -850,6 +850,8 @@ pytest    8.4.2
 - 通用 Matcher 暂不实现，但作为素材库成熟后的明确演进方向保留。
 - 采用 [ADR-0002](adr/0002-compile-epub-into-unified-source.md)：EPUB 在构建期
   编译为统一 source contract，不在 Runtime 内维护第二套渲染器。
+- EPUB Importer 已实现 package metadata、manifest/spine 顺序、XHTML 块级正文、
+  原始文件冻结与安全边界，并通过合成 EPUB fixture 覆盖；真实第二本书仍待导入。
 
 ### Phase 6 — 无人值守 Director、Matcher 与 Compiler
 

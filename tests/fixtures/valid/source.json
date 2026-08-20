@@ -7,7 +7,8 @@
   "source": {
     "format": "txt",
     "path": "source.txt",
-    "sha256": "3978aa0746fa60df7511af9781d665fbf2411a341ce383d7e79d2933c6c70b21"
+    "sha256": "3978aa0746fa60df7511af9781d665fbf2411a341ce383d7e79d2933c6c70b21",
+    "encoding": "utf-8"
   },
   "paragraphs": [
     {

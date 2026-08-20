@@ -12,6 +12,7 @@ export interface SourceDocument {
   revision: number;
   title: string;
   language: string;
+  authors?: string[];
   source: {
     format: "txt" | "epub";
     path: string;

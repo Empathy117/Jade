@@ -14,6 +14,10 @@ demo-source:
 import-txt input output book_id revision="1":
     uv run --project pipeline --frozen immersive-reader-import "{{input}}" --output "{{output}}" --book-id "{{book_id}}" --revision "{{revision}}"
 
+# Import a TXT or EPUB into an immutable source bundle.
+import-book input output book_id revision="1":
+    uv run --project pipeline --frozen immersive-reader-import "{{input}}" --output "{{output}}" --book-id "{{book_id}}" --revision "{{revision}}"
+
 # Run all current checks.
 check:
     pnpm check

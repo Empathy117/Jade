@@ -1,4 +1,4 @@
-"""Deterministic TXT import for immutable Reader sources."""
+"""Deterministic import primitives and TXT support for Reader sources."""
 
 from __future__ import annotations
 
@@ -28,15 +28,19 @@ _CHAPTER_HEADING = re.compile(
 )
 
 
-class TxtImportError(ValueError):
-    """Base class for actionable TXT import failures."""
+class BookImportError(ValueError):
+    """Base class for actionable immutable book import failures."""
+
+
+class TxtImportError(BookImportError):
+    """Raised when a TXT source cannot be imported safely."""
 
 
 class UnsupportedEncodingError(TxtImportError):
     """Raised when input bytes cannot be decoded safely."""
 
 
-class ImportConflictError(TxtImportError):
+class ImportConflictError(BookImportError):
     """Raised when an import would replace a different immutable source."""
 
 
@@ -51,7 +55,7 @@ class ImportResult:
     manifest_path: Path
     source_path: Path
     paragraph_count: int
-    encoding: str
+    encoding: str | None
     sha256: str
 
 
@@ -140,7 +144,7 @@ def build_source_document(
 ) -> dict[str, object]:
     """Build a deterministic source document from immutable TXT bytes."""
 
-    _validate_metadata(book_id, revision, language)
+    validate_source_metadata(book_id, revision, language)
     decoded = detect_and_decode(source_bytes, encoding)
     blocks = split_text_blocks(decoded.text)
 
@@ -210,33 +214,12 @@ def import_txt(
         first_block_is_title=first_block_is_title,
     )
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    source_path = output_dir / "source.txt"
-    manifest_path = output_dir / "source.json"
-    expected_hash = document["source"]["sha256"]  # type: ignore[index]
-
-    if manifest_path.exists():
-        _check_existing_manifest_identity(manifest_path, expected_hash, book_id, revision)
-    if source_path.exists():
-        actual_hash = hashlib.sha256(source_path.read_bytes()).hexdigest()
-        if actual_hash != expected_hash:
-            raise ImportConflictError(
-                f"refusing to replace a different immutable source: {source_path}; "
-                "choose a new output directory or revision"
-            )
-    elif input_path != source_path:
-        _atomic_write_bytes(source_path, source_bytes)
-
-    serialized = json.dumps(document, ensure_ascii=False, indent=2) + "\n"
-    _atomic_write_text(manifest_path, serialized)
-
-    source = document["source"]
-    return ImportResult(
-        manifest_path=manifest_path,
-        source_path=source_path,
-        paragraph_count=len(document["paragraphs"]),  # type: ignore[arg-type]
-        encoding=source["encoding"],  # type: ignore[index]
-        sha256=expected_hash,  # type: ignore[arg-type]
+    return write_source_bundle(
+        input_path,
+        output_dir,
+        source_bytes=source_bytes,
+        document=document,
+        encoding=document["source"]["encoding"],  # type: ignore[index]
     )
 
 
@@ -255,15 +238,65 @@ def _clean_decoded_text(text: str, encoding: str) -> str:
     return text
 
 
-def _validate_metadata(book_id: str, revision: int, language: str) -> None:
+def validate_source_metadata(book_id: str, revision: int, language: str) -> None:
     if not _BOOK_ID.fullmatch(book_id):
-        raise TxtImportError(
+        raise BookImportError(
             "book ID must use lowercase ASCII words separated by single hyphens"
         )
     if revision < 1:
-        raise TxtImportError("revision must be at least 1")
+        raise BookImportError("revision must be at least 1")
     if not _LANGUAGE.fullmatch(language):
-        raise TxtImportError(f"invalid language tag: {language!r}")
+        raise BookImportError(f"invalid language tag: {language!r}")
+
+
+def write_source_bundle(
+    input_path: Path,
+    output_dir: Path,
+    *,
+    source_bytes: bytes,
+    document: dict[str, object],
+    encoding: str | None = None,
+) -> ImportResult:
+    """Preserve immutable source bytes and atomically write source.json."""
+
+    input_path = input_path.resolve()
+    output_dir = output_dir.resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    source = document["source"]
+    source_name = source["path"]  # type: ignore[index]
+    expected_hash = source["sha256"]  # type: ignore[index]
+    book_id = document["book_id"]
+    revision = document["revision"]
+    source_path = output_dir / source_name  # type: ignore[arg-type]
+    manifest_path = output_dir / "source.json"
+
+    if manifest_path.exists():
+        _check_existing_manifest_identity(
+            manifest_path,
+            expected_hash,  # type: ignore[arg-type]
+            book_id,  # type: ignore[arg-type]
+            revision,  # type: ignore[arg-type]
+        )
+    if source_path.exists():
+        actual_hash = hashlib.sha256(source_path.read_bytes()).hexdigest()
+        if actual_hash != expected_hash:
+            raise ImportConflictError(
+                f"refusing to replace a different immutable source: {source_path}; "
+                "choose a new output directory or revision"
+            )
+    elif input_path != source_path:
+        _atomic_write_bytes(source_path, source_bytes)
+
+    serialized = json.dumps(document, ensure_ascii=False, indent=2) + "\n"
+    _atomic_write_text(manifest_path, serialized)
+
+    return ImportResult(
+        manifest_path=manifest_path,
+        source_path=source_path,
+        paragraph_count=len(document["paragraphs"]),  # type: ignore[arg-type]
+        encoding=encoding,
+        sha256=expected_hash,  # type: ignore[arg-type]
+    )
 
 
 def _paragraph_kind(
