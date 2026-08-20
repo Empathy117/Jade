@@ -5,8 +5,9 @@ import {
   bookBaseUrl,
   coverUrl,
   findLibraryBook,
+  sourceIllustrationUrl,
 } from "./data";
-import type { Asset, LibraryDocument } from "./types";
+import type { Asset, LibraryDocument, SourceIllustration } from "./types";
 
 const library: LibraryDocument = {
   schema_version: 1,
@@ -35,6 +36,16 @@ const asset: Asset = {
   attribution: null,
 };
 
+const illustration: SourceIllustration = {
+  id: "ill0001",
+  at: "p0002",
+  title: "Map",
+  path: "source-assets/map one.png",
+  media_type: "image/png",
+  sha256: "0".repeat(64),
+  source_href: "images/map one.png",
+};
+
 describe("multi-book data paths", () => {
   it("encodes each path segment without losing directories", () => {
     expect(bookBaseUrl("fixture book")).toBe("/fixture%20book");
@@ -43,6 +54,9 @@ describe("multi-book data paths", () => {
     );
     expect(coverUrl(library.books[0])).toBe(
       "/fixture%20book/assets/backgrounds/cover%20one.png",
+    );
+    expect(sourceIllustrationUrl("fixture book", illustration)).toBe(
+      "/fixture%20book/source-assets/map%20one.png",
     );
   });
 

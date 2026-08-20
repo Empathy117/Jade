@@ -8,10 +8,17 @@ import {
   indexAssets,
   loadBookBundle,
   loadLibrary,
+  sourceIllustrationUrl,
 } from "./reader/data";
+import {
+  ReferenceGallery,
+  resolveGuideReferences,
+} from "./reader/ReferenceGallery";
 import {
   firstReadableIndex,
   moveReadingCursor,
+  paragraphIndex,
+  preferredStartIndex,
   progressIndex,
   progressStorageKey,
   resolvePlaybackAt,
@@ -53,6 +60,9 @@ export function App() {
   });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [referencesOpen, setReferencesOpen] = useState(false);
+  const [selectedReferenceId, setSelectedReferenceId] = useState<string | null>(null);
+  const [readingFloorIndex, setReadingFloorIndex] = useState(1);
   const [settings, setSettings] = useState<ReaderSettings>(loadSettings);
   const readingViewportRef = useRef<HTMLElement | null>(null);
   const latestParagraphRef = useRef<HTMLDivElement | null>(null);
@@ -94,6 +104,8 @@ export function App() {
     setStarted(false);
     setSettingsOpen(false);
     setHistoryOpen(false);
+    setReferencesOpen(false);
+    setSelectedReferenceId(null);
     setBundle(null);
     setLoadError(null);
     if (!selectedBook) return () => { cancelled = true; };
@@ -102,9 +114,14 @@ export function App() {
       .then((loaded) => {
         if (cancelled) return;
         const savedId = safeGet(progressStorageKey(loaded.source));
-        const savedIndex = progressIndex(loaded.source, savedId);
+        const sourceStart = firstReadableIndex(loaded.source);
+        const preferredStart = preferredStartIndex(loaded.source, loaded.guide);
+        const savedIndex = savedId
+          ? progressIndex(loaded.source, savedId)
+          : preferredStart;
         setBundle(loaded);
         setHasSavedProgress(Boolean(savedId));
+        setReadingFloorIndex(savedIndex < preferredStart ? sourceStart : preferredStart);
         setCursor({
           currentIndex: savedIndex,
           furthestReadIndex: savedIndex,
@@ -130,6 +147,33 @@ export function App() {
     () => (bundle ? indexAssets(bundle.assets) : new Map()),
     [bundle],
   );
+  const sourcePositions = useMemo(
+    () => (bundle ? paragraphIndex(bundle.source) : new Map<string, number>()),
+    [bundle],
+  );
+  const referenceItems = useMemo(
+    () =>
+      bundle && selectedBook
+        ? resolveGuideReferences(bundle.source, bundle.guide, selectedBook.path)
+        : [],
+    [bundle, selectedBook],
+  );
+  const availableReferences = useMemo(
+    () =>
+      referenceItems.filter(
+        (item) => (sourcePositions.get(item.illustration.at) ?? Number.POSITIVE_INFINITY) <= furthestReadIndex,
+      ),
+    [furthestReadIndex, referenceItems, sourcePositions],
+  );
+  const illustrationsByAnchor = useMemo(() => {
+    const grouped = new Map<string, NonNullable<BookBundle["source"]["illustrations"]>>();
+    for (const illustration of bundle?.source.illustrations ?? []) {
+      const anchored = grouped.get(illustration.at) ?? [];
+      anchored.push(illustration);
+      grouped.set(illustration.at, anchored);
+    }
+    return grouped;
+  }, [bundle]);
   const playbackState = useMemo(
     () =>
       bundle
@@ -149,10 +193,12 @@ export function App() {
     () => (bundle ? sceneAt(bundle.source, bundle.direction, currentIndex) : null),
     [bundle, currentIndex],
   );
-  const firstIndex = bundle ? firstReadableIndex(bundle.source) : 1;
+  const sourceFirstIndex = bundle ? firstReadableIndex(bundle.source) : 1;
+  const preferredIndex = bundle ? preferredStartIndex(bundle.source, bundle.guide) : 1;
+  const firstIndex = bundle ? readingFloorIndex : 1;
   const lastIndex = bundle ? bundle.source.paragraphs.length - 1 : 1;
   const visibleStart = bundle
-    ? visibleStartIndex(bundle.source, bundle.playback, currentIndex)
+    ? visibleStartIndex(bundle.source, bundle.playback, currentIndex, firstIndex)
     : firstIndex;
   const visibleParagraphs = bundle
     ? bundle.source.paragraphs.slice(visibleStart, currentIndex + 1)
@@ -160,8 +206,8 @@ export function App() {
   const historyParagraphs = bundle
     ? bundle.source.paragraphs.slice(firstIndex, furthestReadIndex + 1)
     : [];
-  const bodyLength = bundle ? bundle.source.paragraphs.length - firstIndex : 1;
-  const bodyPosition = Math.max(1, furthestReadIndex - firstIndex + 1);
+  const bodyLength = bundle ? bundle.source.paragraphs.length - preferredIndex : 1;
+  const bodyPosition = Math.max(0, furthestReadIndex - preferredIndex + 1);
   const progress = Math.min(100, (bodyPosition / bodyLength) * 100);
   const sceneNumber = bundle && activeScene
     ? bundle.direction.scenes.findIndex((scene) => scene.id === activeScene.id) + 1
@@ -190,10 +236,10 @@ export function App() {
       moveReadingCursor(
         bundle.source,
         current,
-        Math.max(firstReadableIndex(bundle.source), current.currentIndex - 1),
+        Math.max(readingFloorIndex, current.currentIndex - 1),
       ),
     );
-  }, [bundle]);
+  }, [bundle, readingFloorIndex]);
 
   useEffect(() => {
     if (!started || !bundle) return;
@@ -237,16 +283,18 @@ export function App() {
       if (event.key === "ArrowUp" && !isFormControl) {
         event.preventDefault();
         setSettingsOpen(false);
+        setReferencesOpen(false);
         setHistoryOpen((open) => !open);
         return;
       }
       if (event.key === "Escape") {
         setSettingsOpen(false);
         setHistoryOpen(false);
+        setReferencesOpen(false);
         return;
       }
       if (target?.matches("input, button, select, textarea")) return;
-      if (historyOpen) return;
+      if (historyOpen || referencesOpen) return;
       if (event.key === " " || event.key === "ArrowRight") {
         event.preventDefault();
         next();
@@ -257,16 +305,17 @@ export function App() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [historyOpen, next, previous, started]);
+  }, [historyOpen, next, previous, referencesOpen, started]);
 
-  function beginReading(fromBeginning: boolean) {
+  function beginReading(mode: "resume" | "preferred" | "beginning") {
     if (!bundle) return;
-    if (fromBeginning) {
-      const startIndex = firstReadableIndex(bundle.source);
+    if (mode !== "resume") {
+      const startIndex = mode === "preferred" ? preferredIndex : sourceFirstIndex;
       setCursor({
         currentIndex: startIndex,
         furthestReadIndex: startIndex,
       });
+      setReadingFloorIndex(startIndex);
       safeRemove(progressStorageKey(bundle.source));
       setHasSavedProgress(false);
     }
@@ -276,7 +325,39 @@ export function App() {
 
   function toggleHistory() {
     setSettingsOpen(false);
+    setReferencesOpen(false);
     setHistoryOpen((open) => !open);
+  }
+
+  function toggleReferences() {
+    setSettingsOpen(false);
+    setHistoryOpen(false);
+    setSelectedReferenceId((current) =>
+      availableReferences.some((item) => item.reference.id === current)
+        ? current
+        : availableReferences[0]?.reference.id ?? null,
+    );
+    setReferencesOpen((open) => !open);
+  }
+
+  function openReferenceForIllustration(illustrationId: string) {
+    const item = availableReferences.find(
+      (reference) => reference.illustration.id === illustrationId,
+    );
+    if (!item) return;
+    setSettingsOpen(false);
+    setHistoryOpen(false);
+    setSelectedReferenceId(item.reference.id);
+    setReferencesOpen(true);
+  }
+
+  function jumpToReference(paragraphId: string) {
+    if (!bundle) return;
+    const targetIndex = sourcePositions.get(paragraphId);
+    if (targetIndex === undefined) return;
+    if (targetIndex < readingFloorIndex) setReadingFloorIndex(sourceFirstIndex);
+    setCursor((current) => moveReadingCursor(bundle.source, current, targetIndex));
+    setReferencesOpen(false);
   }
 
   function jumpToHistory(targetIndex: number) {
@@ -370,9 +451,11 @@ export function App() {
           title={bundle.source.title}
           production={selectedBook.production}
           hasProgress={hasSavedProgress}
+          hasPreferredStart={preferredIndex > sourceFirstIndex}
           progress={progress}
-          onContinue={() => beginReading(false)}
-          onRestart={() => beginReading(true)}
+          onContinue={() => beginReading("resume")}
+          onStartPreferred={() => beginReading("preferred")}
+          onStartBeginning={() => beginReading("beginning")}
           onLibrary={returnToLibrary}
         />
       ) : (
@@ -394,6 +477,19 @@ export function App() {
               <strong>{activeScene ? activeScene.label ?? activeScene.location : ""}</strong>
             </div>
             <div className="header-actions">
+              {availableReferences.length > 0 ? (
+                <button
+                  className="icon-button icon-button--references"
+                  type="button"
+                  data-interactive="true"
+                  aria-label="资料图册"
+                  aria-expanded={referencesOpen}
+                  title={`资料图册（已解锁 ${availableReferences.length} 张）`}
+                  onClick={toggleReferences}
+                >
+                  <span aria-hidden="true">图</span>
+                </button>
+              ) : null}
               <button
                 className="icon-button icon-button--history"
                 type="button"
@@ -413,6 +509,7 @@ export function App() {
                 aria-expanded={settingsOpen}
                 onClick={() => {
                   setHistoryOpen(false);
+                  setReferencesOpen(false);
                   setSettingsOpen((open) => !open);
                 }}
               >
@@ -433,19 +530,50 @@ export function App() {
             <div className="paragraph-stack" aria-live="polite">
               {visibleParagraphs.map((paragraph, index) => {
                 const lines = paragraph.text.split("\n");
+                const illustrations = illustrationsByAnchor.get(paragraph.id) ?? [];
                 return (
                   <div
-                    className={`paragraph paragraph--${paragraph.kind}${index === visibleParagraphs.length - 1 ? " is-current" : ""}`}
+                    className="reading-block"
                     key={paragraph.id}
                     ref={index === visibleParagraphs.length - 1 ? latestParagraphRef : undefined}
                     data-paragraph-id={paragraph.id}
                   >
-                    {lines.map((line, lineIndex) => (
-                      <span key={`${paragraph.id}-${lineIndex}`}>
-                        {line}
-                        {lineIndex < lines.length - 1 ? <br /> : null}
-                      </span>
-                    ))}
+                    <div
+                      className={`paragraph paragraph--${paragraph.kind}${index === visibleParagraphs.length - 1 ? " is-current" : ""}`}
+                    >
+                      {lines.map((line, lineIndex) => (
+                        <span key={`${paragraph.id}-${lineIndex}`}>
+                          {line}
+                          {lineIndex < lines.length - 1 ? <br /> : null}
+                        </span>
+                      ))}
+                    </div>
+                    {illustrations.map((illustration) => {
+                      const isReference = availableReferences.some(
+                        (item) => item.illustration.id === illustration.id,
+                      );
+                      const image = (
+                        <img
+                          src={sourceIllustrationUrl(selectedBook.path, illustration)}
+                          alt={illustration.title ?? "原书插图"}
+                        />
+                      );
+                      return (
+                        <figure className="source-illustration" key={illustration.id}>
+                          {isReference ? (
+                            <button
+                              type="button"
+                              data-interactive="true"
+                              aria-label={`在资料图册中查看${illustration.title ?? "这张插图"}`}
+                              onClick={() => openReferenceForIllustration(illustration.id)}
+                            >
+                              {image}
+                            </button>
+                          ) : image}
+                          {illustration.title ? <figcaption>{illustration.title}</figcaption> : null}
+                        </figure>
+                      );
+                    })}
                   </div>
                 );
               })}
@@ -495,6 +623,15 @@ export function App() {
               onReturnToLatest={returnToLatest}
             />
           ) : null}
+          {referencesOpen ? (
+            <ReferenceGallery
+              items={availableReferences}
+              selectedId={selectedReferenceId}
+              onSelect={setSelectedReferenceId}
+              onClose={() => setReferencesOpen(false)}
+              onJump={jumpToReference}
+            />
+          ) : null}
           {audioError ? <div className="audio-notice">{audioError}，已继续纯文本阅读。</div> : null}
           <div className="advance-hint" aria-hidden="true">空格继续 · ↑ 回顾</div>
         </>
@@ -507,9 +644,11 @@ interface CoverScreenProps {
   title: string;
   production: BookProductionMode;
   hasProgress: boolean;
+  hasPreferredStart: boolean;
   progress: number;
   onContinue: () => void;
-  onRestart: () => void;
+  onStartPreferred: () => void;
+  onStartBeginning: () => void;
   onLibrary: () => void;
 }
 
@@ -523,9 +662,11 @@ function CoverScreen({
   title,
   production,
   hasProgress,
+  hasPreferredStart,
   progress,
   onContinue,
-  onRestart,
+  onStartPreferred,
+  onStartBeginning,
   onLibrary,
 }: CoverScreenProps) {
   return (
@@ -537,11 +678,24 @@ function CoverScreen({
       <h1>{title}</h1>
       <p className="cover-summary">原书负责说什么，导演只决定怎么呈现。</p>
       <div className="cover-actions">
-        <button className="primary-action" type="button" onClick={onContinue}>
-          {hasProgress ? `继续阅读 · ${Math.round(progress)}%` : "开始阅读"}
+        <button
+          className="primary-action"
+          type="button"
+          onClick={hasProgress ? onContinue : hasPreferredStart ? onStartPreferred : onStartBeginning}
+        >
+          {hasProgress
+            ? `继续阅读 · ${Math.round(progress)}%`
+            : hasPreferredStart
+              ? "从正文开始"
+              : "开始阅读"}
           <span aria-hidden="true">→</span>
         </button>
-        {hasProgress ? <button className="text-action" type="button" onClick={onRestart}>从头开始</button> : null}
+        {hasProgress && hasPreferredStart ? (
+          <button className="text-action" type="button" onClick={onStartPreferred}>从正文开始</button>
+        ) : null}
+        {hasProgress || hasPreferredStart ? (
+          <button className="text-action" type="button" onClick={onStartBeginning}>查看前置内容</button>
+        ) : null}
       </div>
       <p className="cover-note">开始后将播放低音量环境声，可随时静音或切换纯净模式。</p>
     </section>

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   moveReadingCursor,
+  preferredStartIndex,
   progressIndex,
   resolvePlaybackAt,
   sceneAt,
@@ -85,6 +86,19 @@ const playback: PlaybackDocument = {
 };
 
 describe("reader state", () => {
+  it("uses an optional guide start without changing source paragraph IDs", () => {
+    expect(
+      preferredStartIndex(source, {
+        schema_version: 1,
+        book_id: "fixture-book",
+        source_revision: 1,
+        source_sha256: "0".repeat(64),
+        start_at: "p0003",
+      }),
+    ).toBe(2);
+    expect(preferredStartIndex(source, null)).toBe(1);
+  });
+
   it("reconstructs persisted playback channels at any paragraph", () => {
     const state = resolvePlaybackAt(source, playback, 3);
     expect(state.background?.asset_id).toBe("bg_room");
@@ -95,6 +109,7 @@ describe("reader state", () => {
   it("starts visible text at the latest clear cue", () => {
     expect(visibleStartIndex(source, playback, 2)).toBe(1);
     expect(visibleStartIndex(source, playback, 3)).toBe(3);
+    expect(visibleStartIndex(source, playback, 2, 2)).toBe(2);
   });
 
   it("finds the semantic scene for a paragraph", () => {

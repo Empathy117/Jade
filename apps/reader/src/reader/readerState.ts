@@ -1,5 +1,6 @@
 import type {
   DirectionDocument,
+  GuideDocument,
   PlaybackDocument,
   ResolvedPlaybackState,
   Scene,
@@ -18,6 +19,18 @@ export function paragraphIndex(source: SourceDocument): Map<string, number> {
 export function firstReadableIndex(source: SourceDocument): number {
   const index = source.paragraphs.findIndex((paragraph) => paragraph.kind !== "title");
   return index === -1 ? 0 : index;
+}
+
+export function preferredStartIndex(
+  source: SourceDocument,
+  guide: GuideDocument | null,
+): number {
+  if (!guide?.start_at) return firstReadableIndex(source);
+  const index = paragraphIndex(source).get(guide.start_at);
+  if (index === undefined || source.paragraphs[index].kind === "title") {
+    return firstReadableIndex(source);
+  }
+  return index;
 }
 
 export function clampParagraphIndex(source: SourceDocument, index: number): number {
@@ -77,9 +90,10 @@ export function visibleStartIndex(
   source: SourceDocument,
   playback: PlaybackDocument,
   currentIndex: number,
+  floorIndex = firstReadableIndex(source),
 ): number {
   const positions = paragraphIndex(source);
-  let start = firstReadableIndex(source);
+  let start = floorIndex;
   for (const cue of playback.cues) {
     const cueIndex = positions.get(cue.at);
     if (cueIndex === undefined || cueIndex > currentIndex) {

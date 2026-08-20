@@ -6,6 +6,16 @@ export interface Paragraph {
   text: string;
 }
 
+export interface SourceIllustration {
+  id: string;
+  at: string;
+  title: string;
+  path: string;
+  media_type: "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+  sha256: string;
+  source_href: string;
+}
+
 export interface SourceDocument {
   schema_version: 1;
   book_id: string;
@@ -20,6 +30,23 @@ export interface SourceDocument {
     encoding?: string;
   };
   paragraphs: Paragraph[];
+  illustrations?: SourceIllustration[];
+}
+
+export interface GuideReference {
+  id: string;
+  illustration_id: string;
+  title: string;
+  note?: string;
+}
+
+export interface GuideDocument {
+  schema_version: 1;
+  book_id: string;
+  source_revision: number;
+  source_sha256: string;
+  start_at?: string;
+  references?: GuideReference[];
 }
 
 export interface Scene {
@@ -101,6 +128,7 @@ export interface BookBundle {
   direction: DirectionDocument;
   assets: AssetsDocument;
   playback: PlaybackDocument;
+  guide: GuideDocument | null;
 }
 
 export type BookProductionMode = "manual" | "agent-assisted" | "automated";

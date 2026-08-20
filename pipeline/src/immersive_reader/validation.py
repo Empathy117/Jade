@@ -20,6 +20,10 @@ DOCUMENT_SCHEMAS = {
     "playback.json": "playback.schema.json",
 }
 
+OPTIONAL_DOCUMENT_SCHEMAS = {
+    "guide.json": "guide.schema.json",
+}
+
 
 @dataclass(frozen=True)
 class ValidationIssue:
@@ -61,6 +65,21 @@ def validate_bundle(
         if not document_issues:
             schema_valid_documents.add(document_name)
 
+    for document_name, schema_name in OPTIONAL_DOCUMENT_SCHEMAS.items():
+        document_path = bundle_dir / document_name
+        if not document_path.exists():
+            continue
+        schema_path = contracts_dir / schema_name
+        document = _load_json(document_path, document_name, issues)
+        schema = _load_json(schema_path, f"contracts/{schema_name}", issues)
+        if document is None or schema is None:
+            continue
+        documents[document_name] = document
+        document_issues = _validate_schema(document_name, document, schema)
+        issues.extend(document_issues)
+        if not document_issues:
+            schema_valid_documents.add(document_name)
+
     if "source.json" in schema_valid_documents:
         issues.extend(_validate_source(bundle_dir, documents["source.json"]))
 
@@ -71,6 +90,9 @@ def validate_bundle(
                 documents["direction.json"],
             )
         )
+
+    if {"source.json", "guide.json"} <= schema_valid_documents:
+        issues.extend(_validate_guide(documents["source.json"], documents["guide.json"]))
 
     if "assets.json" in schema_valid_documents:
         issues.extend(_validate_assets(bundle_dir, documents["assets.json"]))
@@ -435,6 +457,74 @@ def _validate_direction(
                 f"scenes do not cover final paragraph {directable[-1]}",
             )
         )
+    return issues
+
+
+def _validate_guide(source: JsonObject, guide: JsonObject) -> list[ValidationIssue]:
+    issues = _validate_source_identity("guide.json", source, guide)
+    paragraphs = {paragraph["id"]: paragraph for paragraph in source["paragraphs"]}
+    start_at = guide.get("start_at")
+    if start_at is not None:
+        paragraph = paragraphs.get(start_at)
+        if paragraph is None:
+            issues.append(
+                ValidationIssue(
+                    "guide.json",
+                    "$.start_at",
+                    "paragraph_not_found",
+                    f"paragraph does not exist: {start_at}",
+                )
+            )
+        elif paragraph["kind"] == "title":
+            issues.append(
+                ValidationIssue(
+                    "guide.json",
+                    "$.start_at",
+                    "paragraph_not_readable",
+                    f"title paragraph cannot be the preferred reading start: {start_at}",
+                )
+            )
+
+    illustrations = {
+        illustration["id"]: illustration
+        for illustration in source.get("illustrations", [])
+    }
+    reference_ids: set[str] = set()
+    selected_illustrations: set[str] = set()
+    for index, reference in enumerate(guide.get("references", [])):
+        reference_path = f"$.references[{index}]"
+        reference_id = reference["id"]
+        if reference_id in reference_ids:
+            issues.append(
+                ValidationIssue(
+                    "guide.json",
+                    f"{reference_path}.id",
+                    "duplicate_reference_id",
+                    f"reference id is already used: {reference_id}",
+                )
+            )
+        reference_ids.add(reference_id)
+
+        illustration_id = reference["illustration_id"]
+        if illustration_id not in illustrations:
+            issues.append(
+                ValidationIssue(
+                    "guide.json",
+                    f"{reference_path}.illustration_id",
+                    "illustration_not_found",
+                    f"source illustration does not exist: {illustration_id}",
+                )
+            )
+        elif illustration_id in selected_illustrations:
+            issues.append(
+                ValidationIssue(
+                    "guide.json",
+                    f"{reference_path}.illustration_id",
+                    "duplicate_reference_illustration",
+                    f"illustration is selected more than once: {illustration_id}",
+                )
+            )
+        selected_illustrations.add(illustration_id)
     return issues
 
 
