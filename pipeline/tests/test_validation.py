@@ -1,3 +1,4 @@
+import hashlib
 import json
 import shutil
 from pathlib import Path
@@ -137,6 +138,35 @@ def test_source_hash_mismatch_is_rejected(tmp_path: Path) -> None:
     assert "source_hash_mismatch" in issue_codes(issues)
 
 
+def test_source_illustration_file_and_hash_are_validated(tmp_path: Path) -> None:
+    bundle = copy_bundle(tmp_path)
+    illustration_bytes = b"fixture illustration"
+    illustration_path = bundle / "source-assets" / "illustration-0001.png"
+    illustration_path.parent.mkdir()
+    illustration_path.write_bytes(illustration_bytes)
+    source_path = bundle / "source.json"
+    source = load_json(source_path)
+    source["illustrations"] = [
+        {
+            "id": "ill0001",
+            "at": "p0002",
+            "title": "测试地图",
+            "path": "source-assets/illustration-0001.png",
+            "media_type": "image/png",
+            "sha256": hashlib.sha256(illustration_bytes).hexdigest(),
+            "source_href": "images/map.png",
+        }
+    ]
+    write_json(source_path, source)
+
+    assert validate_bundle(bundle, contracts_dir=CONTRACTS) == []
+
+    illustration_path.write_bytes(b"changed")
+    issues = validate_bundle(bundle, contracts_dir=CONTRACTS)
+
+    assert "illustration_hash_mismatch" in issue_codes(issues)
+
+
 def test_missing_asset_file_is_rejected(tmp_path: Path) -> None:
     bundle = copy_bundle(tmp_path)
     (bundle / "assets" / "music" / "quiet.fixture").unlink()
@@ -156,6 +186,55 @@ def test_source_identity_mismatch_is_rejected(tmp_path: Path) -> None:
     issues = validate_bundle(bundle, contracts_dir=CONTRACTS)
 
     assert "source_identity_mismatch" in issue_codes(issues)
+
+
+def test_optional_guide_preferred_start_is_validated(tmp_path: Path) -> None:
+    bundle = copy_bundle(tmp_path)
+    source = load_json(bundle / "source.json")
+    write_json(
+        bundle / "guide.json",
+        {
+            "schema_version": 1,
+            "book_id": source["book_id"],
+            "source_revision": source["revision"],
+            "source_sha256": source["source"]["sha256"],  # type: ignore[index]
+            "start_at": "p0002",
+        },
+    )
+
+    assert validate_bundle(bundle, contracts_dir=CONTRACTS) == []
+
+    guide = load_json(bundle / "guide.json")
+    guide["start_at"] = "p0001"
+    write_json(bundle / "guide.json", guide)
+
+    issues = validate_bundle(bundle, contracts_dir=CONTRACTS)
+    assert "paragraph_not_readable" in issue_codes(issues)
+
+
+def test_guide_reference_must_select_a_source_illustration(tmp_path: Path) -> None:
+    bundle = copy_bundle(tmp_path)
+    source = load_json(bundle / "source.json")
+    write_json(
+        bundle / "guide.json",
+        {
+            "schema_version": 1,
+            "book_id": source["book_id"],
+            "source_revision": source["revision"],
+            "source_sha256": source["source"]["sha256"],  # type: ignore[index]
+            "references": [
+                {
+                    "id": "ref_map",
+                    "illustration_id": "ill0001",
+                    "title": "地图",
+                }
+            ],
+        },
+    )
+
+    issues = validate_bundle(bundle, contracts_dir=CONTRACTS)
+
+    assert "illustration_not_found" in issue_codes(issues)
 
 
 def test_cli_succeeds_for_valid_bundle(capsys: object) -> None:

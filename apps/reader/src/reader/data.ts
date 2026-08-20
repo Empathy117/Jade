@@ -3,10 +3,12 @@ import type {
   AssetsDocument,
   BookBundle,
   DirectionDocument,
+  GuideDocument,
   LibraryBook,
   LibraryDocument,
   PlaybackDocument,
   SourceDocument,
+  SourceIllustration,
 } from "./types";
 
 export const LIBRARY_URL = "/library.json";
@@ -19,19 +21,29 @@ async function fetchJson<T>(url: string): Promise<T> {
   return (await response.json()) as T;
 }
 
+async function fetchOptionalJson<T>(url: string): Promise<T | null> {
+  const response = await fetch(url);
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new Error(`无法加载 ${url}（HTTP ${response.status}）`);
+  }
+  return (await response.json()) as T;
+}
+
 export async function loadLibrary(): Promise<LibraryDocument> {
   return fetchJson<LibraryDocument>(LIBRARY_URL);
 }
 
 export async function loadBookBundle(book: LibraryBook): Promise<BookBundle> {
   const baseUrl = bookBaseUrl(book.path);
-  const [source, direction, assets, playback] = await Promise.all([
+  const [source, direction, assets, playback, guide] = await Promise.all([
     fetchJson<SourceDocument>(`${baseUrl}/source.json`),
     fetchJson<DirectionDocument>(`${baseUrl}/direction.json`),
     fetchJson<AssetsDocument>(`${baseUrl}/assets.json`),
     fetchJson<PlaybackDocument>(`${baseUrl}/playback.json`),
+    fetchOptionalJson<GuideDocument>(`${baseUrl}/guide.json`),
   ]);
-  return { source, direction, assets, playback };
+  return { source, direction, assets, playback, guide };
 }
 
 export function bookBaseUrl(bookPath: string): string {
@@ -39,7 +51,18 @@ export function bookBaseUrl(bookPath: string): string {
 }
 
 export function assetUrl(bookPath: string, asset: Asset): string {
-  return `${bookBaseUrl(bookPath)}/${encodePath(asset.path)}`;
+  return bookFileUrl(bookPath, asset.path);
+}
+
+export function sourceIllustrationUrl(
+  bookPath: string,
+  illustration: SourceIllustration,
+): string {
+  return bookFileUrl(bookPath, illustration.path);
+}
+
+export function bookFileUrl(bookPath: string, path: string): string {
+  return `${bookBaseUrl(bookPath)}/${encodePath(path)}`;
 }
 
 export function coverUrl(book: LibraryBook): string {

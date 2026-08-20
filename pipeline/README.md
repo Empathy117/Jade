@@ -19,8 +19,9 @@ starts directly with prose. An existing output directory is only reused when
 its immutable source identity matches.
 
 EPUB uses the same command. It preserves `source.epub`, follows the OPF spine,
-reads package metadata, and extracts ordered XHTML blocks into the same
-`source.json` contract:
+reads package metadata, extracts ordered XHTML blocks into the same
+`source.json` contract, and preserves supported anchored raster illustrations
+under `source-assets/` with hashes and paragraph anchors:
 
 ```sh
 immersive-reader-import novel.epub \
@@ -34,9 +35,10 @@ Phase 2 provides the first tool, a bundle validator:
 immersive-reader-validate tests/fixtures/valid
 ```
 
-It validates the four JSON Schema documents and cross-document invariants such
-as source identity, scene coverage, paragraph order, asset references, asset
-types, file existence, and the raw source SHA-256.
+It validates the four required JSON Schema documents, optional `guide.json`,
+and cross-document invariants such as source identity, scene coverage,
+paragraph order, source illustration hashes, guide references, asset
+references, asset types, file existence, and the raw source SHA-256.
 
 The library validator checks `books/library.json`, cross-checks every entry with
 its `source.json`, verifies the cover, and runs the complete bundle validator

@@ -11,6 +11,17 @@
       "source_revision": 1,
       "paragraph_count": 149,
       "production": "agent-assisted"
+    },
+    {
+      "book_id": "death-of-the-living-dead",
+      "path": "death-of-the-living-dead",
+      "title": "生尸之死",
+      "author": "山口雅也",
+      "summary": "全美各地的死者开始复活。新英格兰「墓碑村」的巴里科恩家族经营着微笑墓园，遗产、火葬与二十年前的旧案在此交缠——而这一次，连侦探也是一具死者。",
+      "cover": "assets/backgrounds/cemetery-gate.jpg",
+      "source_revision": 1,
+      "paragraph_count": 4159,
+      "production": "agent-assisted"
     }
   ]
 }
