@@ -103,4 +103,32 @@ describe("App", () => {
 
     expect(await screen.findByText("BOOK_LOAD_FAILED")).toBeDefined();
   });
+
+  it("sweeps progress stored under other revisions of the same book", async () => {
+    const stale = progressStorageKey("test-book", 0);
+    window.localStorage.setItem(stale, "p0002");
+    window.localStorage.setItem(PROGRESS_KEY, "p0004");
+
+    await openBook();
+
+    expect(window.localStorage.getItem(stale)).toBeNull();
+    expect(window.localStorage.getItem(PROGRESS_KEY)).toBe("p0004");
+  });
+
+  it("opens the chapter list once a heading has been read and jumps from it", async () => {
+    // A longer book: heading "第 1 章" sits at offset 10 (paragraph id p0012).
+    vi.stubGlobal("fetch", stubBookFetch(60));
+    window.localStorage.setItem(PROGRESS_KEY, "p0020");
+    const user = await openBook();
+    await user.click(screen.getByRole("button", { name: /继续阅读/ }));
+    await screen.findByRole("button", { name: "下一段" });
+
+    await user.click(screen.getByRole("button", { name: "章节目录" }));
+    const chapterEntry = await screen.findByRole("button", { name: /第 1 章/ });
+    await user.click(chapterEntry);
+
+    expect(screen.queryByRole("dialog", { name: "章节目录" })).toBeNull();
+    const paragraphs = document.querySelectorAll(".reading-block");
+    expect(paragraphs[paragraphs.length - 1]?.getAttribute("data-paragraph-id")).toBe("p0012");
+  });
 });

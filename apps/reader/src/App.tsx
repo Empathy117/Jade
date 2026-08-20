@@ -10,8 +10,11 @@ import {
   loadBookBundle,
   loadLibrary,
 } from "./reader/data";
+import { ChapterPanel } from "./reader/ChapterPanel";
+import { unlockedChapters } from "./reader/chapters";
 import { HistoryPanel } from "./reader/HistoryPanel";
-import { safeGet, safeRemove, safeSet } from "./reader/localStorage";
+import { safeGet, safeKeys, safeRemove, safeSet } from "./reader/localStorage";
+import { resolveSwipe } from "./reader/touch";
 import { ReadingViewport } from "./reader/ReadingViewport";
 import { ReferenceGallery } from "./reader/ReferenceGallery";
 import { resolveGuideReferences } from "./reader/guideReferences";
@@ -66,12 +69,14 @@ export function App() {
   });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [chaptersOpen, setChaptersOpen] = useState(false);
   const [referencesOpen, setReferencesOpen] = useState(false);
   const [selectedReferenceId, setSelectedReferenceId] = useState<string | null>(null);
   const [readingFloorIndex, setReadingFloorIndex] = useState(1);
   const [settings, setSettings] = useState<ReaderSettings>(loadSettings);
   const readingViewportRef = useRef<HTMLElement | null>(null);
   const latestParagraphRef = useRef<HTMLDivElement | null>(null);
+  const touchOrigin = useRef<{ x: number; y: number } | null>(null);
   const { currentIndex, furthestReadIndex } = cursor;
 
   useEffect(() => {
@@ -112,6 +117,7 @@ export function App() {
     setStarted(false);
     setSettingsOpen(false);
     setHistoryOpen(false);
+    setChaptersOpen(false);
     setReferencesOpen(false);
     setSelectedReferenceId(null);
     setBundle(null);
@@ -130,6 +136,7 @@ export function App() {
           : preferredStart;
         setBundle(loaded);
         setHasSavedProgress(Boolean(savedId));
+        removeStaleProgress(loaded.source.book_id, loaded.source.revision);
         setReadingFloorIndex(savedIndex < preferredStart ? sourceStart : preferredStart);
         setCursor({
           currentIndex: savedIndex,
@@ -179,6 +186,13 @@ export function App() {
   const referenceIllustrationIds = useMemo(
     () => new Set(availableReferences.map((item) => item.illustration.id)),
     [availableReferences],
+  );
+  const chapters = useMemo(
+    () =>
+      bundle
+        ? unlockedChapters(bundle.source.paragraphs, readingFloorIndex, furthestReadIndex)
+        : [],
+    [bundle, furthestReadIndex, readingFloorIndex],
   );
   const illustrationsByAnchor = useMemo(() => {
     const grouped = new Map<string, SourceIllustration[]>();
@@ -314,17 +328,19 @@ export function App() {
         event.preventDefault();
         setSettingsOpen(false);
         setReferencesOpen(false);
+        setChaptersOpen(false);
         setHistoryOpen((open) => !open);
         return;
       }
       if (event.key === "Escape") {
         setSettingsOpen(false);
         setHistoryOpen(false);
+        setChaptersOpen(false);
         setReferencesOpen(false);
         return;
       }
       if (target?.matches("input, button, select, textarea")) return;
-      if (historyOpen || referencesOpen) return;
+      if (historyOpen || chaptersOpen || referencesOpen) return;
       if (event.key === " " || event.key === "ArrowRight") {
         event.preventDefault();
         next();
@@ -335,7 +351,7 @@ export function App() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [historyOpen, next, previous, referencesOpen, started]);
+  }, [chaptersOpen, historyOpen, next, previous, referencesOpen, started]);
 
   function beginReading(mode: "resume" | "preferred" | "beginning") {
     if (!bundle) return;
@@ -356,12 +372,27 @@ export function App() {
   function toggleHistory() {
     setSettingsOpen(false);
     setReferencesOpen(false);
+    setChaptersOpen(false);
     setHistoryOpen((open) => !open);
+  }
+
+  function toggleChapters() {
+    setSettingsOpen(false);
+    setReferencesOpen(false);
+    setHistoryOpen(false);
+    setChaptersOpen((open) => !open);
+  }
+
+  function jumpToChapter(targetIndex: number) {
+    if (!bundle) return;
+    setCursor((current) => moveReadingCursor(bundle.source, current, targetIndex));
+    setChaptersOpen(false);
   }
 
   function toggleReferences() {
     setSettingsOpen(false);
     setHistoryOpen(false);
+    setChaptersOpen(false);
     setSelectedReferenceId((current) =>
       availableReferences.some((item) => item.reference.id === current)
         ? current
@@ -377,6 +408,7 @@ export function App() {
     if (!item) return;
     setSettingsOpen(false);
     setHistoryOpen(false);
+    setChaptersOpen(false);
     setSelectedReferenceId(item.reference.id);
     setReferencesOpen(true);
   }
@@ -407,6 +439,26 @@ export function App() {
   function handleReaderClick(event: React.MouseEvent<HTMLElement>) {
     if ((event.target as HTMLElement).closest("[data-interactive='true']")) return;
     next();
+  }
+
+  function handleTouchStart(event: React.TouchEvent<HTMLElement>) {
+    if ((event.target as HTMLElement).closest("[data-interactive='true']")) {
+      touchOrigin.current = null;
+      return;
+    }
+    const touch = event.touches[0];
+    touchOrigin.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+  }
+
+  function handleTouchEnd(event: React.TouchEvent<HTMLElement>) {
+    const origin = touchOrigin.current;
+    touchOrigin.current = null;
+    if (!origin || historyOpen || chaptersOpen || referencesOpen || settingsOpen) return;
+    const touch = event.changedTouches[0];
+    if (!touch) return;
+    const action = resolveSwipe(touch.clientX - origin.x, touch.clientY - origin.y);
+    if (action === "next") next();
+    if (action === "previous") previous();
   }
 
   function selectBook(book: LibraryBook) {
@@ -451,9 +503,11 @@ export function App() {
 
   return (
     <main
-      className={`reader-app${started ? " is-reading" : " is-cover"}${settings.pureMode ? " is-pure" : ""}`}
+      className={`reader-app${started ? " is-reading" : " is-cover"}${settings.pureMode ? " is-pure" : ""}${settings.reducedMotion ? " is-reduced-motion" : ""}${settings.sansFont ? " is-font-sans" : ""}`}
       style={{ "--font-scale": settings.fontScale } as React.CSSProperties}
       onClick={started ? handleReaderClick : undefined}
+      onTouchStart={started ? handleTouchStart : undefined}
+      onTouchEnd={started ? handleTouchEnd : undefined}
     >
       <BackgroundStage
         src={backgroundSrc}
@@ -504,6 +558,19 @@ export function App() {
                   onClick={toggleReferences}
                 >
                   <span aria-hidden="true">图</span>
+                </button>
+              ) : null}
+              {chapters.length > 0 ? (
+                <button
+                  className="icon-button icon-button--chapters"
+                  type="button"
+                  data-interactive="true"
+                  aria-label="章节目录"
+                  aria-expanded={chaptersOpen}
+                  title={`章节目录（已解锁 ${chapters.length} 章）`}
+                  onClick={toggleChapters}
+                >
+                  <span aria-hidden="true">目</span>
                 </button>
               ) : null}
               <button
@@ -579,6 +646,14 @@ export function App() {
           {settingsOpen ? (
             <SettingsPanel settings={settings} onChange={setSettings} onClose={() => setSettingsOpen(false)} />
           ) : null}
+          {chaptersOpen ? (
+            <ChapterPanel
+              chapters={chapters}
+              currentIndex={currentIndex}
+              onClose={() => setChaptersOpen(false)}
+              onJump={jumpToChapter}
+            />
+          ) : null}
           {historyOpen ? (
             <HistoryPanel
               paragraphs={bundle.source.paragraphs}
@@ -605,6 +680,21 @@ export function App() {
       )}
     </main>
   );
+}
+
+/**
+ * Drop progress saved under other revisions of the same book.
+ *
+ * A re-import bumps the revision and paragraph ids may no longer line up, so
+ * the old keys can never be read again — they would otherwise sit in
+ * localStorage forever.
+ */
+function removeStaleProgress(bookId: string, revision: number): void {
+  const keep = progressStorageKey(bookId, revision);
+  const prefix = `immersive-reader:${bookId}:revision-`;
+  for (const key of safeKeys()) {
+    if (key.startsWith(prefix) && key !== keep) safeRemove(key);
+  }
 }
 
 function requestedBookFromUrl(): string | null {

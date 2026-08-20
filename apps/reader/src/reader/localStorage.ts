@@ -28,3 +28,11 @@ export function safeRemove(key: string): void {
     /* Storage is optional. */
   }
 }
+
+export function safeKeys(): string[] {
+  try {
+    return Object.keys(window.localStorage);
+  } catch {
+    return [];
+  }
+}

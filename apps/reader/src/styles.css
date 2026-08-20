@@ -242,6 +242,7 @@ button { color: inherit; }
 }
 .icon-button:hover { border-color: rgba(228,213,175,.7); background: rgba(228,213,175,.1); }
 .icon-button--history { font: 500 18px "Source Sans 3", sans-serif; }
+.icon-button--chapters { font: 500 15px "Noto Serif SC", serif; }
 .icon-button--references { font: 600 13px "Noto Serif SC", serif; }
 .progress-rail { position: absolute; z-index: 4; top: 0; left: 0; width: 100%; height: 2px; background: rgba(255,255,255,.08); }
 .progress-rail__fill { height: 100%; background: #d6c28f; transition: width 400ms ease; }
@@ -645,6 +646,24 @@ button { color: inherit; }
   .reference-viewer__toolbar, .reference-viewer__footer { padding: 11px 13px; }
   .reference-viewer__toolbar p, .reference-viewer__footer > span { display: none; }
   .reference-canvas { padding: 10px; }
+}
+
+/* The in-app 减少动态效果 toggle mirrors the OS-level preference below. */
+.is-reduced-motion,
+.is-reduced-motion *,
+.is-reduced-motion *::before,
+.is-reduced-motion *::after {
+  scroll-behavior: auto !important;
+  animation-duration: .01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: .01ms !important;
+}
+
+/* The in-app 无衬线正文 toggle swaps only running text; chrome keeps its look. */
+.is-font-sans .paragraph,
+.is-font-sans .history-entry__text {
+  font-family: "Source Sans 3", "PingFang SC", "Microsoft YaHei", sans-serif;
+  letter-spacing: .03em;
 }
 
 @media (prefers-reduced-motion: reduce) {

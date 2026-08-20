@@ -14,8 +14,14 @@ export function makeParagraphs(count: number): Paragraph[] {
     { id: "p0001", kind: "title", text: "测试之书" },
     ...Array.from({ length: count }, (_, offset) => ({
       id: `p${String(offset + 2).padStart(4, "0")}`,
-      kind: "prose" as const,
-      text: `第 ${offset + 1} 段正文。`,
+      // Offsets 10, 60, 110, … are chapter headings so the table of contents
+      // has something to list, while the first paragraphs stay prose for the
+      // reading-flow assertions.
+      kind: offset % 50 === 10 ? ("chapter_heading" as const) : ("prose" as const),
+      text:
+        offset % 50 === 10
+          ? `第 ${(offset - 10) / 50 + 1} 章`
+          : `第 ${offset + 1} 段正文。`,
     })),
   ];
 }

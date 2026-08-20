@@ -30,12 +30,19 @@ export function SettingsPanel({ settings, onChange, onClose }: SettingsPanelProp
         onChange={(checked) => update("muted", checked)}
       />
       <ToggleSetting
+        title="无衬线正文"
+        note="以黑体显示正文与历史"
+        checked={settings.sansFont}
+        onChange={(checked) => update("sansFont", checked)}
+      />
+      <ToggleSetting
         title="减少动态效果"
         note="关闭平滑滚动与长转场"
         checked={settings.reducedMotion}
         onChange={(checked) => update("reducedMotion", checked)}
       />
       <RangeSetting label="字号" value={settings.fontScale} min={0.85} max={1.3} step={0.05} display={`${Math.round(settings.fontScale * 100)}%`} onChange={(value) => update("fontScale", value)} />
+      <RangeSetting label="主音量" value={settings.masterVolume} min={0} max={1} step={0.05} display={`${Math.round(settings.masterVolume * 100)}%`} onChange={(value) => update("masterVolume", value)} />
       <RangeSetting label="音乐" value={settings.musicVolume} min={0} max={1} step={0.05} display={`${Math.round(settings.musicVolume * 100)}%`} onChange={(value) => update("musicVolume", value)} />
       <RangeSetting label="环境音" value={settings.ambienceVolume} min={0} max={1} step={0.05} display={`${Math.round(settings.ambienceVolume * 100)}%`} onChange={(value) => update("ambienceVolume", value)} />
     </aside>
