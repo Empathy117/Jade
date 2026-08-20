@@ -800,7 +800,7 @@ pytest    8.4.2
 
 ### Phase 5 — 多书书库与 Agent 辅助制书
 
-目标：让项目维护者只需提供 TXT 和审美偏好，Agent 即可制作并注册一本完整
+目标：让项目维护者只需提供 TXT / EPUB 和审美偏好，Agent 即可制作并注册一本完整
 可读的书，同时保持未来无人值守自动化所需的稳定组件接口。
 
 任务：
@@ -810,12 +810,14 @@ pytest    8.4.2
 - [x] 计算原始文件 SHA-256；
 - [x] 生成稳定、可读的 paragraph ID；
 - [x] 生成带 revision 的 `source.json`；
+- [ ] 解析 EPUB container、OPF manifest/spine 和 XHTML 块级正文；
+- [ ] 将 EPUB 映射到统一 `source.json` 并冻结原始 `source.epub`；
 - [x] 记录 Agent 优先、自动化可替换的架构决策；
 - [x] 编写标准 Agent 制书协议；
 - [x] 定义并校验 `books/library.json`；
 - [x] Reader 支持选择和切换任意已注册书籍；
 - [x] 移除 Runtime 中针对单本 Demo 的场景名、曲名和路径硬编码；
-- [ ] 用第二本真实 TXT 完成端到端制作；
+- [ ] 用第二本真实 EPUB 完成端到端制作；
 - [ ] 为第二本书记录 Agent 自动步骤和仍需人工判断的步骤；
 - [ ] 根据实际重复劳动决定自动化候选，不预先实现通用 Matcher。
 
@@ -824,7 +826,7 @@ pytest    8.4.2
 - 相同输入和配置产生字节级稳定的结构化结果；
 - 导入结果可以追溯到原始文件 hash；
 - 用户可从书库进入至少两本完整书籍；
-- 一句“把这本 TXT 制作为沉浸阅读版本”足以触发标准流程；
+- 一句“把这本 TXT / EPUB 制作为沉浸阅读版本”足以触发标准流程；
 - 两本书均通过 bundle、library、Runtime 和实际播放检查；
 - 已得到第一份跨书制作的人工介入清单。
 
@@ -846,13 +848,15 @@ pytest    8.4.2
   与 Runtime 交互，未来自动化组件可直接替换 Agent；
 - 标准流程见 [Agent 沉浸阅读制书协议](agent-book-production-protocol.md)；
 - 通用 Matcher 暂不实现，但作为素材库成熟后的明确演进方向保留。
+- 采用 [ADR-0002](adr/0002-compile-epub-into-unified-source.md)：EPUB 在构建期
+  编译为统一 source contract，不在 Runtime 内维护第二套渲染器。
 
 ### Phase 6 — 无人值守 Director、Matcher 与 Compiler
 
 进入条件：多本书的生产记录出现稳定重复规则，或共享素材库已经足够覆盖常见
 场景，Agent 制作时间开始成为主要瓶颈。
 
-目标：让用户上传 TXT 后无需 Agent 介入即可得到可播放书籍，同时不改变
+目标：让用户上传 TXT / EPUB 后无需 Agent 介入即可得到可播放书籍，同时不改变
 Phase 5 已使用的数据契约和 Reader Runtime。
 
 任务：
@@ -902,14 +906,11 @@ Phase 5 已使用的数据契约和 Reader Runtime。
 - 新实体的受控创建；
 - Bible revision 和人工修订。
 
-### Phase 8 — EPUB 与生成式素材
+### Phase 8 — 生成式素材与复杂 EPUB fallback
 
-EPUB：
-
-- 解析 spine 顺序和 XHTML 块级内容；
-- 映射为统一 `source.json`；
-- 保留章节与原 EPUB 定位信息；
-- 复杂排版可考虑 epub.js fallback，但不让两套 Runtime 成为默认架构。
+EPUB 的统一导入已提前到 Phase 5。只有真实书籍证明意义依赖复杂排版、表格、
+ruby、脚注链接或嵌入插图时，才评估 epub.js fallback；两套 Runtime 不成为
+默认架构。
 
 AI 素材：
 

@@ -2,14 +2,14 @@
 
 ## Immersive book production
 
-When the user asks to “把这本 TXT 制作为沉浸阅读版本”, or makes an equivalent
-request to turn a TXT book into a Reader book, follow
+When the user asks to “把这本 TXT / EPUB 制作为沉浸阅读版本”, or makes an
+equivalent request to turn a TXT or EPUB book into a Reader book, follow
 [`docs/agent-book-production-protocol.md`](docs/agent-book-production-protocol.md)
 from preflight through library registration and validation.
 
 Non-negotiable rules:
 
-- Preserve the input TXT bytes and let the importer create paragraph IDs.
+- Preserve the input TXT or EPUB bytes and let the importer create paragraph IDs.
 - Never copy or rewrite source prose in `direction.json`, `assets.json`, or
   `playback.json`; reference paragraph IDs only.
 - Treat background, music, and ambience as independent channels.

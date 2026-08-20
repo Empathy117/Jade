@@ -12,9 +12,9 @@ can replace the Agent later without changing the Reader Runtime.
 
 ## Make an immersive book
 
-In this repository, give the Agent a TXT and say:
+In this repository, give the Agent a TXT or EPUB and say:
 
-> 把这本 TXT 制作为沉浸阅读版本。
+> 把这本 TXT / EPUB 制作为沉浸阅读版本。
 
 The repository instructions route that request through the complete
 [Agent book-production protocol](docs/agent-book-production-protocol.md):

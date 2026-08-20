@@ -1,8 +1,8 @@
 # Agent 沉浸阅读制书协议
 
-> 触发语：**把这本 TXT 制作为沉浸阅读版本。**
+> 触发语：**把这本 TXT / EPUB 制作为沉浸阅读版本。**
 >
-> 适用范围：将一份有权在本地处理的 TXT 制作为可由 Reader Runtime 直接
+> 适用范围：将一份有权在本地处理的 TXT 或 EPUB 制作为可由 Reader Runtime 直接
 > 打开的书籍包。协议首先服务个人阅读，同时产出未来无人值守自动化可复用的
 > 标准数据。
 
@@ -12,7 +12,7 @@ Agent 必须交付一个注册到书库的完整目录：
 
 ```text
 books/<book-path>/
-├── source.txt
+├── source.txt / source.epub
 ├── source.json
 ├── direction.json
 ├── assets.json
@@ -28,13 +28,13 @@ books/<book-path>/
 
 ## 2. 用户输入与默认值
 
-最低输入只有一份 TXT。以下内容如果用户没有指定，Agent 直接使用默认值，
+最低输入只有一份 TXT 或 EPUB。以下内容如果用户没有指定，Agent 直接使用默认值，
 不要用非关键问题阻塞制作：
 
 | 项目 | 默认值 |
 |---|---|
 | 语言 | 从正文判断；中文默认 `zh-CN` |
-| 标题 | TXT 第一个非空文本块 |
+| 标题 | TXT 第一个非空文本块；EPUB package metadata |
 | 视觉 | 无人物立绘、背景偏写实文学插画、同书风格统一 |
 | 演出密度 | 克制；地点稳定优先于情绪换图 |
 | 音乐 | 悦耳、可持续循环、低音量，允许跨场景保持 |
@@ -47,7 +47,7 @@ books/<book-path>/
 
 ## 3. 不可违反的数据边界
 
-1. `source.txt` 保存输入原始字节，任何生产步骤都不得重写。
+1. `source.txt` 或 `source.epub` 保存输入原始字节，任何生产步骤都不得重写。
 2. 只有 Importer 可以生成 `source.json` 和 paragraph ID。
 3. `direction.json`、`assets.json`、`playback.json` 禁止复制或改写正文。
 4. Director 只描述语义；素材清单只描述资源；Playback 只描述执行决定。
@@ -59,20 +59,22 @@ books/<book-path>/
 
 ### Step 0 — 预检
 
-- 确认 TXT 路径、书名和用户的视觉/音乐偏好；
+- 确认 TXT / EPUB 路径、书名和用户的视觉/音乐偏好；
 - 检查仓库是否有未提交的用户修改，避免覆盖；
 - 为书籍确定稳定的 ASCII `book_id` 与目录名；
 - 确认素材仅用于用户授权的本地阅读范围。
 
 ### Step 1 — 冻结原文
 
-使用生产 Importer，不自行解析并重写 TXT：
+使用生产 Importer，不自行解析并重写 TXT 或 EPUB：
 
 ```sh
-just import-txt path/to/book.txt books/<book-path> <book-id>
+just import-book path/to/book.epub books/<book-path> <book-id>
 ```
 
-检查编码、标题、段落数量、chapter heading 和题记分类。Importer 报告冲突时
+TXT 检查编码和空行分段；EPUB 检查 package metadata、spine 顺序和 XHTML
+文本块。两种格式都要检查标题、段落数量、chapter heading 和题记分类。
+Importer 报告冲突时
 不得强制覆盖，应使用新 revision 或新目录并向用户说明。
 
 ### Step 2 — 导演分析
@@ -164,7 +166,7 @@ just check
 
 只有同时满足以下条件才算完成：
 
-- 原始 TXT 哈希可验证，paragraph ID 稳定；
+- 原始 TXT / EPUB 哈希可验证，paragraph ID 稳定；
 - scene 连续覆盖正文且没有未来信息泄露；
 - 所有引用和文件通过 validator；
 - 所有素材拥有可追溯授权信息；
