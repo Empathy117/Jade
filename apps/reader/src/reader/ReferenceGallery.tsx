@@ -78,7 +78,7 @@ export function ReferenceGallery({
           <button type="button" aria-label="关闭资料图册" onClick={onClose}>×</button>
         </header>
 
-        <div className="reference-layout">
+        <div className={`reference-layout${items.length === 1 ? " reference-layout--single" : ""}`}>
           {items.length > 1 ? (
             <nav className="reference-list" aria-label="选择资料图">
               {items.map((item) => (
