@@ -3,10 +3,11 @@
 An experimental reader where the source book controls what is said and the
 director layer controls only how it is presented.
 
-The project has completed Phase 3: a hand-directed, end-to-end reading demo
-with immutable source text, scene-aware backgrounds, BGM and ambience,
-progress restoration, and accessible reading controls. AI integration and EPUB
-import are intentionally deferred until the experience review is complete.
+The project has completed its single-user experience review and entered Phase
+5. The hand-directed demo now provides immutable source text, scene-aware
+backgrounds, real BGM and ambience, progress restoration, and accessible
+reading controls. The current work turns the manual book build into a
+deterministic local TXT importer, matcher, and playback compiler.
 
 ## Development
 
