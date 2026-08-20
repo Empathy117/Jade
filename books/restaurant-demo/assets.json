@@ -60,34 +60,34 @@
       "id": "bgm_forest_stillness",
       "type": "music",
       "path": "assets/music/forest-stillness.mp3",
-      "tags": ["minimal", "uneasy", "distant", "quiet", "aftermath"],
+      "tags": ["mysterious", "forest", "melodic", "quiet", "loop"],
       "loop": true,
-      "duration_ms": 48000,
+      "duration_ms": 25612,
       "license": "CC0-1.0",
-      "source": "scripts/generate_demo_audio.sh",
-      "attribution": null
+      "source": "https://opengameart.org/content/iremos-forest-theme-loop",
+      "attribution": "Iremos Forest Theme Loop by beardalaxy"
     },
     {
       "id": "bgm_corridor_unease",
       "type": "music",
       "path": "assets/music/corridor-unease.mp3",
-      "tags": ["polite", "uncanny", "minimal", "repetitive"],
+      "tags": ["dark", "mysterious", "cinematic", "unsettling", "seamless"],
       "loop": true,
       "duration_ms": 48000,
       "license": "CC0-1.0",
-      "source": "scripts/generate_demo_audio.sh",
-      "attribution": null
+      "source": "https://opengameart.org/content/unsolved-investigation",
+      "attribution": "Unsolved Investigation by isaiah658"
     },
     {
       "id": "bgm_final_door_tension",
       "type": "music",
       "path": "assets/music/final-door-tension.mp3",
-      "tags": ["realization", "dread", "low_drone", "tension_high"],
+      "tags": ["realization", "dread", "dramatic", "rhythmic", "tension_high"],
       "loop": true,
-      "duration_ms": 48000,
+      "duration_ms": 41000,
       "license": "CC0-1.0",
-      "source": "scripts/generate_demo_audio.sh",
-      "attribution": null
+      "source": "https://opengameart.org/content/tension-theme",
+      "attribution": "Tension Theme by Umplix; loop seam adapted for the demo"
     },
     {
       "id": "amb_mountain_wind",
