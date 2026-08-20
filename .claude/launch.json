@@ -4,8 +4,22 @@
     {
       "name": "reader",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@immersive-reader/reader", "dev"],
+      "runtimeArgs": [
+        "--filter",
+        "@immersive-reader/reader",
+        "dev"
+      ],
       "port": 5173
+    },
+    {
+      "name": "reader-preview",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@immersive-reader/reader",
+        "preview"
+      ],
+      "port": 4173
     }
   ]
 }

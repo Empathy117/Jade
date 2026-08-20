@@ -1,4 +1,4 @@
-import { readdirSync, rmSync, statSync } from "node:fs";
+import { readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
 import react from "@vitejs/plugin-react";
@@ -51,8 +51,51 @@ function pruneNonRuntimeBookFiles(): Plugin {
   };
 }
 
+/**
+ * Progressive-web-app shell, build only.
+ *
+ * `publicDir` points at the book library, so the manifest, icon, and service
+ * worker cannot live there; this emits them from `pwa/` into the bundle and
+ * injects the manifest link. The service worker is registered by main.tsx in
+ * production builds only, so dev keeps its plain unregistered behaviour.
+ */
+function readerPwa(): Plugin {
+  const pwaDir = join(import.meta.dirname, "pwa");
+  return {
+    name: "reader-pwa",
+    apply: "build",
+    transformIndexHtml(html) {
+      return html.replace(
+        "</head>",
+        '  <link rel="manifest" href="/manifest.webmanifest" />\n  </head>',
+      );
+    },
+    generateBundle() {
+      const stamp = Date.now().toString(36);
+      this.emitFile({
+        type: "asset",
+        fileName: "manifest.webmanifest",
+        source: readFileSync(join(pwaDir, "manifest.webmanifest"), "utf-8"),
+      });
+      this.emitFile({
+        type: "asset",
+        fileName: "icon.svg",
+        source: readFileSync(join(pwaDir, "icon.svg"), "utf-8"),
+      });
+      this.emitFile({
+        type: "asset",
+        fileName: "sw.js",
+        source: readFileSync(join(pwaDir, "sw.js"), "utf-8").replace(
+          "__BUILD_STAMP__",
+          stamp,
+        ),
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), pruneNonRuntimeBookFiles()],
+  plugins: [react(), pruneNonRuntimeBookFiles(), readerPwa()],
   publicDir: "../../books",
   test: {
     environment: "jsdom",

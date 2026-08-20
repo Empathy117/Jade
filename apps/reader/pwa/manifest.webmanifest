@@ -1,0 +1,19 @@
+{
+  "name": "Jade Reader · 私人沉浸书库",
+  "short_name": "Jade Reader",
+  "description": "原书负责说什么，导演只决定怎么呈现。",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#12110f",
+  "theme_color": "#12110f",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
