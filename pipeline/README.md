@@ -27,3 +27,11 @@ immersive-reader-validate tests/fixtures/valid
 It validates the four JSON Schema documents and cross-document invariants such
 as source identity, scene coverage, paragraph order, asset references, asset
 types, file existence, and the raw source SHA-256.
+
+The library validator checks `books/library.json`, cross-checks every entry with
+its `source.json`, verifies the cover, and runs the complete bundle validator
+for every registered book:
+
+```sh
+immersive-reader-validate-library books/library.json
+```

@@ -812,7 +812,7 @@ pytest    8.4.2
 - [x] 生成带 revision 的 `source.json`；
 - [x] 记录 Agent 优先、自动化可替换的架构决策；
 - [x] 编写标准 Agent 制书协议；
-- [ ] 定义并校验 `books/library.json`；
+- [x] 定义并校验 `books/library.json`；
 - [ ] Reader 支持选择和切换任意已注册书籍；
 - [ ] 移除 Runtime 中针对单本 Demo 的场景名、曲名和路径硬编码；
 - [ ] 用第二本真实 TXT 完成端到端制作；

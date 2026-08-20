@@ -18,6 +18,7 @@ import-txt input output book_id revision="1":
 check:
     pnpm check
     just validate
+    just validate-library
     uv run --project pipeline --frozen pytest
 
 # Run all current automated tests.
@@ -28,6 +29,10 @@ test:
 # Validate a source/direction/assets/playback bundle.
 validate bundle="tests/fixtures/valid":
     uv run --project pipeline --frozen immersive-reader-validate "{{bundle}}"
+
+# Validate the book library and every registered bundle.
+validate-library library="books/library.json":
+    uv run --project pipeline --frozen immersive-reader-validate-library "{{library}}"
 
 # Print the toolchain selected by the flake.
 versions:

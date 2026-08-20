@@ -10,6 +10,7 @@ dependencies = [
 
 [project.scripts]
 immersive-reader-import = "immersive_reader.importer:entrypoint"
+immersive-reader-validate-library = "immersive_reader.library_validator:entrypoint"
 immersive-reader-validate = "immersive_reader.validator:entrypoint"
 
 [build-system]
