@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Howl, Howler } from "howler";
 
+import { pageVisibilityGain } from "./audioPolicy";
 import { assetUrl } from "./data";
 import type { Asset, ResolvedPlaybackState } from "./types";
 
@@ -40,6 +41,19 @@ export function useAudioDirector({
   const ambience = useRef<Map<string, Howl>>(new Map());
   const cleanupTimers = useRef<Set<number>>(new Set());
   const [audioError, setAudioError] = useState<string | null>(null);
+  const [visibilityGain, setVisibilityGain] = useState(() =>
+    pageVisibilityGain(document.visibilityState),
+  );
+
+  useEffect(() => {
+    const updateVisibilityGain = () => {
+      setVisibilityGain(pageVisibilityGain(document.visibilityState));
+    };
+    document.addEventListener("visibilitychange", updateVisibilityGain);
+    return () => {
+      document.removeEventListener("visibilitychange", updateVisibilityGain);
+    };
+  }, []);
 
   useEffect(() => {
     Howler.volume(settings.masterVolume);
@@ -59,7 +73,8 @@ export function useAudioDirector({
       return;
     }
 
-    const targetVolume = desired.gain * settings.musicVolume;
+    const targetVolume =
+      desired.gain * settings.musicVolume * visibilityGain;
     if (music.current?.assetId === desired.asset_id) {
       music.current.howl.fade(music.current.howl.volume(), targetVolume, 250);
       return;
@@ -87,7 +102,14 @@ export function useAudioDirector({
     music.current = { assetId: desired.asset_id, howl };
     howl.play();
     howl.fade(0, targetVolume, desired.duration_ms);
-  }, [assets, playback.music, settings.musicVolume, settings.pureMode, started]);
+  }, [
+    assets,
+    playback.music,
+    settings.musicVolume,
+    settings.pureMode,
+    started,
+    visibilityGain,
+  ]);
 
   useEffect(() => {
     const desiredTracks = started && !settings.pureMode ? playback.ambience : [];
@@ -101,7 +123,8 @@ export function useAudioDirector({
     }
 
     for (const desired of desiredTracks) {
-      const targetVolume = desired.gain * settings.ambienceVolume;
+      const targetVolume =
+        desired.gain * settings.ambienceVolume * visibilityGain;
       const existing = ambience.current.get(desired.asset_id);
       if (existing) {
         existing.fade(existing.volume(), targetVolume, 250);
@@ -126,7 +149,14 @@ export function useAudioDirector({
       howl.play();
       howl.fade(0, targetVolume, 900);
     }
-  }, [assets, playback.ambience, settings.ambienceVolume, settings.pureMode, started]);
+  }, [
+    assets,
+    playback.ambience,
+    settings.ambienceVolume,
+    settings.pureMode,
+    started,
+    visibilityGain,
+  ]);
 
   useEffect(() => {
     const timers = cleanupTimers.current;
