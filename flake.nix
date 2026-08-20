@@ -24,6 +24,9 @@
         {
           default = pkgs.mkShell {
             packages = with pkgs; [
+              # `just versions` reports direnv too, so the shell provides it
+              # rather than depending on the host having it on PATH.
+              direnv
               ffmpeg
               jq
               just
