@@ -81,6 +81,10 @@
         "id": {
           "$ref": "#/$defs/sceneId"
         },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
         "start": {
           "$ref": "#/$defs/paragraphId"
         },

@@ -6,6 +6,7 @@
   "scenes": [
     {
       "id": "scene_001",
+      "label": "深山",
       "start": "p0002",
       "end": "p0020",
       "location": "mountain_forest",
@@ -26,6 +27,7 @@
     },
     {
       "id": "scene_002",
+      "label": "山猫轩",
       "start": "p0021",
       "end": "p0037",
       "location": "wildcat_restaurant_exterior",
@@ -46,6 +48,7 @@
     },
     {
       "id": "scene_003",
+      "label": "蓝色的门",
       "start": "p0038",
       "end": "p0050",
       "location": "wildcat_restaurant_corridor",
@@ -66,6 +69,7 @@
     },
     {
       "id": "scene_004",
+      "label": "接连的要求",
       "start": "p0051",
       "end": "p0078",
       "location": "wildcat_restaurant_corridor",
@@ -86,6 +90,7 @@
     },
     {
       "id": "scene_005",
+      "label": "最后一项",
       "start": "p0079",
       "end": "p0112",
       "location": "wildcat_restaurant_preparation_room",
@@ -106,6 +111,7 @@
     },
     {
       "id": "scene_006",
+      "label": "钥匙孔",
       "start": "p0113",
       "end": "p0136",
       "location": "wildcat_restaurant_final_door",
@@ -126,6 +132,7 @@
     },
     {
       "id": "scene_007",
+      "label": "雾散之后",
       "start": "p0137",
       "end": "p0149",
       "location": "mountain_forest",

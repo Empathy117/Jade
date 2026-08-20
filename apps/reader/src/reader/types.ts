@@ -16,12 +16,14 @@ export interface SourceDocument {
     format: "txt" | "epub";
     path: string;
     sha256: string;
+    encoding?: string;
   };
   paragraphs: Paragraph[];
 }
 
 export interface Scene {
   id: string;
+  label?: string;
   start: string;
   end: string;
   location: string | null;
@@ -43,6 +45,7 @@ export type AssetType = "background" | "music" | "ambience";
 
 export interface Asset {
   id: string;
+  title?: string;
   type: AssetType;
   path: string;
   tags: string[];
@@ -92,11 +95,30 @@ export interface PlaybackDocument {
   cues: PlaybackCue[];
 }
 
-export interface DemoBundle {
+export interface BookBundle {
   source: SourceDocument;
   direction: DirectionDocument;
   assets: AssetsDocument;
   playback: PlaybackDocument;
+}
+
+export type BookProductionMode = "manual" | "agent-assisted" | "automated";
+
+export interface LibraryBook {
+  book_id: string;
+  path: string;
+  title: string;
+  author: string | null;
+  summary: string;
+  cover: string;
+  source_revision: number;
+  paragraph_count: number;
+  production: BookProductionMode;
+}
+
+export interface LibraryDocument {
+  schema_version: 1;
+  books: LibraryBook[];
 }
 
 export interface ResolvedPlaybackState {

@@ -15,6 +15,7 @@ export interface AudioSettings {
 
 interface AudioDirectorOptions {
   started: boolean;
+  bookPath: string | null;
   playback: ResolvedPlaybackState;
   assets: Map<string, Asset>;
   settings: AudioSettings;
@@ -27,12 +28,16 @@ interface PlayingTrack {
 
 export function unlockAudio(): void {
   if (Howler.ctx?.state === "suspended") {
-    void Howler.ctx.resume();
+    void Howler.ctx.resume().catch(() => {
+      // A reload or book switch can close the previous context while resume is pending.
+      // Howler will create the active track context when playback starts.
+    });
   }
 }
 
 export function useAudioDirector({
   started,
+  bookPath,
   playback,
   assets,
   settings,
@@ -63,7 +68,7 @@ export function useAudioDirector({
   useEffect(() => {
     const desired = playback.music;
     const desiredAsset = desired ? assets.get(desired.asset_id) : undefined;
-    const shouldPlay = started && !settings.pureMode && desired && desiredAsset;
+    const shouldPlay = started && bookPath && !settings.pureMode && desired && desiredAsset;
 
     if (!shouldPlay) {
       if (music.current) {
@@ -89,7 +94,7 @@ export function useAudioDirector({
     }
 
     const howl = new Howl({
-      src: [assetUrl(desiredAsset)],
+      src: [assetUrl(bookPath, desiredAsset)],
       loop: desiredAsset.loop ?? true,
       volume: 0,
       onloaderror: (_id, error) => {
@@ -104,6 +109,7 @@ export function useAudioDirector({
     howl.fade(0, targetVolume, desired.duration_ms);
   }, [
     assets,
+    bookPath,
     playback.music,
     settings.musicVolume,
     settings.pureMode,
@@ -112,7 +118,7 @@ export function useAudioDirector({
   ]);
 
   useEffect(() => {
-    const desiredTracks = started && !settings.pureMode ? playback.ambience : [];
+    const desiredTracks = started && bookPath && !settings.pureMode ? playback.ambience : [];
     const desiredIds = new Set(desiredTracks.map((track) => track.asset_id));
 
     for (const [assetId, howl] of ambience.current) {
@@ -123,6 +129,7 @@ export function useAudioDirector({
     }
 
     for (const desired of desiredTracks) {
+      if (!bookPath) continue;
       const targetVolume =
         desired.gain * settings.ambienceVolume * visibilityGain;
       const existing = ambience.current.get(desired.asset_id);
@@ -135,7 +142,7 @@ export function useAudioDirector({
         continue;
       }
       const howl = new Howl({
-        src: [assetUrl(asset)],
+        src: [assetUrl(bookPath, asset)],
         loop: asset.loop ?? true,
         volume: 0,
         onloaderror: (_id, error) => {
@@ -151,6 +158,7 @@ export function useAudioDirector({
     }
   }, [
     assets,
+    bookPath,
     playback.ambience,
     settings.ambienceVolume,
     settings.pureMode,

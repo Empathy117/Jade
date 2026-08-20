@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { LibraryScreen } from "./LibraryScreen";
 import { BackgroundStage } from "./reader/BackgroundStage";
-import { assetUrl, indexAssets, loadDemoBundle } from "./reader/data";
+import {
+  assetUrl,
+  findLibraryBook,
+  indexAssets,
+  loadBookBundle,
+  loadLibrary,
+} from "./reader/data";
 import {
   firstReadableIndex,
   moveReadingCursor,
@@ -13,7 +20,13 @@ import {
 } from "./reader/readerState";
 import type { ReadingCursor } from "./reader/readerState";
 import { keepParagraphAboveBottomFade } from "./reader/readingScroll";
-import type { DemoBundle, Paragraph } from "./reader/types";
+import type {
+  BookBundle,
+  BookProductionMode,
+  LibraryBook,
+  LibraryDocument,
+  Paragraph,
+} from "./reader/types";
 import {
   type AudioSettings,
   unlockAudio,
@@ -27,24 +40,10 @@ interface ReaderSettings extends AudioSettings {
 
 const SETTINGS_KEY = "immersive-reader:settings:v1";
 
-const sceneNames: Record<string, string> = {
-  scene_001: "深山",
-  scene_002: "山猫轩",
-  scene_003: "蓝色的门",
-  scene_004: "接连的要求",
-  scene_005: "最后一项",
-  scene_006: "钥匙孔",
-  scene_007: "雾散之后",
-};
-
-const trackNames: Record<string, string> = {
-  bgm_forest_stillness: "林间静息",
-  bgm_corridor_unease: "无人的走廊",
-  bgm_final_door_tension: "门后",
-};
-
 export function App() {
-  const [bundle, setBundle] = useState<DemoBundle | null>(null);
+  const [library, setLibrary] = useState<LibraryDocument | null>(null);
+  const [selectedBook, setSelectedBook] = useState<LibraryBook | null>(null);
+  const [bundle, setBundle] = useState<BookBundle | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [started, setStarted] = useState(false);
   const [hasSavedProgress, setHasSavedProgress] = useState(false);
@@ -62,7 +61,44 @@ export function App() {
 
   useEffect(() => {
     let cancelled = false;
-    loadDemoBundle()
+    loadLibrary()
+      .then((loadedLibrary) => {
+        if (cancelled) return;
+        setLibrary(loadedLibrary);
+        setSelectedBook(
+          findLibraryBook(loadedLibrary, requestedBookFromUrl()),
+        );
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setLoadError(error instanceof Error ? error.message : String(error));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!library) return;
+    const syncSelectionFromHistory = () => {
+      setStarted(false);
+      setSelectedBook(findLibraryBook(library, requestedBookFromUrl()));
+    };
+    window.addEventListener("popstate", syncSelectionFromHistory);
+    return () => window.removeEventListener("popstate", syncSelectionFromHistory);
+  }, [library]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setStarted(false);
+    setSettingsOpen(false);
+    setHistoryOpen(false);
+    setBundle(null);
+    setLoadError(null);
+    if (!selectedBook) return () => { cancelled = true; };
+
+    loadBookBundle(selectedBook)
       .then((loaded) => {
         if (cancelled) return;
         const savedId = safeGet(progressStorageKey(loaded.source));
@@ -79,12 +115,16 @@ export function App() {
           setLoadError(error instanceof Error ? error.message : String(error));
         }
       });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    return () => { cancelled = true; };
+  }, [selectedBook]);
 
   useEffect(() => safeSet(SETTINGS_KEY, JSON.stringify(settings)), [settings]);
+
+  useEffect(() => {
+    document.title = selectedBook
+      ? `${selectedBook.title} · Jade Reader`
+      : "Jade Reader · 私人沉浸书库";
+  }, [selectedBook]);
 
   const assets = useMemo(
     () => (bundle ? indexAssets(bundle.assets) : new Map()),
@@ -99,6 +139,7 @@ export function App() {
   );
   const audioError = useAudioDirector({
     started,
+    bookPath: selectedBook?.path ?? null,
     playback: playbackState,
     assets,
     settings,
@@ -128,10 +169,13 @@ export function App() {
   const backgroundAsset = playbackState.background
     ? assets.get(playbackState.background.asset_id)
     : undefined;
-  const backgroundSrc = backgroundAsset ? assetUrl(backgroundAsset) : null;
-  const trackName = playbackState.music
-    ? trackNames[playbackState.music.asset_id] ?? playbackState.music.asset_id
-    : "无音乐";
+  const backgroundSrc = backgroundAsset && selectedBook
+    ? assetUrl(selectedBook.path, backgroundAsset)
+    : null;
+  const musicAsset = playbackState.music
+    ? assets.get(playbackState.music.asset_id)
+    : undefined;
+  const trackName = musicAsset?.title ?? musicAsset?.id ?? "无音乐";
 
   const next = useCallback(() => {
     if (!bundle || currentIndex >= bundle.source.paragraphs.length - 1) return;
@@ -254,13 +298,56 @@ export function App() {
     next();
   }
 
-  if (loadError) return <ErrorScreen message={loadError} />;
+  function selectBook(book: LibraryBook) {
+    updateBookUrl(book.path);
+    setSelectedBook(book);
+  }
+
+  function returnToLibrary() {
+    updateBookUrl(null);
+    setStarted(false);
+    setSelectedBook(null);
+  }
+
+  if (loadError) {
+    return (
+      <ErrorScreen
+        message={loadError}
+        onBack={library ? returnToLibrary : undefined}
+      />
+    );
+  }
+
+  if (!library) {
+    return (
+      <main className="loading-screen">
+        <span className="loading-mark" aria-hidden="true" />
+        <p>正在装订书页…</p>
+      </main>
+    );
+  }
+
+  if (!selectedBook) {
+    return (
+      <LibraryScreen
+        books={library.books}
+        hasProgress={(book) =>
+          Boolean(
+            safeGet(
+              `immersive-reader:${book.book_id}:revision-${book.source_revision}`,
+            ),
+          )
+        }
+        onSelect={selectBook}
+      />
+    );
+  }
 
   if (!bundle) {
     return (
       <main className="loading-screen">
         <span className="loading-mark" aria-hidden="true" />
-        <p>正在装订书页…</p>
+        <p>正在装订《{selectedBook.title}》…</p>
       </main>
     );
   }
@@ -281,21 +368,30 @@ export function App() {
       {!started ? (
         <CoverScreen
           title={bundle.source.title}
+          production={selectedBook.production}
           hasProgress={hasSavedProgress}
           progress={progress}
           onContinue={() => beginReading(false)}
           onRestart={() => beginReading(true)}
+          onLibrary={returnToLibrary}
         />
       ) : (
         <>
           <header className="reader-header" data-interactive="true">
-            <div className="book-mark">
+            <button
+              className="book-mark book-mark--button"
+              type="button"
+              data-interactive="true"
+              aria-label="返回书库"
+              title="返回书库"
+              onClick={returnToLibrary}
+            >
               <span className="book-mark__label">正在阅读</span>
               <span className="book-mark__title">{bundle.source.title}</span>
-            </div>
+            </button>
             <div className="scene-mark" aria-live="polite">
               <span>第 {sceneNumber} 幕</span>
-              <strong>{activeScene ? sceneNames[activeScene.id] ?? activeScene.location : ""}</strong>
+              <strong>{activeScene ? activeScene.label ?? activeScene.location : ""}</strong>
             </div>
             <div className="header-actions">
               <button
@@ -409,16 +505,35 @@ export function App() {
 
 interface CoverScreenProps {
   title: string;
+  production: BookProductionMode;
   hasProgress: boolean;
   progress: number;
   onContinue: () => void;
   onRestart: () => void;
+  onLibrary: () => void;
 }
 
-function CoverScreen({ title, hasProgress, progress, onContinue, onRestart }: CoverScreenProps) {
+const coverKickers: Record<BookProductionMode, string> = {
+  manual: "沉浸阅读 · 手工导演版",
+  "agent-assisted": "沉浸阅读 · Agent 导演版",
+  automated: "沉浸阅读 · 自动导演版",
+};
+
+function CoverScreen({
+  title,
+  production,
+  hasProgress,
+  progress,
+  onContinue,
+  onRestart,
+  onLibrary,
+}: CoverScreenProps) {
   return (
     <section className="cover-screen">
-      <p className="cover-kicker">沉浸阅读实验 · 手工导演版</p>
+      <button className="cover-library-action" type="button" onClick={onLibrary}>
+        <span aria-hidden="true">←</span> 返回书库
+      </button>
+      <p className="cover-kicker">{coverKickers[production]}</p>
       <h1>{title}</h1>
       <p className="cover-summary">原书负责说什么，导演只决定怎么呈现。</p>
       <div className="cover-actions">
@@ -585,16 +700,41 @@ function RangeSetting({ label, value, min, max, step, display, onChange }: Range
   );
 }
 
-function ErrorScreen({ message }: { message: string }) {
+function ErrorScreen({
+  message,
+  onBack,
+}: {
+  message: string;
+  onBack?: () => void;
+}) {
   return (
     <main className="error-screen">
       <p className="error-screen__code">BOOK_LOAD_FAILED</p>
       <h1>书页没有装订成功</h1>
       <p>{message}</p>
+      {onBack ? (
+        <button className="primary-action" type="button" onClick={onBack}>
+          返回书库
+        </button>
+      ) : null}
       <code>cd /Users/empathy/Jade<br />direnv exec . just dev</code>
       <p className="error-screen__hint">请通过开发服务器访问 http://localhost:5173</p>
     </main>
   );
+}
+
+function requestedBookFromUrl(): string | null {
+  return new URLSearchParams(window.location.search).get("book");
+}
+
+function updateBookUrl(bookPath: string | null): void {
+  const url = new URL(window.location.href);
+  if (bookPath) {
+    url.searchParams.set("book", bookPath);
+  } else {
+    url.searchParams.delete("book");
+  }
+  window.history.pushState({}, "", url);
 }
 
 function loadSettings(): ReaderSettings {

@@ -1,0 +1,55 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  assetUrl,
+  bookBaseUrl,
+  coverUrl,
+  findLibraryBook,
+} from "./data";
+import type { Asset, LibraryDocument } from "./types";
+
+const library: LibraryDocument = {
+  schema_version: 1,
+  books: [
+    {
+      book_id: "fixture-book",
+      path: "fixture book",
+      title: "Fixture",
+      author: null,
+      summary: "A fixture.",
+      cover: "assets/backgrounds/cover one.png",
+      source_revision: 1,
+      paragraph_count: 4,
+      production: "manual",
+    },
+  ],
+};
+
+const asset: Asset = {
+  id: "bg_fixture",
+  type: "background",
+  path: "assets/backgrounds/scene one.png",
+  tags: ["fixture"],
+  license: "CC0",
+  source: "fixture",
+  attribution: null,
+};
+
+describe("multi-book data paths", () => {
+  it("encodes each path segment without losing directories", () => {
+    expect(bookBaseUrl("fixture book")).toBe("/fixture%20book");
+    expect(assetUrl("fixture book", asset)).toBe(
+      "/fixture%20book/assets/backgrounds/scene%20one.png",
+    );
+    expect(coverUrl(library.books[0])).toBe(
+      "/fixture%20book/assets/backgrounds/cover%20one.png",
+    );
+  });
+
+  it("resolves direct links by path or stable book id", () => {
+    expect(findLibraryBook(library, "fixture book")?.title).toBe("Fixture");
+    expect(findLibraryBook(library, "fixture-book")?.title).toBe("Fixture");
+    expect(findLibraryBook(library, "missing")).toBeNull();
+    expect(findLibraryBook(library, null)).toBeNull();
+  });
+});
