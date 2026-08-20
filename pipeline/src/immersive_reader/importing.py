@@ -256,8 +256,9 @@ def write_source_bundle(
     source_bytes: bytes,
     document: dict[str, object],
     encoding: str | None = None,
+    extra_files: dict[str, bytes] | None = None,
 ) -> ImportResult:
-    """Preserve immutable source bytes and atomically write source.json."""
+    """Preserve immutable source bytes, extracted files, and source.json."""
 
     input_path = input_path.resolve()
     output_dir = output_dir.resolve()
@@ -269,6 +270,15 @@ def write_source_bundle(
     revision = document["revision"]
     source_path = output_dir / source_name  # type: ignore[arg-type]
     manifest_path = output_dir / "source.json"
+    extra_paths: list[tuple[Path, bytes]] = []
+
+    for relative_path, content in (extra_files or {}).items():
+        target = (output_dir / relative_path).resolve()
+        if not target.is_relative_to(output_dir) or target in {source_path, manifest_path}:
+            raise BookImportError(
+                f"immutable source asset path escapes or collides with the bundle: {relative_path}"
+            )
+        extra_paths.append((target, content))
 
     if manifest_path.exists():
         _check_existing_manifest_identity(
@@ -284,8 +294,25 @@ def write_source_bundle(
                 f"refusing to replace a different immutable source: {source_path}; "
                 "choose a new output directory or revision"
             )
-    elif input_path != source_path:
+
+    for target, content in extra_paths:
+        if not target.exists():
+            continue
+        actual_hash = hashlib.sha256(target.read_bytes()).hexdigest()
+        expected_extra_hash = hashlib.sha256(content).hexdigest()
+        if actual_hash != expected_extra_hash:
+            raise ImportConflictError(
+                f"refusing to replace a different immutable source asset: {target}; "
+                "choose a new output directory or revision"
+            )
+
+    if not source_path.exists() and input_path != source_path:
         _atomic_write_bytes(source_path, source_bytes)
+    for target, content in extra_paths:
+        if target.exists():
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        _atomic_write_bytes(target, content)
 
     serialized = json.dumps(document, ensure_ascii=False, indent=2) + "\n"
     _atomic_write_text(manifest_path, serialized)

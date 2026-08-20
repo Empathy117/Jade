@@ -27,10 +27,16 @@ MAX_ARCHIVE_UNCOMPRESSED_BYTES = 512 * 1024 * 1024
 MAX_MEMBER_BYTES = 64 * 1024 * 1024
 
 _HEADING_TAGS = {"h1", "h2", "h3", "h4", "h5", "h6"}
-_TEXT_BLOCK_TAGS = {"p", "pre"}
+_TEXT_BLOCK_TAGS = {"p", "pre", "figcaption"}
 _CONTAINER_TAGS = {"blockquote", "li", "div"}
 _IGNORED_TAGS = {"script", "style", "svg", "math", "head", "rt", "rp"}
 _WHITESPACE = re.compile(r"[^\S\n]+")
+_IMAGE_EXTENSIONS = {
+    "image/jpeg": ".jpeg",
+    "image/png": ".png",
+    "image/gif": ".gif",
+    "image/webp": ".webp",
+}
 
 
 class EpubImportError(BookImportError):
@@ -48,6 +54,29 @@ class EpubMetadata:
 class EpubTextBlock:
     kind: str
     text: str
+    is_caption: bool = False
+
+
+@dataclass(frozen=True)
+class EpubRawIllustration:
+    source_path: str
+    media_type: str
+    content: bytes
+    title: str
+    anchor_block_index: int
+
+
+@dataclass(frozen=True)
+class EpubImageReference:
+    href: str
+    alt: str
+    before_block_index: int
+
+
+@dataclass(frozen=True)
+class EpubCompilation:
+    document: dict[str, object]
+    extracted_files: dict[str, bytes]
 
 
 @dataclass(frozen=True)
@@ -67,6 +96,25 @@ def build_epub_source_document(
     language: str | None = None,
 ) -> dict[str, object]:
     """Compile EPUB package metadata and spine text into source.json data."""
+
+    return _compile_epub_source(
+        source_bytes,
+        book_id=book_id,
+        revision=revision,
+        title=title,
+        language=language,
+    ).document
+
+
+def _compile_epub_source(
+    source_bytes: bytes,
+    *,
+    book_id: str,
+    revision: int,
+    title: str | None,
+    language: str | None,
+) -> EpubCompilation:
+    """Compile EPUB text and supported source illustrations deterministically."""
 
     if not source_bytes:
         raise EpubImportError("EPUB file is empty")
@@ -100,7 +148,7 @@ def build_epub_source_document(
         validate_source_metadata(book_id, revision, metadata.language)
         manifest = _package_manifest(package)
         spine_ids = _package_spine(package)
-        blocks = _spine_blocks(
+        blocks, source_illustrations = _spine_content(
             archive,
             members,
             package_path,
@@ -137,7 +185,30 @@ def build_epub_source_document(
     }
     if metadata.authors:
         document["authors"] = list(metadata.authors)
-    return document
+
+    extracted_files: dict[str, bytes] = {}
+    illustrations: list[dict[str, object]] = []
+    for index, illustration in enumerate(source_illustrations, start=1):
+        extension = _IMAGE_EXTENSIONS[illustration.media_type]
+        illustration_id = f"ill{index:04d}"
+        extracted_path = f"source-assets/illustration-{index:04d}{extension}"
+        paragraph_index = illustration.anchor_block_index + 2
+        anchor_id = f"p{paragraph_index:0{width}d}"
+        illustrations.append(
+            {
+                "id": illustration_id,
+                "at": anchor_id,
+                "title": illustration.title,
+                "path": extracted_path,
+                "media_type": illustration.media_type,
+                "sha256": hashlib.sha256(illustration.content).hexdigest(),
+                "source_href": illustration.source_path,
+            }
+        )
+        extracted_files[extracted_path] = illustration.content
+    if illustrations:
+        document["illustrations"] = illustrations
+    return EpubCompilation(document, extracted_files)
 
 
 def import_epub(
@@ -155,7 +226,7 @@ def import_epub(
     if input_path.suffix.lower() != ".epub":
         raise EpubImportError(f"input must be an .epub file: {input_path}")
     source_bytes = input_path.read_bytes()
-    document = build_epub_source_document(
+    compilation = _compile_epub_source(
         source_bytes,
         book_id=book_id,
         revision=revision,
@@ -166,7 +237,8 @@ def import_epub(
         input_path,
         output_dir,
         source_bytes=source_bytes,
-        document=document,
+        document=compilation.document,
+        extra_files=compilation.extracted_files,
     )
 
 
@@ -303,18 +375,23 @@ def _package_spine(package: ElementTree.Element) -> list[str]:
     return identifiers
 
 
-def _spine_blocks(
+def _spine_content(
     archive: zipfile.ZipFile,
     members: dict[str, zipfile.ZipInfo],
     package_path: str,
     manifest: dict[str, ManifestItem],
     spine_ids: list[str],
     title: str,
-) -> list[EpubTextBlock]:
+) -> tuple[list[EpubTextBlock], list[EpubRawIllustration]]:
     package_dir = str(PurePosixPath(package_path).parent)
     if package_dir == ".":
         package_dir = ""
+    manifest_by_path = {
+        _normalize_member_path(package_dir, item.href): item
+        for item in manifest.values()
+    }
     blocks: list[EpubTextBlock] = []
+    illustrations: list[EpubRawIllustration] = []
     for identifier in spine_ids:
         item = manifest.get(identifier)
         if item is None:
@@ -330,32 +407,124 @@ def _spine_blocks(
             _read_required_member(archive, members, member_path),
             member_path,
         )
-        document_blocks = _xhtml_blocks(root)
+        document_blocks, document_images = _xhtml_content(root)
+        removed_leading_blocks = 0
         if not blocks and document_blocks:
             first = document_blocks[0]
             if first.kind == "chapter_heading" and _same_text(first.text, title):
                 document_blocks = document_blocks[1:]
+                removed_leading_blocks = 1
+
+        global_block_offset = len(blocks)
+        document_dir = str(PurePosixPath(member_path).parent)
+        if document_dir == ".":
+            document_dir = ""
+        for image in document_images:
+            local_anchor = image.before_block_index - removed_leading_blocks
+            next_block = (
+                document_blocks[local_anchor]
+                if 0 <= local_anchor < len(document_blocks)
+                else None
+            )
+            previous_block = (
+                document_blocks[local_anchor - 1]
+                if 0 < local_anchor <= len(document_blocks)
+                else None
+            )
+            if next_block is not None and next_block.is_caption:
+                anchor_index = local_anchor
+                resolved_title = image.alt or next_block.text
+            elif previous_block is not None:
+                anchor_index = local_anchor - 1
+                resolved_title = image.alt or previous_block.text
+            elif next_block is not None:
+                anchor_index = local_anchor
+                resolved_title = image.alt or next_block.text
+            else:
+                # A cover-only spine document has no textual reading position.
+                continue
+
+            image_path = _normalize_member_path(document_dir, image.href)
+            resource = manifest_by_path.get(image_path)
+            if resource is None:
+                raise EpubImportError(
+                    f"spine image is not declared in the OPF manifest: {image_path}"
+                )
+            if resource.media_type not in _IMAGE_EXTENSIONS:
+                raise EpubImportError(
+                    f"unsupported source illustration media type "
+                    f"{resource.media_type!r} for {image_path}"
+                )
+            content = _read_required_member(archive, members, image_path)
+            illustrations.append(
+                EpubRawIllustration(
+                    image_path,
+                    resource.media_type,
+                    content,
+                    resolved_title,
+                    global_block_offset + anchor_index,
+                )
+            )
         blocks.extend(document_blocks)
-    return blocks
+    return blocks, illustrations
 
 
-def _xhtml_blocks(root: ElementTree.Element) -> list[EpubTextBlock]:
+def _xhtml_content(
+    root: ElementTree.Element,
+) -> tuple[list[EpubTextBlock], list[EpubImageReference]]:
     body = next(
         (element for element in root.iter() if _local_name(element.tag) == "body"),
         root,
     )
     blocks: list[EpubTextBlock] = []
+    images: list[EpubImageReference] = []
+
+    def remember_descendant_images(element: ElementTree.Element) -> None:
+        for descendant in element.iter():
+            if descendant is element or _local_name(descendant.tag) != "img":
+                continue
+            href = descendant.get("src", "").strip()
+            if href:
+                images.append(
+                    EpubImageReference(
+                        href,
+                        _normalize_text(descendant.get("alt", "")),
+                        len(blocks),
+                    )
+                )
 
     def walk(element: ElementTree.Element, *, in_quote: bool = False) -> None:
         tag = _local_name(element.tag)
         if tag in _IGNORED_TAGS or element.get("aria-hidden") == "true":
             return
+        if tag == "img":
+            href = element.get("src", "").strip()
+            if href:
+                images.append(
+                    EpubImageReference(
+                        href,
+                        _normalize_text(element.get("alt", "")),
+                        len(blocks),
+                    )
+                )
+            return
         if tag in _HEADING_TAGS:
             _append_block(blocks, "chapter_heading", _element_text(element))
+            remember_descendant_images(element)
             return
         if tag in _TEXT_BLOCK_TAGS:
             kind = "epigraph" if in_quote else "prose"
-            _append_block(blocks, kind, _element_text(element))
+            class_tokens = set(element.get("class", "").lower().split())
+            is_caption = tag == "figcaption" or bool(
+                class_tokens & {"caption", "figcaption", "image-note"}
+            )
+            _append_block(
+                blocks,
+                kind,
+                _element_text(element),
+                is_caption=is_caption,
+            )
+            remember_descendant_images(element)
             return
         if tag in _CONTAINER_TAGS:
             has_nested_block = any(
@@ -366,8 +535,11 @@ def _xhtml_blocks(root: ElementTree.Element) -> list[EpubTextBlock]:
             )
             if not has_nested_block:
                 kind = "epigraph" if in_quote or tag == "blockquote" else "prose"
-                _append_block(blocks, kind, _element_text(element))
-                return
+                text = _element_text(element)
+                if text:
+                    _append_block(blocks, kind, text)
+                    remember_descendant_images(element)
+                    return
 
         quoted = in_quote or tag == "blockquote"
         for child in element:
@@ -376,7 +548,7 @@ def _xhtml_blocks(root: ElementTree.Element) -> list[EpubTextBlock]:
     walk(body)
     if not blocks:
         _append_block(blocks, "prose", _element_text(body))
-    return blocks
+    return blocks, images
 
 
 def _element_text(element: ElementTree.Element) -> str:
@@ -398,9 +570,15 @@ def _element_text(element: ElementTree.Element) -> str:
     return _normalize_text("".join(parts))
 
 
-def _append_block(blocks: list[EpubTextBlock], kind: str, text: str) -> None:
+def _append_block(
+    blocks: list[EpubTextBlock],
+    kind: str,
+    text: str,
+    *,
+    is_caption: bool = False,
+) -> None:
     if text:
-        blocks.append(EpubTextBlock(kind, text))
+        blocks.append(EpubTextBlock(kind, text, is_caption))
 
 
 def _normalize_text(text: str) -> str:

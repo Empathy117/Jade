@@ -205,6 +205,84 @@ def _validate_source(bundle_dir: Path, source: JsonObject) -> list[ValidationIss
             )
         paragraph_ids.add(paragraph_id)
 
+    illustration_ids: set[str] = set()
+    illustration_paths: set[str] = set()
+    for index, illustration in enumerate(source.get("illustrations", [])):
+        illustration_path = f"$.illustrations[{index}]"
+        illustration_id = illustration["id"]
+        if illustration_id in illustration_ids:
+            issues.append(
+                ValidationIssue(
+                    "source.json",
+                    f"{illustration_path}.id",
+                    "duplicate_illustration_id",
+                    f"illustration id is already used: {illustration_id}",
+                )
+            )
+        illustration_ids.add(illustration_id)
+
+        if illustration["at"] not in paragraph_ids:
+            issues.append(
+                ValidationIssue(
+                    "source.json",
+                    f"{illustration_path}.at",
+                    "paragraph_not_found",
+                    f"paragraph does not exist: {illustration['at']}",
+                )
+            )
+
+        relative_path = illustration["path"]
+        if relative_path in illustration_paths:
+            issues.append(
+                ValidationIssue(
+                    "source.json",
+                    f"{illustration_path}.path",
+                    "duplicate_illustration_path",
+                    f"illustration path is already used: {relative_path}",
+                )
+            )
+        illustration_paths.add(relative_path)
+        file_path = _resolve_relative_path(
+            bundle_dir,
+            relative_path,
+            "source.json",
+            f"{illustration_path}.path",
+            issues,
+        )
+        if file_path is None:
+            continue
+        if not file_path.is_file():
+            issues.append(
+                ValidationIssue(
+                    "source.json",
+                    f"{illustration_path}.path",
+                    "illustration_file_missing",
+                    f"illustration file does not exist: {file_path}",
+                )
+            )
+            continue
+        try:
+            actual_illustration_hash = _sha256_file(file_path)
+        except OSError as error:
+            issues.append(
+                ValidationIssue(
+                    "source.json",
+                    f"{illustration_path}.path",
+                    "illustration_file_unreadable",
+                    str(error),
+                )
+            )
+            continue
+        if actual_illustration_hash != illustration["sha256"]:
+            issues.append(
+                ValidationIssue(
+                    "source.json",
+                    f"{illustration_path}.sha256",
+                    "illustration_hash_mismatch",
+                    f"expected {illustration['sha256']}, got {actual_illustration_hash}",
+                )
+            )
+
     source_path = _resolve_relative_path(
         bundle_dir,
         source["source"]["path"],

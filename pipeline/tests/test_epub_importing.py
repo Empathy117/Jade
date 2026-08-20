@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import io
 import json
@@ -59,6 +60,7 @@ def package_document(
     spine: str = '<itemref idref="chapter-one"/><itemref idref="chapter-two"/>',
     chapter_one_href: str = "Text/chapter%20one.xhtml",
     metadata: str | None = None,
+    manifest_extra: str = "",
 ) -> str:
     metadata = metadata or """
     <dc:title>测试 EPUB</dc:title>
@@ -75,6 +77,7 @@ def package_document(
     <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
     <item id="chapter-one" href="{chapter_one_href}" media-type="application/xhtml+xml"/>
     <item id="chapter-two" href="Text/chapter-two.xhtml" media-type="application/xhtml+xml"/>
+    {manifest_extra}
   </manifest>
   <spine>{spine}</spine>
 </package>
@@ -86,6 +89,7 @@ def make_epub(
     opf: str | None = None,
     chapter_one: str = CHAPTER_ONE,
     chapter_two: str = CHAPTER_TWO,
+    extra_members: dict[str, bytes | str] | None = None,
 ) -> bytes:
     output = io.BytesIO()
     with zipfile.ZipFile(output, "w") as archive:
@@ -100,7 +104,27 @@ def make_epub(
         archive.writestr("EPUB/Text/chapter-two.xhtml", chapter_two)
         archive.writestr("EPUB/nav.xhtml", NAV_DOCUMENT)
         archive.writestr("EPUB/Text/chapter one.xhtml", chapter_one)
+        for path, content in (extra_members or {}).items():
+            archive.writestr(path, content)
     return output.getvalue()
+
+
+TINY_PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+)
+
+ILLUSTRATED_CHAPTER = """<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <body>
+    <h1>测试 EPUB</h1>
+    <div class="box-center">
+      <img src="../Images/map.png" alt=""/>
+      <p class="image-note">关键地图</p>
+    </div>
+    <p>地图之后的正文。</p>
+  </body>
+</html>
+"""
 
 
 def test_epub_uses_package_metadata_and_spine_order() -> None:
@@ -136,6 +160,60 @@ def test_epub_output_matches_source_schema() -> None:
     schema = json.loads(SOURCE_SCHEMA.read_text(encoding="utf-8"))
 
     Draft202012Validator(schema).validate(document)
+
+
+def test_epub_extracts_spine_illustrations_without_shifting_paragraph_ids(
+    tmp_path: Path,
+) -> None:
+    opf = package_document(
+        spine='<itemref idref="chapter-one"/>',
+        manifest_extra='<item id="map" href="Images/map.png" media-type="image/png"/>',
+    )
+    source_bytes = make_epub(
+        opf=opf,
+        chapter_one=ILLUSTRATED_CHAPTER,
+        extra_members={"EPUB/Images/map.png": TINY_PNG},
+    )
+    input_path = tmp_path / "illustrated.epub"
+    output_dir = tmp_path / "bundle"
+    input_path.write_bytes(source_bytes)
+
+    result = import_epub(input_path, output_dir, book_id="illustrated-epub")
+    document = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+
+    assert document["paragraphs"] == [
+        {"id": "p0001", "kind": "title", "text": "测试 EPUB"},
+        {"id": "p0002", "kind": "prose", "text": "关键地图"},
+        {"id": "p0003", "kind": "prose", "text": "地图之后的正文。"},
+    ]
+    assert document["illustrations"] == [
+        {
+            "id": "ill0001",
+            "at": "p0002",
+            "title": "关键地图",
+            "path": "source-assets/illustration-0001.png",
+            "media_type": "image/png",
+            "sha256": hashlib.sha256(TINY_PNG).hexdigest(),
+            "source_href": "EPUB/Images/map.png",
+        }
+    ]
+    assert (output_dir / "source-assets" / "illustration-0001.png").read_bytes() == TINY_PNG
+    schema = json.loads(SOURCE_SCHEMA.read_text(encoding="utf-8"))
+    Draft202012Validator(schema).validate(document)
+
+
+def test_spine_image_must_be_declared_in_manifest() -> None:
+    opf = package_document(spine='<itemref idref="chapter-one"/>')
+
+    with pytest.raises(EpubImportError, match="not declared in the OPF manifest"):
+        build_epub_source_document(
+            make_epub(
+                opf=opf,
+                chapter_one=ILLUSTRATED_CHAPTER,
+                extra_members={"EPUB/Images/map.png": TINY_PNG},
+            ),
+            book_id="undeclared-image",
+        )
 
 
 def test_epub_metadata_can_be_overridden() -> None:

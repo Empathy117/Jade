@@ -1,3 +1,4 @@
+import hashlib
 import json
 import shutil
 from pathlib import Path
@@ -135,6 +136,35 @@ def test_source_hash_mismatch_is_rejected(tmp_path: Path) -> None:
     issues = validate_bundle(bundle, contracts_dir=CONTRACTS)
 
     assert "source_hash_mismatch" in issue_codes(issues)
+
+
+def test_source_illustration_file_and_hash_are_validated(tmp_path: Path) -> None:
+    bundle = copy_bundle(tmp_path)
+    illustration_bytes = b"fixture illustration"
+    illustration_path = bundle / "source-assets" / "illustration-0001.png"
+    illustration_path.parent.mkdir()
+    illustration_path.write_bytes(illustration_bytes)
+    source_path = bundle / "source.json"
+    source = load_json(source_path)
+    source["illustrations"] = [
+        {
+            "id": "ill0001",
+            "at": "p0002",
+            "title": "测试地图",
+            "path": "source-assets/illustration-0001.png",
+            "media_type": "image/png",
+            "sha256": hashlib.sha256(illustration_bytes).hexdigest(),
+            "source_href": "images/map.png",
+        }
+    ]
+    write_json(source_path, source)
+
+    assert validate_bundle(bundle, contracts_dir=CONTRACTS) == []
+
+    illustration_path.write_bytes(b"changed")
+    issues = validate_bundle(bundle, contracts_dir=CONTRACTS)
+
+    assert "illustration_hash_mismatch" in issue_codes(issues)
 
 
 def test_missing_asset_file_is_rejected(tmp_path: Path) -> None:

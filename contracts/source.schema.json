@@ -92,6 +92,13 @@
       "items": {
         "$ref": "#/$defs/paragraph"
       }
+    },
+    "illustrations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/illustration"
+      }
     }
   },
   "$defs": {
@@ -126,6 +133,44 @@
         "text": {
           "type": "string",
           "minLength": 1
+        }
+      }
+    },
+    "illustration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "at",
+        "title",
+        "path",
+        "media_type",
+        "sha256",
+        "source_href"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^ill[0-9]{4,}$"
+        },
+        "at": {
+          "$ref": "#/$defs/paragraphId"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "media_type": {
+          "enum": ["image/jpeg", "image/png", "image/gif", "image/webp"]
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "source_href": {
+          "$ref": "#/$defs/relativePath"
         }
       }
     }
