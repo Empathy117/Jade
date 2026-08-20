@@ -1,10 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   assetUrl,
   bookBaseUrl,
   coverUrl,
   findLibraryBook,
+  loadBookBundle,
   sourceIllustrationUrl,
 } from "./data";
 import type { Asset, LibraryDocument, SourceIllustration } from "./types";
@@ -65,5 +66,37 @@ describe("multi-book data paths", () => {
     expect(findLibraryBook(library, "fixture-book")?.title).toBe("Fixture");
     expect(findLibraryBook(library, "missing")).toBeNull();
     expect(findLibraryBook(library, null)).toBeNull();
+  });
+
+  it("treats an SPA fallback page as a missing optional document", async () => {
+    const documents: Record<string, unknown> = {
+      "/demo/source.json": { schema_version: 1 },
+      "/demo/direction.json": { schema_version: 1 },
+      "/demo/assets.json": { schema_version: 1 },
+      "/demo/playback.json": { schema_version: 1 },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = input instanceof Request ? input.url : input.toString();
+        const document = documents[url];
+        // A book without guide.json: the host answers with its index page.
+        return Promise.resolve(
+          document === undefined
+            ? new Response("<!doctype html><html></html>", {
+                status: 200,
+                headers: { "content-type": "text/html" },
+              })
+            : new Response(JSON.stringify(document), {
+                status: 200,
+                headers: { "content-type": "application/json" },
+              }),
+        );
+      }),
+    );
+
+    const bundle = await loadBookBundle({ path: "demo" } as never);
+
+    expect(bundle.guide).toBeNull();
   });
 });

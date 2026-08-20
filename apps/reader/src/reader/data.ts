@@ -27,7 +27,15 @@ async function fetchOptionalJson<T>(url: string): Promise<T | null> {
   if (!response.ok) {
     throw new Error(`无法加载 ${url}（HTTP ${response.status}）`);
   }
+  // A dev server or static host with an SPA fallback answers a missing file
+  // with 200 and the index page, so absence is decided by content type too —
+  // otherwise a book that simply has no guide fails to open at all.
+  if (!isJsonResponse(response)) return null;
   return (await response.json()) as T;
+}
+
+function isJsonResponse(response: Response): boolean {
+  return (response.headers.get("content-type") ?? "").includes("json");
 }
 
 export async function loadLibrary(): Promise<LibraryDocument> {
