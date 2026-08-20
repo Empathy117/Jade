@@ -2,7 +2,7 @@
 
 > 状态：Active
 > 最后更新：2026-08-20
-> 当前阶段：Phase 5 — TXT Importer、Matcher 与 Compiler
+> 当前阶段：Phase 5 — 多书书库与 Agent 辅助制书
 > 上一阶段：Phase 4 — 个人自用范围验收通过
 
 ## 1. 项目摘要
@@ -798,9 +798,10 @@ pytest    8.4.2
 - 优先修改交互模型；
 - 暂停 AI Director 和素材生成工作。
 
-### Phase 5 — TXT Importer、Matcher 与 Compiler
+### Phase 5 — 多书书库与 Agent 辅助制书
 
-目标：把手工可用的 Demo 编译流程变成确定、可测试的本地工具链。
+目标：让项目维护者只需提供 TXT 和审美偏好，Agent 即可制作并注册一本完整
+可读的书，同时保持未来无人值守自动化所需的稳定组件接口。
 
 任务：
 
@@ -809,21 +810,23 @@ pytest    8.4.2
 - [x] 计算原始文件 SHA-256；
 - [x] 生成稳定、可读的 paragraph ID；
 - [x] 生成带 revision 的 `source.json`；
-- [ ] 实现标签标准化；
-- [ ] 实现背景、音乐、环境音独立评分；
-- [ ] 实现 recent-use 和 unnecessary-change penalty；
-- [ ] 实现演出预算和保持策略；
-- [ ] 产生确定的 `playback.json`；
-- [ ] 使用手工 Demo 建立 golden tests；
-- [ ] 输出匹配解释，便于调试每次选择。
+- [x] 记录 Agent 优先、自动化可替换的架构决策；
+- [x] 编写标准 Agent 制书协议；
+- [ ] 定义并校验 `books/library.json`；
+- [ ] Reader 支持选择和切换任意已注册书籍；
+- [ ] 移除 Runtime 中针对单本 Demo 的场景名、曲名和路径硬编码；
+- [ ] 用第二本真实 TXT 完成端到端制作；
+- [ ] 为第二本书记录 Agent 自动步骤和仍需人工判断的步骤；
+- [ ] 根据实际重复劳动决定自动化候选，不预先实现通用 Matcher。
 
 完成条件：
 
 - 相同输入和配置产生字节级稳定的结构化结果；
 - 导入结果可以追溯到原始文件 hash；
-- Matcher 不调用模型也可工作；
-- 输出能说明候选分数和最终选择原因；
-- golden tests 能发现非预期演出变化。
+- 用户可从书库进入至少两本完整书籍；
+- 一句“把这本 TXT 制作为沉浸阅读版本”足以触发标准流程；
+- 两本书均通过 bundle、library、Runtime 和实际播放检查；
+- 已得到第一份跨书制作的人工介入清单。
 
 首个实现切片（2026-08-20）：
 
@@ -835,9 +838,22 @@ pytest    8.4.2
 - 已存在的不同 source 或 source identity 会被拒绝覆盖；
 - 手工 Demo 已通过生产导入器重建，仍为 149 段，连续两次构建产物哈希一致。
 
-### Phase 6 — AI Scene Director
+架构调整（2026-08-20）：
 
-目标：用 AI 代替人工生成 `direction.json`，不改变后续组件。
+- 采用 [ADR-0001](adr/0001-agent-assisted-book-production.md)：当前由 Agent
+  执行 Director、素材生产与 Playback 编排；
+- Agent 必须通过稳定的 `direction.json`、`assets.json`、`playback.json`
+  与 Runtime 交互，未来自动化组件可直接替换 Agent；
+- 标准流程见 [Agent 沉浸阅读制书协议](agent-book-production-protocol.md)；
+- 通用 Matcher 暂不实现，但作为素材库成熟后的明确演进方向保留。
+
+### Phase 6 — 无人值守 Director、Matcher 与 Compiler
+
+进入条件：多本书的生产记录出现稳定重复规则，或共享素材库已经足够覆盖常见
+场景，Agent 制作时间开始成为主要瓶颈。
+
+目标：让用户上传 TXT 后无需 Agent 介入即可得到可播放书籍，同时不改变
+Phase 5 已使用的数据契约和 Reader Runtime。
 
 任务：
 
@@ -853,6 +869,11 @@ pytest    8.4.2
 - [ ] 建立人工版 direction 作为评估基准；
 - [ ] 输出 scene 边界差异、标签差异和预期 cue 数量；
 - [ ] 提供人工审阅和局部覆盖机制。
+- [ ] 实现背景、音乐、环境音的独立标签标准化和评分；
+- [ ] 实现 recent-use 与 unnecessary-change penalty；
+- [ ] 将已验证的演出预算和保持策略编译为 `playback.json`；
+- [ ] 输出匹配解释，便于调试每次自动选择；
+- [ ] 使用 Agent 制作的书籍建立 golden tests。
 
 完成条件：
 
@@ -1006,7 +1027,7 @@ MVP 不引入远程监控，但开发模式需要可解释：
 
 ## 18. 当前下一步
 
-Phase 5 已启动。首先实现确定、可测试的 TXT Importer：识别受支持的文本
-编码，冻结原始文件并记录 SHA-256，按明确规则生成稳定 paragraph ID 和带
-revision 的 `source.json`。随后实现 Asset Matcher 和 Playback Compiler，
-将 Phase 4 验证过的演出规则转化为可解释、可复现的编译结果。
+Phase 5 已启动。TXT Importer 已完成；当前依次实现 Agent 制书协议、多书书库
+清单及 Runtime 书籍选择。完成后使用第二本真实 TXT 走完制作流程并记录仍需
+人工介入的步骤。Matcher 和 Playback Compiler 保留在 Phase 6，等跨书证据和
+共享素材库成熟后再提取实现。
