@@ -1,0 +1,51 @@
+name: check
+
+# `just check` is the contract: lint both languages, typecheck and test the
+# Reader, build it, and validate every registered book bundle against the
+# contracts. Nothing here duplicates that list — CI runs the same command a
+# contributor runs locally.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Cache the pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
+      - name: Cache the uv store
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('pipeline/uv.lock') }}
+          restore-keys: uv-${{ runner.os }}-
+
+      - name: Report the toolchain
+        run: nix develop --command just versions
+
+      - name: Install Node dependencies
+        run: nix develop --command pnpm install --frozen-lockfile
+
+      - name: Run every check
+        run: nix develop --command just check

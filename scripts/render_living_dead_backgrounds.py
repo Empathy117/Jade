@@ -84,11 +84,11 @@ class Plate:
 
     def arch(self, x0, x1, y_top, y_base, color, alpha: float = 1.0, blur: float = 2.0) -> None:
         def draw(d: ImageDraw.ImageDraw) -> None:
-            l, r = x0 * self.w, x1 * self.w
+            left, right = x0 * self.w, x1 * self.w
             t, b = y_top * self.h, y_base * self.h
-            span = min((r - l) / 2, max(b - t, 1.0))
-            d.rectangle([l, min(t + span, b), r, b], fill=255)
-            d.pieslice([l, t, r, t + 2 * span], 180, 360, fill=255)
+            span = min((right - left) / 2, max(b - t, 1.0))
+            d.rectangle([left, min(t + span, b), right, b], fill=255)
+            d.pieslice([left, t, right, t + 2 * span], 180, 360, fill=255)
 
         self._blend(self._shape(draw, blur), color, alpha)
 
@@ -101,7 +101,7 @@ class Plate:
             math.pow(0.55, i) * np.sin(xs * math.tau * freq[i] + phase[i]) for i in range(4)
         )
         ridge = y - amp * ridge / 2.0
-        pts = list(zip(xs, ridge)) + [(1.0, 1.05), (0.0, 1.05)]
+        pts = [*zip(xs, ridge, strict=True), (1.0, 1.05), (0.0, 1.05)]
         self.poly(pts, color, alpha, blur=3.0)
 
     def trees(self, y: float, count: int, height: float, color: tuple, seed: int,
@@ -157,18 +157,18 @@ class Plate:
                 sh = 0.055 * scale * rng.uniform(0.6, 1.5)
                 sw = sh * rng.uniform(0.35, 0.6)
                 px, py = x * self.w, y * self.h + rng.uniform(-0.02, 0.02) * self.h
-                l, r = px - sw * self.h, px + sw * self.h
+                left, right = px - sw * self.h, px + sw * self.h
                 t = py - sh * self.h
                 kind = rng.integers(0, 3)
                 if kind == 0:
-                    d.rectangle([l, t, r, py], fill=255)
+                    d.rectangle([left, t, right, py], fill=255)
                 elif kind == 1:
-                    d.rectangle([l, t + (r - l) / 2, r, py], fill=255)
-                    d.pieslice([l, t, r, t + (r - l)], 180, 360, fill=255)
+                    d.rectangle([left, t + (right - left) / 2, right, py], fill=255)
+                    d.pieslice([left, t, right, t + (right - left)], 180, 360, fill=255)
                 else:
-                    bar = (r - l) * 0.3
+                    bar = (right - left) * 0.3
                     d.rectangle([px - bar / 2, t, px + bar / 2, py], fill=255)
-                    d.rectangle([l, t + (py - t) * 0.22, r, t + (py - t) * 0.38], fill=255)
+                    d.rectangle([left, t + (py - t) * 0.22, right, t + (py - t) * 0.38], fill=255)
 
         self._blend(self._shape(draw, blur=1.6), color, alpha)
 

@@ -7,7 +7,6 @@ from pathlib import Path
 
 from immersive_reader.importing import import_txt
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 BOOK_DIR = PROJECT_ROOT / "books" / "restaurant-demo"
 SOURCE_PATH = BOOK_DIR / "source.txt"

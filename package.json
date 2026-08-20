@@ -11,6 +11,7 @@
     "build": "pnpm --filter @immersive-reader/reader build",
     "check": "pnpm --filter @immersive-reader/reader check",
     "dev": "pnpm --filter @immersive-reader/reader dev",
+    "lint": "pnpm --filter @immersive-reader/reader lint",
     "test": "pnpm --filter @immersive-reader/reader test"
   }
 }

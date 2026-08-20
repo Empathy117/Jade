@@ -39,11 +39,24 @@ direnv allow
 just versions
 ```
 
-Run all current checks:
+Run all current checks — lint, typecheck, tests, build, and contract
+validation for every registered book:
 
 ```sh
 just check
 ```
+
+Lint alone, or apply every fix that is safe to apply automatically:
+
+```sh
+just lint
+```
+
+```sh
+just lint-fix
+```
+
+The same `just check` runs in CI on every push and pull request.
 
 Import a TXT or EPUB into an immutable source bundle:
 

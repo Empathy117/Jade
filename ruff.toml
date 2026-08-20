@@ -1,0 +1,25 @@
+line-length = 96
+target-version = "py313"
+
+[lint]
+select = [
+  "E",    # pycodestyle
+  "F",    # pyflakes
+  "I",    # import sorting
+  "B",    # bugbear
+  "UP",   # pyupgrade
+  "SIM",  # simplify
+  "RUF",
+]
+ignore = [
+  # This pipeline handles Chinese source text: fullwidth punctuation in string
+  # literals and regexes is the content, not a typo.
+  "RUF001",
+  "RUF002",
+  "RUF003",
+]
+
+[lint.per-file-ignores]
+"pipeline/tests/*" = ["E501"]
+# One-off asset generators: dense numeric drawing code reads better unwrapped.
+"scripts/render_living_dead_backgrounds.py" = ["E501"]

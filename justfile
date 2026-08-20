@@ -20,15 +20,30 @@ import-book input output book_id revision="1":
 
 # Run all current checks.
 check:
+    just lint
     pnpm check
     just validate
     just validate-library
     uv run --project pipeline --frozen pytest
 
+# Lint both languages.
+lint:
+    pnpm lint
+    uv run --project pipeline --frozen ruff check pipeline scripts
+
+# Apply every lint fix that is safe to apply automatically.
+lint-fix:
+    pnpm lint --fix
+    uv run --project pipeline --frozen ruff check --fix pipeline scripts
+
 # Run all current automated tests.
 test:
     pnpm test
     uv run --project pipeline --frozen pytest
+
+# Pin every catalogued asset's bytes by recording its sha256 in assets.json.
+hash-assets bundle:
+    uv run --project pipeline --frozen immersive-reader-hash-assets "{{bundle}}"
 
 # Validate a source/direction/assets/playback bundle.
 validate bundle="tests/fixtures/valid":
