@@ -45,6 +45,17 @@
         },
         "sha256": {
           "$ref": "#/$defs/sha256"
+        },
+        "encoding": {
+          "enum": [
+            "utf-8",
+            "utf-8-sig",
+            "utf-16-le",
+            "utf-16-be",
+            "utf-32-le",
+            "utf-32-be",
+            "gb18030"
+          ]
         }
       }
     },

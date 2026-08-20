@@ -29,6 +29,15 @@ Run all current checks:
 just check
 ```
 
+Import a TXT book into an immutable source bundle:
+
+```sh
+just import-txt path/to/novel.txt books/my-novel my-novel
+```
+
+The original TXT bytes are preserved and hashed; `source.json` contains only a
+decoded, paragraph-addressable representation for later directing.
+
 Validate the hand-directed demo bundle:
 
 ```sh

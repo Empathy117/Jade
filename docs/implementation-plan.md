@@ -804,11 +804,11 @@ pytest    8.4.2
 
 任务：
 
-- [ ] 实现 TXT 编码检测或明确编码要求；
-- [ ] 定义空行、标题和段落切分规则；
-- [ ] 计算原始文件 SHA-256；
-- [ ] 生成稳定、可读的 paragraph ID；
-- [ ] 生成带 revision 的 `source.json`；
+- [x] 实现 TXT 编码检测或明确编码要求；
+- [x] 定义空行、标题和段落切分规则；
+- [x] 计算原始文件 SHA-256；
+- [x] 生成稳定、可读的 paragraph ID；
+- [x] 生成带 revision 的 `source.json`；
 - [ ] 实现标签标准化；
 - [ ] 实现背景、音乐、环境音独立评分；
 - [ ] 实现 recent-use 和 unnecessary-change penalty；
@@ -824,6 +824,16 @@ pytest    8.4.2
 - Matcher 不调用模型也可工作；
 - 输出能说明候选分数和最终选择原因；
 - golden tests 能发现非预期演出变化。
+
+首个实现切片（2026-08-20）：
+
+- 新增 `immersive-reader-import`，自动识别 UTF BOM、UTF-8 与 GB18030，也可
+  显式指定受支持编码；
+- 原始 TXT 按字节保存为 `source.txt` 并记录 SHA-256，不通过重新编码改变原文；
+- 空白行分隔段落块，首块默认作为书名，并确定性识别章节标题与题记；
+- paragraph ID 使用至少四位的顺序编号，相同输入产生字节级一致的 JSON；
+- 已存在的不同 source 或 source identity 会被拒绝覆盖；
+- 手工 Demo 已通过生产导入器重建，仍为 149 段，连续两次构建产物哈希一致。
 
 ### Phase 6 — AI Scene Director
 

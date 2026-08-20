@@ -10,6 +10,10 @@ dev:
 demo-source:
     uv run --project pipeline --frozen python scripts/build_demo_source.py
 
+# Import a TXT file into an immutable source bundle.
+import-txt input output book_id revision="1":
+    uv run --project pipeline --frozen immersive-reader-import "{{input}}" --output "{{output}}" --book-id "{{book_id}}" --revision "{{revision}}"
+
 # Run all current checks.
 check:
     pnpm check
