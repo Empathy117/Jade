@@ -53,4 +53,5 @@ Current demo controls:
 - progress and settings are stored locally in the browser.
 
 See [the implementation plan](docs/implementation-plan.md) for architecture,
-phase boundaries, and acceptance criteria.
+phase boundaries, and acceptance criteria. Phase 4 observations use the
+[experience gate](docs/experience-gate.md) and its linked session template.
