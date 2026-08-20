@@ -10,6 +10,7 @@ import {
   sceneAt,
   visibleStartIndex,
 } from "./reader/readerState";
+import { keepParagraphAboveBottomFade } from "./reader/readingScroll";
 import type { DemoBundle } from "./reader/types";
 import {
   type AudioSettings,
@@ -48,6 +49,7 @@ export function App() {
   const [currentIndex, setCurrentIndex] = useState(1);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settings, setSettings] = useState<ReaderSettings>(loadSettings);
+  const readingViewportRef = useRef<HTMLElement | null>(null);
   const latestParagraphRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -129,10 +131,16 @@ export function App() {
   useEffect(() => {
     if (!started || !bundle) return;
     safeSet(progressStorageKey(bundle.source), bundle.source.paragraphs[currentIndex].id);
-    latestParagraphRef.current?.scrollIntoView({
-      behavior: settings.reducedMotion ? "auto" : "smooth",
-      block: "end",
+    const animationFrame = window.requestAnimationFrame(() => {
+      if (readingViewportRef.current && latestParagraphRef.current) {
+        keepParagraphAboveBottomFade(
+          readingViewportRef.current,
+          latestParagraphRef.current,
+          settings.reducedMotion,
+        );
+      }
     });
+    return () => window.cancelAnimationFrame(animationFrame);
   }, [bundle, currentIndex, settings.reducedMotion, started]);
 
   useEffect(() => {
@@ -229,7 +237,11 @@ export function App() {
             <div className="progress-rail__fill" style={{ width: `${progress}%` }} />
           </div>
 
-          <section className="reading-viewport" aria-label="小说正文">
+          <section
+            className="reading-viewport"
+            aria-label="小说正文"
+            ref={readingViewportRef}
+          >
             <div className="paragraph-stack" aria-live="polite">
               {visibleParagraphs.map((paragraph, index) => {
                 const lines = paragraph.text.split("\n");
