@@ -77,7 +77,7 @@ describe("HistoryPanel", () => {
         firstIndex={1}
         currentIndex={5}
         furthestReadIndex={5}
-          onClose={vi.fn()}
+        onClose={vi.fn()}
         onJump={vi.fn()}
         onReturnToLatest={vi.fn()}
       />,
