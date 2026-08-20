@@ -21,11 +21,14 @@ keeps older schemas while any stored book still depends on them.
 
 ## Documents
 
-- `source.schema.json`: immutable imported text and source identity.
+- `source.schema.json`: immutable imported text, source identity, and optional
+  anchored source illustrations.
 - `direction.schema.json`: semantic scene analysis with no copied prose and no
   concrete asset selection.
 - `assets.schema.json`: available assets, technical metadata, and provenance.
 - `playback.schema.json`: resolved paragraph cues consumed by the Runtime.
+- `guide.schema.json`: optional preferred narrative start and curated recurring
+  references to source illustrations.
 
 JSON Schema validates document shape. Cross-document ordering, references,
 hashes, scene coverage, and asset file existence are enforced by the pipeline
