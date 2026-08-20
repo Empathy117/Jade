@@ -216,8 +216,17 @@ just check
 
 ### Step 8 — 注册书库
 
-把书籍加入 `books/library.json`，填写标题、作者、摘要、封面、revision、段落数
-和 production mode。书库数据必须与 `source.json` 及实际封面文件一致。
+先判断版权状态，再决定书籍归属：
+
+- **公有领域**的书可以加入受 git 跟踪的 `books/library.json`，捆绑目录放在
+  `books/<book-id>/`；
+- **其余一切书籍**（在版权期内、授权不明、或纯私人内容）必须制作在
+  `books/local/<book-id>/`，注册进 `books/library.local.json`。这两个路径已被
+  `.gitignore` 排除，任何情况下都不得提交或推送。
+
+两个书库使用同一 schema；Reader 启动时自动合并。无论哪个书库，条目的标题、
+作者、摘要、封面、revision、段落数和 production mode 都必须与 `source.json`
+及实际封面文件一致。校验私有书架用 `just validate-local`。
 
 ### Step 9 — 记录人工介入
 

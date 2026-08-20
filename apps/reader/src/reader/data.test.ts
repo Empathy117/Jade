@@ -6,6 +6,7 @@ import {
   coverUrl,
   findLibraryBook,
   loadBookBundle,
+  mergeLibraries,
   sourceIllustrationUrl,
 } from "./data";
 import type { Asset, LibraryDocument, SourceIllustration } from "./types";
@@ -98,5 +99,18 @@ describe("multi-book data paths", () => {
     const bundle = await loadBookBundle({ path: "demo" } as never);
 
     expect(bundle.guide).toBeNull();
+  });
+
+  it("appends the private shelf and lets it override a duplicated id", () => {
+    const localOnly = { ...library.books[0], book_id: "local-book", path: "local/book" };
+    const override = { ...library.books[0], path: "local/fixture-book" };
+
+    expect(mergeLibraries(library, null)).toBe(library);
+    expect(
+      mergeLibraries(library, { schema_version: 1, books: [localOnly] }).books,
+    ).toEqual([library.books[0], localOnly]);
+    expect(
+      mergeLibraries(library, { schema_version: 1, books: [override] }).books,
+    ).toEqual([override]);
   });
 });

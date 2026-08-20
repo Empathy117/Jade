@@ -75,6 +75,21 @@ Validate the complete library and every registered bundle:
 just validate-library
 ```
 
+## Private shelf
+
+The repository tracks only public-domain demo content. Everything else lives on
+the private shelf, which git never sees:
+
+- book bundles go under `books/local/<book-id>/`;
+- they are registered in `books/library.local.json` (same schema as
+  `books/library.json`);
+- the Reader merges both libraries at startup, and `just check` validates the
+  local shelf only when it exists, so CI is unaffected.
+
+Both paths are ignored via `.gitignore`. Do not commit copyrighted books,
+their extracted text, or their audio anywhere in the repository — including
+new branches.
+
 Validate one book bundle:
 
 ```sh

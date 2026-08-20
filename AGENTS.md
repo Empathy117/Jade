@@ -9,6 +9,11 @@ from preflight through library registration and validation.
 
 Non-negotiable rules:
 
+- Only public-domain source material may be tracked by git. Any other book —
+  its source bytes, extracted text, and generated or acquired assets — is
+  produced under `books/local/<book-id>/` and registered in
+  `books/library.local.json`; both are gitignored and must never be committed
+  or pushed, on any branch.
 - Preserve the input TXT or EPUB bytes and let the importer create paragraph IDs.
 - Treat extracted EPUB illustrations as immutable source content: inspect every
   extracted image, keep it anchored inline, and never repurpose it as a

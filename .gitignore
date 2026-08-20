@@ -22,3 +22,7 @@ __pycache__/
 .idea/
 .vscode/
 *.swp
+
+# Private bookshelf: copyrighted or personal books never enter the repository.
+books/local/
+books/library.local.json

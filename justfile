@@ -25,6 +25,7 @@ check:
     pnpm check
     just validate
     just validate-library
+    just validate-local
     uv run --project pipeline --frozen pytest
 
 # Lint both languages.
@@ -45,14 +46,6 @@ test:
 # Pin every catalogued asset's bytes by recording its sha256 in assets.json.
 hash-assets bundle:
     uv run --project pipeline --frozen immersive-reader-hash-assets "{{bundle}}"
-
-# Validate a source/direction/assets/playback bundle.
-validate bundle="tests/fixtures/valid":
-    uv run --project pipeline --frozen immersive-reader-validate "{{bundle}}"
-
-# Validate the book library and every registered bundle.
-validate-library library="books/library.json":
-    uv run --project pipeline --frozen immersive-reader-validate-library "{{library}}"
 
 # Validate a source/direction/assets/playback bundle.
 validate bundle="tests/fixtures/valid":

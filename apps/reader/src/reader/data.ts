@@ -12,6 +12,11 @@ import type {
 } from "./types";
 
 export const LIBRARY_URL = "/library.json";
+/**
+ * The private shelf: same schema, never committed to the repository, so books
+ * that must not be redistributed can still sit beside the tracked demo.
+ */
+export const LOCAL_LIBRARY_URL = "/library.local.json";
 
 async function fetchJson<T>(url: string): Promise<T> {
   const response = await fetch(url);
@@ -39,7 +44,27 @@ function isJsonResponse(response: Response): boolean {
 }
 
 export async function loadLibrary(): Promise<LibraryDocument> {
-  return fetchJson<LibraryDocument>(LIBRARY_URL);
+  const [tracked, local] = await Promise.all([
+    fetchJson<LibraryDocument>(LIBRARY_URL),
+    fetchOptionalJson<LibraryDocument>(LOCAL_LIBRARY_URL),
+  ]);
+  return mergeLibraries(tracked, local);
+}
+
+/** Tracked books first; a local entry with the same id overrides its double. */
+export function mergeLibraries(
+  tracked: LibraryDocument,
+  local: LibraryDocument | null,
+): LibraryDocument {
+  if (!local?.books.length) return tracked;
+  const localIds = new Set(local.books.map((book) => book.book_id));
+  return {
+    ...tracked,
+    books: [
+      ...tracked.books.filter((book) => !localIds.has(book.book_id)),
+      ...local.books,
+    ],
+  };
 }
 
 export async function loadBookBundle(book: LibraryBook): Promise<BookBundle> {
