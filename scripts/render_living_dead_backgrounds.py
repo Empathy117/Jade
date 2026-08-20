@@ -532,7 +532,7 @@ PAINTINGS = {
     "chapel-nave": ("bg_chapel_nave", 0.48, 1.05),
     "marble-hall": ("bg_marble_hall", 0.50, 1.0),
     "kitchen": ("bg_kitchen", 0.50, 1.0),
-    "garden-cemetery": ("bg_garden_pool", 0.52, 1.0),
+    "garden-cemetery": ("bg_garden_pool", 0.52, 1.14),
     "night-street": ("bg_harbor_moonlight", 0.52, 1.0),
     "widows-walk": ("bg_house_moonlight", 0.52, 1.0),
 }
