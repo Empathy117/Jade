@@ -406,6 +406,21 @@ button { color: inherit; }
   cursor: pointer;
   transition: color 160ms ease, background 160ms ease;
 }
+.history-more {
+  width: 100%;
+  margin: 6px 0;
+  padding: 11px 12px;
+  border: 1px dashed rgba(214,194,143,.28);
+  border-radius: 9px;
+  background: transparent;
+  color: rgba(214,194,143,.72);
+  font: 500 11px/1.5 "Source Sans 3", sans-serif;
+  letter-spacing: .06em;
+  cursor: pointer;
+  transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+.history-more:hover { color: #e8dcc0; border-color: rgba(214,194,143,.5); background: rgba(214,194,143,.06); }
+.history-more:focus-visible { outline: 1px solid rgba(214,194,143,.8); outline-offset: -2px; }
 .history-entry:hover { color: rgba(255,250,240,.88); background: rgba(242,237,228,.055); }
 .history-entry:focus-visible { outline: 1px solid rgba(214,194,143,.8); outline-offset: -2px; }
 .history-entry.is-current { color: #fffaf0; background: rgba(214,194,143,.11); }

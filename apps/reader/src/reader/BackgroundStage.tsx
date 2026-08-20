@@ -18,13 +18,11 @@ export function BackgroundStage({
     previous: string | null;
   }>({ current: src, previous: null });
 
-  useEffect(() => {
-    setLayers((state) =>
-      src === state.current
-        ? state
-        : { current: src, previous: state.current },
-    );
-  }, [src]);
+  // Adjusting during render (rather than in an effect) means the outgoing layer
+  // is already mounted on the first frame of the crossfade.
+  if (src !== layers.current) {
+    setLayers({ current: src, previous: layers.current });
+  }
 
   useEffect(() => {
     if (!layers.previous) return;

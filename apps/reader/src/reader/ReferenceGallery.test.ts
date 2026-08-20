@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveGuideReferences } from "./ReferenceGallery";
+import { resolveGuideReferences } from "./guideReferences";
 import type { GuideDocument, SourceDocument } from "./types";
 
 const source: SourceDocument = {

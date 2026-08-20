@@ -1,0 +1,148 @@
+import type {
+  AssetsDocument,
+  DirectionDocument,
+  LibraryDocument,
+  Paragraph,
+  PlaybackDocument,
+  SourceDocument,
+} from "../reader/types";
+
+const SHA = "0".repeat(64);
+
+export function makeParagraphs(count: number): Paragraph[] {
+  return [
+    { id: "p0001", kind: "title", text: "测试之书" },
+    ...Array.from({ length: count }, (_, offset) => ({
+      id: `p${String(offset + 2).padStart(4, "0")}`,
+      kind: "prose" as const,
+      text: `第 ${offset + 1} 段正文。`,
+    })),
+  ];
+}
+
+export function makeSource(paragraphCount = 6): SourceDocument {
+  return {
+    schema_version: 1,
+    book_id: "test-book",
+    revision: 1,
+    title: "测试之书",
+    language: "zh-CN",
+    source: { format: "txt", path: "source.txt", sha256: SHA },
+    paragraphs: makeParagraphs(paragraphCount),
+  };
+}
+
+export function makeLibrary(paragraphCount = 6): LibraryDocument {
+  return {
+    schema_version: 1,
+    books: [
+      {
+        book_id: "test-book",
+        path: "test-book",
+        title: "测试之书",
+        author: "无名",
+        summary: "一本用于测试的书。",
+        cover: "assets/backgrounds/cover.jpg",
+        source_revision: 1,
+        paragraph_count: paragraphCount + 1,
+        production: "agent-assisted",
+      },
+    ],
+  };
+}
+
+export function makeBundleDocuments(paragraphCount = 6): {
+  source: SourceDocument;
+  direction: DirectionDocument;
+  assets: AssetsDocument;
+  playback: PlaybackDocument;
+} {
+  const source = makeSource(paragraphCount);
+  const last = source.paragraphs[source.paragraphs.length - 1].id;
+
+  return {
+    source,
+    direction: {
+      schema_version: 1,
+      book_id: "test-book",
+      source_revision: 1,
+      source_sha256: SHA,
+      scenes: [
+        {
+          id: "scene_001",
+          label: "第一幕",
+          start: "p0002",
+          end: last,
+          location: "书房",
+          time: "夜",
+          weather: null,
+          mood: ["quiet"],
+          tension: 0.2,
+        },
+      ],
+    },
+    assets: {
+      schema_version: 1,
+      catalog_id: "test-assets",
+      assets: [
+        {
+          id: "bg_study",
+          type: "background",
+          path: "assets/backgrounds/study.jpg",
+          tags: ["study"],
+          license: "Project asset",
+          source: "fixture",
+          attribution: null,
+        },
+      ],
+    },
+    playback: {
+      schema_version: 1,
+      book_id: "test-book",
+      source_revision: 1,
+      source_sha256: SHA,
+      asset_catalog_id: "test-assets",
+      cues: [
+        {
+          at: "p0002",
+          scene_id: "scene_001",
+          background: { asset_id: "bg_study", transition: "crossfade", duration_ms: 800 },
+        },
+      ],
+    },
+  };
+}
+
+/**
+ * A `fetch` that answers the Reader's bundle requests from memory.
+ *
+ * `guide.json` is absent, which is the common case and exercises the optional
+ * document path.
+ */
+export function stubBookFetch(paragraphCount = 6): typeof fetch {
+  const library = makeLibrary(paragraphCount);
+  const documents = makeBundleDocuments(paragraphCount);
+  const byUrl = new Map<string, unknown>([
+    ["/library.json", library],
+    ["/test-book/source.json", documents.source],
+    ["/test-book/direction.json", documents.direction],
+    ["/test-book/assets.json", documents.assets],
+    ["/test-book/playback.json", documents.playback],
+  ]);
+
+  return ((input: RequestInfo | URL) => {
+    const url = input instanceof Request ? input.url : input.toString();
+    const document = byUrl.get(url);
+    if (document === undefined) {
+      return Promise.resolve(
+        new Response(null, { status: 404, statusText: "Not Found" }),
+      );
+    }
+    return Promise.resolve(
+      new Response(JSON.stringify(document), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+  }) as typeof fetch;
+}

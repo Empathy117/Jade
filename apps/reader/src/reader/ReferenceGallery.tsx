@@ -1,38 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
-import { sourceIllustrationUrl } from "./data";
-import type {
-  GuideDocument,
-  GuideReference,
-  SourceDocument,
-  SourceIllustration,
-} from "./types";
-
-export interface ResolvedReference {
-  reference: GuideReference;
-  illustration: SourceIllustration;
-  src: string;
-}
-
-export function resolveGuideReferences(
-  source: SourceDocument,
-  guide: GuideDocument | null,
-  bookPath: string,
-): ResolvedReference[] {
-  const illustrations = new Map(
-    (source.illustrations ?? []).map((illustration) => [illustration.id, illustration]),
-  );
-  return (guide?.references ?? []).flatMap((reference) => {
-    const illustration = illustrations.get(reference.illustration_id);
-    return illustration
-      ? [{
-          reference,
-          illustration,
-          src: sourceIllustrationUrl(bookPath, illustration),
-        }]
-      : [];
-  });
-}
+import type { ResolvedReference } from "./guideReferences";
 
 interface ReferenceGalleryProps {
   items: ResolvedReference[];
@@ -50,9 +18,14 @@ export function ReferenceGallery({
   onJump,
 }: ReferenceGalleryProps) {
   const selected = items.find((item) => item.reference.id === selectedId) ?? items[0];
-  const [zoomed, setZoomed] = useState(false);
-
-  useEffect(() => setZoomed(false), [selected?.reference.id]);
+  // Zoom belongs to one diagram: switching diagrams starts unzoomed again.
+  const [zoom, setZoom] = useState<{ referenceId?: string; zoomed: boolean }>({
+    referenceId: selected?.reference.id,
+    zoomed: false,
+  });
+  const zoomed = zoom.referenceId === selected?.reference.id && zoom.zoomed;
+  const toggleZoom = () =>
+    setZoom({ referenceId: selected?.reference.id, zoomed: !zoomed });
 
   if (!selected) return null;
 
@@ -102,7 +75,7 @@ export function ReferenceGallery({
                 <h2>{selected.reference.title}</h2>
                 {selected.reference.note ? <p>{selected.reference.note}</p> : null}
               </div>
-              <button type="button" onClick={() => setZoomed((value) => !value)}>
+              <button type="button" onClick={toggleZoom}>
                 {zoomed ? "适应窗口" : "放大查看"}
               </button>
             </div>
@@ -110,7 +83,7 @@ export function ReferenceGallery({
               className={`reference-canvas${zoomed ? " is-zoomed" : ""}`}
               type="button"
               aria-label={zoomed ? "缩小图片" : "放大图片"}
-              onClick={() => setZoomed((value) => !value)}
+              onClick={toggleZoom}
             >
               <img src={selected.src} alt={selected.reference.title} />
             </button>

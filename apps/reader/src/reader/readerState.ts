@@ -12,6 +12,14 @@ export interface ReadingCursor {
   furthestReadIndex: number;
 }
 
+/**
+ * Paragraph id to position in the source document.
+ *
+ * Building this walks the whole book, so callers hoist it once per bundle and
+ * pass it into the per-paragraph lookups below.
+ */
+export type ParagraphPositions = ReadonlyMap<string, number>;
+
 export function paragraphIndex(source: SourceDocument): Map<string, number> {
   return new Map(source.paragraphs.map((paragraph, index) => [paragraph.id, index]));
 }
@@ -24,9 +32,10 @@ export function firstReadableIndex(source: SourceDocument): number {
 export function preferredStartIndex(
   source: SourceDocument,
   guide: GuideDocument | null,
+  positions: ParagraphPositions = paragraphIndex(source),
 ): number {
   if (!guide?.start_at) return firstReadableIndex(source);
-  const index = paragraphIndex(source).get(guide.start_at);
+  const index = positions.get(guide.start_at);
   if (index === undefined || source.paragraphs[index].kind === "title") {
     return firstReadableIndex(source);
   }
@@ -53,11 +62,10 @@ export function moveReadingCursor(
 }
 
 export function resolvePlaybackAt(
-  source: SourceDocument,
+  positions: ParagraphPositions,
   playback: PlaybackDocument,
   currentIndex: number,
 ): ResolvedPlaybackState {
-  const positions = paragraphIndex(source);
   const resolved: ResolvedPlaybackState = {
     background: null,
     music: null,
@@ -68,9 +76,10 @@ export function resolvePlaybackAt(
 
   for (const cue of playback.cues) {
     const cueIndex = positions.get(cue.at);
-    if (cueIndex === undefined || cueIndex > currentIndex) {
-      break;
-    }
+    // A cue anchored to an unknown paragraph is skipped rather than treated as
+    // the end of the timeline, so one stale anchor cannot mute the whole book.
+    if (cueIndex === undefined) continue;
+    if (cueIndex > currentIndex) break;
     if (Object.hasOwn(cue, "background")) {
       resolved.background = cue.background ?? null;
     }
@@ -87,31 +96,47 @@ export function resolvePlaybackAt(
 }
 
 export function visibleStartIndex(
-  source: SourceDocument,
+  positions: ParagraphPositions,
   playback: PlaybackDocument,
   currentIndex: number,
-  floorIndex = firstReadableIndex(source),
+  floorIndex: number,
 ): number {
-  const positions = paragraphIndex(source);
   let start = floorIndex;
   for (const cue of playback.cues) {
     const cueIndex = positions.get(cue.at);
-    if (cueIndex === undefined || cueIndex > currentIndex) {
-      break;
-    }
+    if (cueIndex === undefined) continue;
+    if (cueIndex > currentIndex) break;
     if (cue.clear_text) {
       start = cueIndex;
     }
   }
-  return Math.min(start, currentIndex);
+  return Math.min(Math.max(start, floorIndex), currentIndex);
+}
+
+/**
+ * The background the next cue will switch to, if any.
+ *
+ * The Reader fetches this before the cue fires so a crossfade never starts
+ * against a still-loading image.
+ */
+export function nextBackgroundAssetId(
+  positions: ParagraphPositions,
+  playback: PlaybackDocument,
+  currentIndex: number,
+): string | null {
+  for (const cue of playback.cues) {
+    const cueIndex = positions.get(cue.at);
+    if (cueIndex === undefined || cueIndex <= currentIndex) continue;
+    if (cue.background) return cue.background.asset_id;
+  }
+  return null;
 }
 
 export function sceneAt(
-  source: SourceDocument,
+  positions: ParagraphPositions,
   direction: DirectionDocument,
   currentIndex: number,
 ): Scene | null {
-  const positions = paragraphIndex(source);
   return (
     direction.scenes.find((scene) => {
       const start = positions.get(scene.start);
@@ -121,13 +146,27 @@ export function sceneAt(
   );
 }
 
-export function progressStorageKey(source: SourceDocument): string {
-  return `immersive-reader:${source.book_id}:revision-${source.revision}`;
+/**
+ * Where a book's furthest-read paragraph is stored.
+ *
+ * Keyed by revision so a re-imported source starts its own progress rather than
+ * resuming at a paragraph id that may no longer mean the same thing.
+ */
+export function progressStorageKey(bookId: string, sourceRevision: number): string {
+  return `immersive-reader:${bookId}:revision-${sourceRevision}`;
 }
 
-export function progressIndex(source: SourceDocument, paragraphId: string | null): number {
+export function sourceProgressStorageKey(source: SourceDocument): string {
+  return progressStorageKey(source.book_id, source.revision);
+}
+
+export function progressIndex(
+  source: SourceDocument,
+  paragraphId: string | null,
+  positions: ParagraphPositions = paragraphIndex(source),
+): number {
   if (!paragraphId) {
     return firstReadableIndex(source);
   }
-  return paragraphIndex(source).get(paragraphId) ?? firstReadableIndex(source);
+  return positions.get(paragraphId) ?? firstReadableIndex(source);
 }
