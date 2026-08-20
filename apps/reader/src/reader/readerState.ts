@@ -6,6 +6,11 @@ import type {
   SourceDocument,
 } from "./types";
 
+export interface ReadingCursor {
+  currentIndex: number;
+  furthestReadIndex: number;
+}
+
 export function paragraphIndex(source: SourceDocument): Map<string, number> {
   return new Map(source.paragraphs.map((paragraph, index) => [paragraph.id, index]));
 }
@@ -17,6 +22,21 @@ export function firstReadableIndex(source: SourceDocument): number {
 
 export function clampParagraphIndex(source: SourceDocument, index: number): number {
   return Math.max(0, Math.min(index, source.paragraphs.length - 1));
+}
+
+export function moveReadingCursor(
+  source: SourceDocument,
+  cursor: ReadingCursor,
+  targetIndex: number,
+): ReadingCursor {
+  const currentIndex = clampParagraphIndex(source, targetIndex);
+  return {
+    currentIndex,
+    furthestReadIndex: Math.max(
+      clampParagraphIndex(source, cursor.furthestReadIndex),
+      currentIndex,
+    ),
+  };
 }
 
 export function resolvePlaybackAt(

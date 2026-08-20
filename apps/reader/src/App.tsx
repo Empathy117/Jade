@@ -4,14 +4,16 @@ import { BackgroundStage } from "./reader/BackgroundStage";
 import { assetUrl, indexAssets, loadDemoBundle } from "./reader/data";
 import {
   firstReadableIndex,
+  moveReadingCursor,
   progressIndex,
   progressStorageKey,
   resolvePlaybackAt,
   sceneAt,
   visibleStartIndex,
 } from "./reader/readerState";
+import type { ReadingCursor } from "./reader/readerState";
 import { keepParagraphAboveBottomFade } from "./reader/readingScroll";
-import type { DemoBundle } from "./reader/types";
+import type { DemoBundle, Paragraph } from "./reader/types";
 import {
   type AudioSettings,
   unlockAudio,
@@ -46,11 +48,17 @@ export function App() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [started, setStarted] = useState(false);
   const [hasSavedProgress, setHasSavedProgress] = useState(false);
-  const [currentIndex, setCurrentIndex] = useState(1);
+  const [cursor, setCursor] = useState<ReadingCursor>({
+    currentIndex: 1,
+    furthestReadIndex: 1,
+  });
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [settings, setSettings] = useState<ReaderSettings>(loadSettings);
   const readingViewportRef = useRef<HTMLElement | null>(null);
   const latestParagraphRef = useRef<HTMLDivElement | null>(null);
+  const currentHistoryItemRef = useRef<HTMLButtonElement | null>(null);
+  const { currentIndex, furthestReadIndex } = cursor;
 
   useEffect(() => {
     let cancelled = false;
@@ -58,9 +66,13 @@ export function App() {
       .then((loaded) => {
         if (cancelled) return;
         const savedId = safeGet(progressStorageKey(loaded.source));
+        const savedIndex = progressIndex(loaded.source, savedId);
         setBundle(loaded);
         setHasSavedProgress(Boolean(savedId));
-        setCurrentIndex(progressIndex(loaded.source, savedId));
+        setCursor({
+          currentIndex: savedIndex,
+          furthestReadIndex: savedIndex,
+        });
       })
       .catch((error: unknown) => {
         if (!cancelled) {
@@ -104,8 +116,11 @@ export function App() {
   const visibleParagraphs = bundle
     ? bundle.source.paragraphs.slice(visibleStart, currentIndex + 1)
     : [];
+  const historyParagraphs = bundle
+    ? bundle.source.paragraphs.slice(firstIndex, furthestReadIndex + 1)
+    : [];
   const bodyLength = bundle ? bundle.source.paragraphs.length - firstIndex : 1;
-  const bodyPosition = Math.max(1, currentIndex - firstIndex + 1);
+  const bodyPosition = Math.max(1, furthestReadIndex - firstIndex + 1);
   const progress = Math.min(100, (bodyPosition / bodyLength) * 100);
   const sceneNumber = bundle && activeScene
     ? bundle.direction.scenes.findIndex((scene) => scene.id === activeScene.id) + 1
@@ -120,17 +135,32 @@ export function App() {
 
   const next = useCallback(() => {
     if (!bundle || currentIndex >= bundle.source.paragraphs.length - 1) return;
-    setCurrentIndex((index) => index + 1);
+    setCursor((current) =>
+      moveReadingCursor(bundle.source, current, current.currentIndex + 1),
+    );
   }, [bundle, currentIndex]);
 
   const previous = useCallback(() => {
     if (!bundle) return;
-    setCurrentIndex((index) => Math.max(firstReadableIndex(bundle.source), index - 1));
+    setCursor((current) =>
+      moveReadingCursor(
+        bundle.source,
+        current,
+        Math.max(firstReadableIndex(bundle.source), current.currentIndex - 1),
+      ),
+    );
   }, [bundle]);
 
   useEffect(() => {
     if (!started || !bundle) return;
-    safeSet(progressStorageKey(bundle.source), bundle.source.paragraphs[currentIndex].id);
+    safeSet(
+      progressStorageKey(bundle.source),
+      bundle.source.paragraphs[furthestReadIndex].id,
+    );
+  }, [bundle, furthestReadIndex, started]);
+
+  useEffect(() => {
+    if (!started || !bundle || historyOpen) return;
     const animationFrame = window.requestAnimationFrame(() => {
       if (readingViewportRef.current && latestParagraphRef.current) {
         keepParagraphAboveBottomFade(
@@ -141,36 +171,82 @@ export function App() {
       }
     });
     return () => window.cancelAnimationFrame(animationFrame);
-  }, [bundle, currentIndex, settings.reducedMotion, started]);
+  }, [bundle, currentIndex, historyOpen, settings.reducedMotion, started]);
+
+  useEffect(() => {
+    if (!historyOpen) return;
+    const animationFrame = window.requestAnimationFrame(() => {
+      currentHistoryItemRef.current?.focus({ preventScroll: true });
+      currentHistoryItemRef.current?.scrollIntoView({
+        behavior: settings.reducedMotion ? "auto" : "smooth",
+        block: "center",
+      });
+    });
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [currentIndex, historyOpen, settings.reducedMotion]);
 
   useEffect(() => {
     if (!started) return;
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
+      const isFormControl = target?.matches("input, select, textarea");
+      if (event.key === "ArrowUp" && !isFormControl) {
+        event.preventDefault();
+        setSettingsOpen(false);
+        setHistoryOpen((open) => !open);
+        return;
+      }
+      if (event.key === "Escape") {
+        setSettingsOpen(false);
+        setHistoryOpen(false);
+        return;
+      }
       if (target?.matches("input, button, select, textarea")) return;
+      if (historyOpen) return;
       if (event.key === " " || event.key === "ArrowRight") {
         event.preventDefault();
         next();
       } else if (event.key === "ArrowLeft") {
         event.preventDefault();
         previous();
-      } else if (event.key === "Escape") {
-        setSettingsOpen(false);
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [next, previous, started]);
+  }, [historyOpen, next, previous, started]);
 
   function beginReading(fromBeginning: boolean) {
     if (!bundle) return;
     if (fromBeginning) {
-      setCurrentIndex(firstReadableIndex(bundle.source));
+      const startIndex = firstReadableIndex(bundle.source);
+      setCursor({
+        currentIndex: startIndex,
+        furthestReadIndex: startIndex,
+      });
       safeRemove(progressStorageKey(bundle.source));
       setHasSavedProgress(false);
     }
     unlockAudio();
     setStarted(true);
+  }
+
+  function toggleHistory() {
+    setSettingsOpen(false);
+    setHistoryOpen((open) => !open);
+  }
+
+  function jumpToHistory(targetIndex: number) {
+    if (!bundle) return;
+    setCursor((current) => moveReadingCursor(bundle.source, current, targetIndex));
+    setHistoryOpen(false);
+  }
+
+  function returnToLatest() {
+    setCursor((current) => ({
+      ...current,
+      currentIndex: current.furthestReadIndex,
+    }));
+    setHistoryOpen(false);
   }
 
   function handleReaderClick(event: React.MouseEvent<HTMLElement>) {
@@ -221,16 +297,32 @@ export function App() {
               <span>第 {sceneNumber} 幕</span>
               <strong>{activeScene ? sceneNames[activeScene.id] ?? activeScene.location : ""}</strong>
             </div>
-            <button
-              className="icon-button"
-              type="button"
-              data-interactive="true"
-              aria-label="阅读设置"
-              aria-expanded={settingsOpen}
-              onClick={() => setSettingsOpen((open) => !open)}
-            >
-              <span aria-hidden="true">Aa</span>
-            </button>
+            <div className="header-actions">
+              <button
+                className="icon-button icon-button--history"
+                type="button"
+                data-interactive="true"
+                aria-label="阅读历史"
+                aria-expanded={historyOpen}
+                title="阅读历史（↑）"
+                onClick={toggleHistory}
+              >
+                <span aria-hidden="true">↑</span>
+              </button>
+              <button
+                className="icon-button"
+                type="button"
+                data-interactive="true"
+                aria-label="阅读设置"
+                aria-expanded={settingsOpen}
+                onClick={() => {
+                  setHistoryOpen(false);
+                  setSettingsOpen((open) => !open);
+                }}
+              >
+                <span aria-hidden="true">Aa</span>
+              </button>
+            </div>
           </header>
 
           <div className="progress-rail" aria-hidden="true">
@@ -295,8 +387,20 @@ export function App() {
           {settingsOpen ? (
             <SettingsPanel settings={settings} onChange={setSettings} onClose={() => setSettingsOpen(false)} />
           ) : null}
+          {historyOpen ? (
+            <HistoryPanel
+              paragraphs={historyParagraphs}
+              firstIndex={firstIndex}
+              currentIndex={currentIndex}
+              furthestReadIndex={furthestReadIndex}
+              currentItemRef={currentHistoryItemRef}
+              onClose={() => setHistoryOpen(false)}
+              onJump={jumpToHistory}
+              onReturnToLatest={returnToLatest}
+            />
+          ) : null}
           {audioError ? <div className="audio-notice">{audioError}，已继续纯文本阅读。</div> : null}
-          <div className="advance-hint" aria-hidden="true">点击空白处或按空格继续</div>
+          <div className="advance-hint" aria-hidden="true">空格继续 · ↑ 回顾</div>
         </>
       )}
     </main>
@@ -326,6 +430,88 @@ function CoverScreen({ title, hasProgress, progress, onContinue, onRestart }: Co
       </div>
       <p className="cover-note">开始后将播放低音量环境声，可随时静音或切换纯净模式。</p>
     </section>
+  );
+}
+
+interface HistoryPanelProps {
+  paragraphs: Paragraph[];
+  firstIndex: number;
+  currentIndex: number;
+  furthestReadIndex: number;
+  currentItemRef: React.RefObject<HTMLButtonElement | null>;
+  onClose: () => void;
+  onJump: (index: number) => void;
+  onReturnToLatest: () => void;
+}
+
+function HistoryPanel({
+  paragraphs,
+  firstIndex,
+  currentIndex,
+  furthestReadIndex,
+  currentItemRef,
+  onClose,
+  onJump,
+  onReturnToLatest,
+}: HistoryPanelProps) {
+  return (
+    <div
+      className="history-backdrop"
+      data-interactive="true"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <aside
+        className="history-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-label="阅读历史"
+      >
+        <header className="history-heading">
+          <div>
+            <p>阅读历史</p>
+            <span>已读 {paragraphs.length} 段 · 点击任意段落跳转</span>
+          </div>
+          <button type="button" aria-label="关闭阅读历史" onClick={onClose}>×</button>
+        </header>
+
+        <div className="history-list">
+          {paragraphs.map((paragraph, offset) => {
+            const paragraphIndex = firstIndex + offset;
+            const isCurrent = paragraphIndex === currentIndex;
+            const isLatest = paragraphIndex === furthestReadIndex;
+            return (
+              <button
+                className={`history-entry${isCurrent ? " is-current" : ""}${isLatest ? " is-latest" : ""}`}
+                type="button"
+                key={paragraph.id}
+                ref={isCurrent ? currentItemRef : undefined}
+                aria-current={isCurrent ? "true" : undefined}
+                onClick={() => onJump(paragraphIndex)}
+              >
+                <span className="history-entry__number">
+                  {String(offset + 1).padStart(3, "0")}
+                </span>
+                <span className="history-entry__text">{paragraph.text}</span>
+                {isLatest ? <span className="history-entry__latest">最新</span> : null}
+              </button>
+            );
+          })}
+        </div>
+
+        <footer className="history-footer">
+          <span>按 ↑ 或 Esc 关闭</span>
+          <button
+            type="button"
+            disabled={currentIndex === furthestReadIndex}
+            onClick={onReturnToLatest}
+          >
+            回到最新进度 <span aria-hidden="true">→</span>
+          </button>
+        </footer>
+      </aside>
+    </div>
   );
 }
 

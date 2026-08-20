@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  moveReadingCursor,
   progressIndex,
   resolvePlaybackAt,
   sceneAt,
@@ -103,5 +104,29 @@ describe("reader state", () => {
 
   it("falls back safely when saved progress is stale", () => {
     expect(progressIndex(source, "p9999")).toBe(1);
+  });
+
+  it("keeps the furthest reading position while reviewing history", () => {
+    const reviewed = moveReadingCursor(
+      source,
+      { currentIndex: 3, furthestReadIndex: 3 },
+      1,
+    );
+    expect(reviewed).toEqual({ currentIndex: 1, furthestReadIndex: 3 });
+
+    const movedWithinHistory = moveReadingCursor(source, reviewed, 2);
+    expect(movedWithinHistory).toEqual({
+      currentIndex: 2,
+      furthestReadIndex: 3,
+    });
+  });
+
+  it("extends history only after reading beyond the previous frontier", () => {
+    const advanced = moveReadingCursor(
+      source,
+      { currentIndex: 2, furthestReadIndex: 2 },
+      3,
+    );
+    expect(advanced).toEqual({ currentIndex: 3, furthestReadIndex: 3 });
   });
 });

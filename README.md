@@ -47,6 +47,8 @@ Current demo controls:
 
 - click the reading area, press Space, or press Right Arrow to advance;
 - press Left Arrow or use the footer buttons to move backward;
+- press Up Arrow or use the `↑` button to review and jump to any previously
+  read paragraph without losing the furthest reading position;
 - use `Aa` for font size, audio, reduced motion, and pure reading mode;
 - progress and settings are stored locally in the browser.
 
