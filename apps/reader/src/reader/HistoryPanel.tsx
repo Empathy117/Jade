@@ -90,6 +90,9 @@ export function HistoryPanel({
 
           {visible.map((paragraph, offset) => {
             const position = visibleWindow.start + offset;
+            // Apparatus paragraphs (notes, print navigation) never enter the
+            // reading flow, so the history offers no way to land on them.
+            if (paragraph.kind === "note" || paragraph.kind === "nav") return null;
             const isCurrent = position === currentIndex;
             const isLatest = position === furthestReadIndex;
             return (

@@ -268,7 +268,9 @@ button { color: inherit; }
 .reading-block { display: grid; gap: 1.1em; }
 .paragraph {
   color: rgba(242,237,228,.48);
-  font: 400 calc(20px * var(--font-scale))/1.95 "Noto Serif SC", serif;
+  /* Hiragino Sans GB before the generic fallback: scholarly editions reach
+     far outside the webfont's subset (Ext-B rare characters). */
+  font: 400 calc(20px * var(--font-scale))/1.95 "Noto Serif SC", "Hiragino Sans GB", serif;
   letter-spacing: .055em;
   text-shadow: 0 2px 18px rgba(0,0,0,.65);
   transition: color 500ms ease, opacity 500ms ease;
@@ -290,8 +292,91 @@ button { color: inherit; }
 .paragraph--chapter_heading { font-size: calc(27px * var(--font-scale)); font-weight: 600; }
 .end-mark { margin: 28px 0; color: #d6c28f; font: 500 15px "Noto Serif SC", serif; letter-spacing: .35em; text-align: center; }
 
+.note-marker {
+  margin: 0 1px;
+  padding: 0 2px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: #c9b98e;
+  font: inherit;
+  font-size: .68em;
+  vertical-align: super;
+  line-height: 1;
+  letter-spacing: 0;
+  cursor: pointer;
+  transition: color 160ms ease, background 160ms ease;
+}
+.note-marker:hover, .note-marker:focus-visible { color: #f0dfae; background: rgba(214,194,143,.16); outline: none; }
+
+.note-backdrop {
+  position: absolute;
+  z-index: 8;
+  inset: 0;
+  display: grid;
+  place-items: end center;
+  padding: 18px;
+  background: rgba(7, 7, 6, .34);
+  backdrop-filter: blur(3px);
+  animation: history-backdrop-arrive 160ms ease both;
+}
+.note-popover {
+  width: min(680px, 100%);
+  max-height: min(46vh, 460px);
+  margin-bottom: clamp(84px, 12vh, 128px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  border: 1px solid rgba(214,194,143,.32);
+  border-radius: 16px;
+  background: rgba(24,22,19,.97);
+  box-shadow: 0 26px 80px rgba(0,0,0,.58);
+  animation: history-panel-arrive 200ms cubic-bezier(.2,.8,.2,1) both;
+}
+.note-popover__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px 10px;
+  border-bottom: 1px solid rgba(242,237,228,.1);
+}
+.note-popover__heading p { margin: 0; color: #c9b98e; font: 600 11px "Noto Serif SC", serif; letter-spacing: .3em; }
+.note-popover__heading button {
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(242,237,228,.18);
+  border-radius: 50%;
+  background: none;
+  color: rgba(242,237,228,.72);
+  font-size: 15px;
+  cursor: pointer;
+}
+.note-popover__body {
+  overflow-y: auto;
+  padding: 14px 20px 8px;
+  scrollbar-width: thin;
+}
+.note-popover__body p {
+  margin: 0 0 10px;
+  color: rgba(242,237,228,.86);
+  font: 400 calc(14.5px * var(--font-scale, 1))/1.9 "Noto Serif SC", "Hiragino Sans GB", serif;
+  letter-spacing: .02em;
+}
+.note-popover__body img { display: block; max-width: 100%; margin: 4px auto 10px; border-radius: 6px; background: rgba(239,234,221,.92); padding: 6px; }
+.note-popover__footer {
+  padding: 8px 18px 12px;
+  border-top: 1px solid rgba(242,237,228,.08);
+  color: rgba(242,237,228,.34);
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  text-align: center;
+}
+
 .source-illustration {
-  width: min(560px, 100%);
+  /* Shrink-to-fit keeps publisher glyph bitmaps (single rare characters) at
+     natural size while full plates still fill the card. */
+  width: fit-content;
+  max-width: min(560px, 100%);
   margin: 8px auto 16px;
   padding: 14px;
   border: 1px solid rgba(242,237,228,.18);
@@ -301,7 +386,7 @@ button { color: inherit; }
 }
 .source-illustration > img,
 .source-illustration button,
-.source-illustration button img { display: block; width: 100%; }
+.source-illustration button img { display: block; max-width: 100%; margin-inline: auto; }
 .source-illustration button { padding: 0; border: 0; background: none; cursor: zoom-in; }
 .source-illustration img { height: auto; max-height: 58vh; object-fit: contain; }
 .source-illustration figcaption {

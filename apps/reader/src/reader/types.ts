@@ -1,4 +1,10 @@
-export type ParagraphKind = "title" | "chapter_heading" | "prose" | "epigraph";
+export type ParagraphKind =
+  | "title"
+  | "chapter_heading"
+  | "prose"
+  | "epigraph"
+  | "note"
+  | "nav";
 
 export interface Paragraph {
   id: string;

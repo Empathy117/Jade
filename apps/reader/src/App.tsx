@@ -21,6 +21,16 @@ import { resolveGuideReferences } from "./reader/guideReferences";
 import { loadSettings, SETTINGS_KEY } from "./reader/readerSettings";
 import type { ReaderSettings } from "./reader/readerSettings";
 import {
+  chapterNotes,
+  flowPositionCounts,
+  isFlowParagraph,
+  lastFlowIndex,
+  nextFlowIndex,
+  previousFlowIndex,
+  snapToFlow,
+} from "./reader/notes";
+import { NotePopover } from "./reader/NotePopover";
+import {
   firstReadableIndex,
   moveReadingCursor,
   nextBackgroundAssetId,
@@ -71,6 +81,7 @@ export function App() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [chaptersOpen, setChaptersOpen] = useState(false);
   const [referencesOpen, setReferencesOpen] = useState(false);
+  const [openNoteIndex, setOpenNoteIndex] = useState<number | null>(null);
   const [selectedReferenceId, setSelectedReferenceId] = useState<string | null>(null);
   const [readingFloorIndex, setReadingFloorIndex] = useState(1);
   const [settings, setSettings] = useState<ReaderSettings>(loadSettings);
@@ -120,6 +131,7 @@ export function App() {
     setChaptersOpen(false);
     setReferencesOpen(false);
     setSelectedReferenceId(null);
+    setOpenNoteIndex(null);
     setBundle(null);
     setLoadError(null);
     if (!selectedBook) return () => { cancelled = true; };
@@ -131,9 +143,10 @@ export function App() {
         const savedId = safeGet(sourceProgressStorageKey(loaded.source));
         const sourceStart = firstReadableIndex(loaded.source);
         const preferredStart = preferredStartIndex(loaded.source, loaded.guide, positions);
-        const savedIndex = savedId
-          ? progressIndex(loaded.source, savedId, positions)
-          : preferredStart;
+        const savedIndex = snapToFlow(
+          loaded.source.paragraphs,
+          savedId ? progressIndex(loaded.source, savedId, positions) : preferredStart,
+        );
         setBundle(loaded);
         setHasSavedProgress(Boolean(savedId));
         removeStaleProgress(loaded.source.book_id, loaded.source.revision);
@@ -227,7 +240,15 @@ export function App() {
     ? preferredStartIndex(bundle.source, bundle.guide, sourcePositions)
     : 1;
   const firstIndex = bundle ? readingFloorIndex : 1;
-  const lastIndex = bundle ? bundle.source.paragraphs.length - 1 : 1;
+  const lastIndex = bundle ? lastFlowIndex(bundle.source.paragraphs) : 1;
+  const flowCounts = useMemo(
+    () => (bundle ? flowPositionCounts(bundle.source.paragraphs) : []),
+    [bundle],
+  );
+  const currentChapterNotes = useMemo(
+    () => (bundle ? chapterNotes(bundle.source.paragraphs, currentIndex) : new Map<string, number>()),
+    [bundle, currentIndex],
+  );
   const visibleStart = useMemo(
     () =>
       bundle
@@ -236,14 +257,23 @@ export function App() {
     [bundle, currentIndex, firstIndex, sourcePositions],
   );
   const visibleParagraphs = useMemo(
-    () => (bundle ? bundle.source.paragraphs.slice(visibleStart, currentIndex + 1) : []),
+    () =>
+      bundle
+        ? bundle.source.paragraphs
+            .slice(visibleStart, currentIndex + 1)
+            .filter(isFlowParagraph)
+        : [],
     [bundle, currentIndex, visibleStart],
   );
-  // A book whose preferred start is its own last paragraph would divide by zero.
+  // Progress counts only flow paragraphs: a scholarly edition can carry as many
+  // annotation paragraphs as prose, and those never enter the tap-through path.
   const bodyLength = bundle
-    ? Math.max(1, bundle.source.paragraphs.length - preferredIndex)
+    ? Math.max(1, (flowCounts[flowCounts.length - 1] ?? 1) - (flowCounts[preferredIndex] ?? 0))
     : 1;
-  const bodyPosition = Math.max(0, furthestReadIndex - preferredIndex + 1);
+  const bodyPosition = Math.max(
+    0,
+    (flowCounts[furthestReadIndex] ?? 0) - (flowCounts[preferredIndex] ?? 0) + 1,
+  );
   const progress = Math.min(100, (bodyPosition / bodyLength) * 100);
   const sceneNumber = useMemo(
     () =>
@@ -280,11 +310,15 @@ export function App() {
   }, [started, upcomingBackgroundSrc]);
 
   const next = useCallback(() => {
-    if (!bundle || currentIndex >= bundle.source.paragraphs.length - 1) return;
+    if (!bundle || currentIndex >= lastIndex) return;
     setCursor((current) =>
-      moveReadingCursor(bundle.source, current, current.currentIndex + 1),
+      moveReadingCursor(
+        bundle.source,
+        current,
+        nextFlowIndex(bundle.source.paragraphs, current.currentIndex),
+      ),
     );
-  }, [bundle, currentIndex]);
+  }, [bundle, currentIndex, lastIndex]);
 
   const previous = useCallback(() => {
     if (!bundle) return;
@@ -292,7 +326,11 @@ export function App() {
       moveReadingCursor(
         bundle.source,
         current,
-        Math.max(readingFloorIndex, current.currentIndex - 1),
+        previousFlowIndex(
+          bundle.source.paragraphs,
+          current.currentIndex,
+          readingFloorIndex,
+        ),
       ),
     );
   }, [bundle, readingFloorIndex]);
@@ -337,10 +375,19 @@ export function App() {
         setHistoryOpen(false);
         setChaptersOpen(false);
         setReferencesOpen(false);
+        setOpenNoteIndex(null);
         return;
       }
       if (target?.matches("input, button, select, textarea")) return;
       if (historyOpen || chaptersOpen || referencesOpen) return;
+      if (openNoteIndex !== null) {
+        // Any advance key first puts the annotation away.
+        if (event.key === " " || event.key === "ArrowRight" || event.key === "ArrowLeft") {
+          event.preventDefault();
+          setOpenNoteIndex(null);
+        }
+        return;
+      }
       if (event.key === " " || event.key === "ArrowRight") {
         event.preventDefault();
         next();
@@ -351,7 +398,7 @@ export function App() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [chaptersOpen, historyOpen, next, previous, referencesOpen, started]);
+  }, [chaptersOpen, historyOpen, next, openNoteIndex, previous, referencesOpen, started]);
 
   function beginReading(mode: "resume" | "preferred" | "beginning") {
     if (!bundle) return;
@@ -418,8 +465,24 @@ export function App() {
     const targetIndex = sourcePositions.get(paragraphId);
     if (targetIndex === undefined) return;
     if (targetIndex < readingFloorIndex) setReadingFloorIndex(sourceFirstIndex);
-    setCursor((current) => moveReadingCursor(bundle.source, current, targetIndex));
+    setCursor((current) =>
+      moveReadingCursor(
+        bundle.source,
+        current,
+        snapToFlow(bundle.source.paragraphs, targetIndex),
+      ),
+    );
     setReferencesOpen(false);
+  }
+
+  function openNoteMarker(marker: string) {
+    const noteIndex = currentChapterNotes.get(marker);
+    if (noteIndex === undefined) return;
+    setSettingsOpen(false);
+    setHistoryOpen(false);
+    setChaptersOpen(false);
+    setReferencesOpen(false);
+    setOpenNoteIndex(noteIndex);
   }
 
   function jumpToHistory(targetIndex: number) {
@@ -454,6 +517,10 @@ export function App() {
     const origin = touchOrigin.current;
     touchOrigin.current = null;
     if (!origin || historyOpen || chaptersOpen || referencesOpen || settingsOpen) return;
+    if (openNoteIndex !== null) {
+      setOpenNoteIndex(null);
+      return;
+    }
     const touch = event.changedTouches[0];
     if (!touch) return;
     const action = resolveSwipe(touch.clientX - origin.x, touch.clientY - origin.y);
@@ -610,10 +677,12 @@ export function App() {
             paragraphs={visibleParagraphs}
             illustrationsByAnchor={illustrationsByAnchor}
             referenceIllustrationIds={referenceIllustrationIds}
+            noteMarkers={currentChapterNotes}
             atEnd={currentIndex === lastIndex}
             viewportRef={readingViewportRef}
             latestParagraphRef={latestParagraphRef}
             onOpenReference={openReferenceForIllustration}
+            onOpenNote={openNoteMarker}
           />
 
           <footer className="reader-footer" data-interactive="true">
@@ -672,6 +741,16 @@ export function App() {
               onSelect={setSelectedReferenceId}
               onClose={() => setReferencesOpen(false)}
               onJump={jumpToReference}
+            />
+          ) : null}
+          {openNoteIndex !== null ? (
+            <NotePopover
+              paragraph={bundle.source.paragraphs[openNoteIndex]}
+              illustrations={
+                illustrationsByAnchor.get(bundle.source.paragraphs[openNoteIndex].id) ?? []
+              }
+              bookPath={selectedBook.path}
+              onClose={() => setOpenNoteIndex(null)}
             />
           ) : null}
           {audioError ? <div className="audio-notice">{audioError}，已继续纯文本阅读。</div> : null}
