@@ -23,3 +23,6 @@ ignore = [
 "pipeline/tests/*" = ["E501"]
 # One-off asset generators: dense numeric drawing code reads better unwrapped.
 "scripts/render_living_dead_backgrounds.py" = ["E501"]
+"scripts/render_hongloumeng_backgrounds.py" = ["E501"]
+# The scene table is data: one scene per line beats wrapped tuples.
+"scripts/hongloumeng_scenes.py" = ["E501"]
