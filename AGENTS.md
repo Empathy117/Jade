@@ -22,6 +22,11 @@ Non-negotiable rules:
   narrative start and a curated subset of recurring reference diagrams. Do not
   put every decorative image in the gallery, and do not expose a reference
   before its source anchor has been reached.
+- Use optional `codex.json` only for what the source text itself has said:
+  every dossier atom (character, alias, fact, relationship, status change,
+  place, map) carries a paragraph anchor at its first textual reveal and must
+  never surface earlier. Never record ending-level information — culprit
+  identities or trick explanations — even anchored after the reveal.
 - Preserve front matter even when `guide.json.start_at` skips it by default;
   never delete copyright, contents, cast, maps, or other source material merely
   to improve the opening experience.
