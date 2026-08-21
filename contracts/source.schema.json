@@ -128,7 +128,7 @@
           "$ref": "#/$defs/paragraphId"
         },
         "kind": {
-          "enum": ["title", "chapter_heading", "prose", "epigraph"]
+          "enum": ["title", "chapter_heading", "prose", "epigraph", "note", "nav"]
         },
         "text": {
           "type": "string",

@@ -355,3 +355,110 @@ def test_epub_rejects_txt_encoding_option(tmp_path: Path, capsys: object) -> Non
     assert exit_code == 1
     captured = capsys.readouterr()  # type: ignore[attr-defined]
     assert "--encoding only applies to TXT" in captured.err
+
+
+ANNOTATED_CHAPTER = """<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <body>
+    <h1>测试 EPUB</h1>
+    <p>正文之中有注<a href="chapter-two.xhtml#m1"><sup>[1]</sup></a>标。</p>
+    <p class="note"><a id="m1"></a>[1] 注标——这一条是校注。</p>
+    <p class="footNote">〔一〕 校记也是注释。</p>
+    <ul>
+      <li><a href="chapter-two.xhtml">第二回 链接目录行</a></li>
+    </ul>
+    <p><a href="chapter-two.xhtml">链接</a>与正文混排不算目录。</p>
+  </body>
+</html>
+"""
+
+
+def test_note_and_link_only_blocks_are_classified() -> None:
+    opf = package_document(spine='<itemref idref="chapter-one"/>')
+
+    document = build_epub_source_document(
+        make_epub(opf=opf, chapter_one=ANNOTATED_CHAPTER),
+        book_id="annotated-epub",
+    )
+
+    assert document["paragraphs"] == [
+        {"id": "p0001", "kind": "title", "text": "测试 EPUB"},
+        {"id": "p0002", "kind": "prose", "text": "正文之中有注[1]标。"},
+        {"id": "p0003", "kind": "note", "text": "[1] 注标——这一条是校注。"},
+        {"id": "p0004", "kind": "note", "text": "〔一〕 校记也是注释。"},
+        {"id": "p0005", "kind": "nav", "text": "第二回 链接目录行"},
+        {"id": "p0006", "kind": "prose", "text": "链接与正文混排不算目录。"},
+    ]
+    schema = json.loads(SOURCE_SCHEMA.read_text(encoding="utf-8"))
+    Draft202012Validator(schema).validate(document)
+
+
+GLYPH_CHAPTER = """<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <body>
+    <h1>测试 EPUB</h1>
+    <p>锦衣纨<img class="inline" src="../Images/glyph.png" alt=""/>之时。</p>
+    <div class="box-center">
+      <img src="../Images/map.png" alt=""/>
+      <p class="image-note">关键地图</p>
+    </div>
+  </body>
+</html>
+"""
+
+
+def test_glyph_map_restores_rare_characters_inline(tmp_path: Path) -> None:
+    opf = package_document(
+        spine='<itemref idref="chapter-one"/>',
+        manifest_extra=(
+            '<item id="map" href="Images/map.png" media-type="image/png"/>'
+            '<item id="glyph" href="Images/glyph.png" media-type="image/png"/>'
+        ),
+    )
+    source_bytes = make_epub(
+        opf=opf,
+        chapter_one=GLYPH_CHAPTER,
+        extra_members={
+            "EPUB/Images/map.png": TINY_PNG,
+            "EPUB/Images/glyph.png": TINY_PNG,
+        },
+    )
+
+    document = build_epub_source_document(
+        source_bytes,
+        book_id="glyph-epub",
+        glyph_map={"EPUB/Images/glyph.png": "绔"},
+    )
+
+    assert document["paragraphs"][1] == {
+        "id": "p0002",
+        "kind": "prose",
+        "text": "锦衣纨绔之时。",
+    }
+    # The glyph image never becomes an illustration; the unmapped one still does.
+    assert [item["source_href"] for item in document["illustrations"]] == [
+        "EPUB/Images/map.png"
+    ]
+
+
+def test_cli_glyph_map_is_validated(tmp_path: Path, capsys: object) -> None:
+    input_path = tmp_path / "book.epub"
+    input_path.write_bytes(make_epub())
+    glyph_path = tmp_path / "glyphs.json"
+    glyph_path.write_text('{"EPUB/Images/glyph.png": ""}', encoding="utf-8")
+
+    exit_code = main(
+        [
+            str(input_path),
+            "--output",
+            str(tmp_path / "bundle"),
+            "--book-id",
+            "glyph-cli",
+            "--glyph-map",
+            str(glyph_path),
+        ]
+    )
+
+    assert exit_code == 1
+    captured = capsys.readouterr()  # type: ignore[attr-defined]
+    assert "must be 1-4 characters" in captured.err

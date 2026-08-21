@@ -6,6 +6,7 @@ import hashlib
 import io
 import re
 import zipfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote, urlsplit
@@ -29,6 +30,8 @@ _HEADING_TAGS = {"h1", "h2", "h3", "h4", "h5", "h6"}
 _TEXT_BLOCK_TAGS = {"p", "pre", "figcaption"}
 _CONTAINER_TAGS = {"blockquote", "li", "div"}
 _IGNORED_TAGS = {"script", "style", "svg", "math", "head", "rt", "rp"}
+# Class tokens scholarly editions use for annotation blocks (校注、脚注、尾注).
+_NOTE_CLASS_TOKENS = {"note", "notes", "footnote", "footnotes", "endnote", "endnotes"}
 _WHITESPACE = re.compile(r"[^\S\n]+")
 _IMAGE_EXTENSIONS = {
     "image/jpeg": ".jpeg",
@@ -93,6 +96,7 @@ def build_epub_source_document(
     revision: int = 1,
     title: str | None = None,
     language: str | None = None,
+    glyph_map: dict[str, str] | None = None,
 ) -> dict[str, object]:
     """Compile EPUB package metadata and spine text into source.json data."""
 
@@ -102,6 +106,7 @@ def build_epub_source_document(
         revision=revision,
         title=title,
         language=language,
+        glyph_map=glyph_map,
     ).document
 
 
@@ -112,6 +117,7 @@ def _compile_epub_source(
     revision: int,
     title: str | None,
     language: str | None,
+    glyph_map: dict[str, str] | None = None,
 ) -> EpubCompilation:
     """Compile EPUB text and supported source illustrations deterministically."""
 
@@ -154,6 +160,7 @@ def _compile_epub_source(
             manifest,
             spine_ids,
             metadata.title,
+            glyph_map or {},
         )
 
     if not blocks:
@@ -218,6 +225,7 @@ def import_epub(
     revision: int = 1,
     title: str | None = None,
     language: str | None = None,
+    glyph_map: dict[str, str] | None = None,
 ) -> ImportResult:
     """Freeze an EPUB and atomically write its unified source manifest."""
 
@@ -231,6 +239,7 @@ def import_epub(
         revision=revision,
         title=title,
         language=language,
+        glyph_map=glyph_map,
     )
     return write_source_bundle(
         input_path,
@@ -381,6 +390,7 @@ def _spine_content(
     manifest: dict[str, ManifestItem],
     spine_ids: list[str],
     title: str,
+    glyph_map: dict[str, str],
 ) -> tuple[list[EpubTextBlock], list[EpubRawIllustration]]:
     package_dir = str(PurePosixPath(package_path).parent)
     if package_dir == ".":
@@ -406,7 +416,19 @@ def _spine_content(
             _read_required_member(archive, members, member_path),
             member_path,
         )
-        document_blocks, document_images = _xhtml_content(root)
+        item_dir = str(PurePosixPath(member_path).parent)
+        if item_dir == ".":
+            item_dir = ""
+
+        def glyph_for(href: str, base_dir: str = item_dir) -> str | None:
+            if not glyph_map or not href:
+                return None
+            try:
+                return glyph_map.get(_normalize_member_path(base_dir, href))
+            except EpubImportError:
+                return None
+
+        document_blocks, document_images = _xhtml_content(root, glyph_for)
         removed_leading_blocks = 0
         if not blocks and document_blocks:
             first = document_blocks[0]
@@ -468,8 +490,16 @@ def _spine_content(
     return blocks, illustrations
 
 
+GlyphResolver = Callable[[str], str | None]
+
+
+def _no_glyphs(_href: str) -> str | None:
+    return None
+
+
 def _xhtml_content(
     root: ElementTree.Element,
+    glyph_for: GlyphResolver = _no_glyphs,
 ) -> tuple[list[EpubTextBlock], list[EpubImageReference]]:
     body = next(
         (element for element in root.iter() if _local_name(element.tag) == "body"),
@@ -483,7 +513,7 @@ def _xhtml_content(
             if descendant is element or _local_name(descendant.tag) != "img":
                 continue
             href = descendant.get("src", "").strip()
-            if href:
+            if href and glyph_for(href) is None:
                 images.append(
                     EpubImageReference(
                         href,
@@ -492,13 +522,21 @@ def _xhtml_content(
                     )
                 )
 
+    def block_kind(element: ElementTree.Element, default: str) -> str:
+        class_tokens = set(element.get("class", "").lower().split())
+        if class_tokens & _NOTE_CLASS_TOKENS:
+            return "note"
+        if _is_link_only(element, glyph_for):
+            return "nav"
+        return default
+
     def walk(element: ElementTree.Element, *, in_quote: bool = False) -> None:
         tag = _local_name(element.tag)
         if tag in _IGNORED_TAGS or element.get("aria-hidden") == "true":
             return
         if tag == "img":
             href = element.get("src", "").strip()
-            if href:
+            if href and glyph_for(href) is None:
                 images.append(
                     EpubImageReference(
                         href,
@@ -508,11 +546,11 @@ def _xhtml_content(
                 )
             return
         if tag in _HEADING_TAGS:
-            _append_block(blocks, "chapter_heading", _element_text(element))
+            _append_block(blocks, "chapter_heading", _element_text(element, glyph_for))
             remember_descendant_images(element)
             return
         if tag in _TEXT_BLOCK_TAGS:
-            kind = "epigraph" if in_quote else "prose"
+            kind = block_kind(element, "epigraph" if in_quote else "prose")
             class_tokens = set(element.get("class", "").lower().split())
             is_caption = tag == "figcaption" or bool(
                 class_tokens & {"caption", "figcaption", "image-note"}
@@ -520,7 +558,7 @@ def _xhtml_content(
             _append_block(
                 blocks,
                 kind,
-                _element_text(element),
+                _element_text(element, glyph_for),
                 is_caption=is_caption,
             )
             remember_descendant_images(element)
@@ -533,8 +571,9 @@ def _xhtml_content(
                 for descendant in element.iter()
             )
             if not has_nested_block:
-                kind = "epigraph" if in_quote or tag == "blockquote" else "prose"
-                text = _element_text(element)
+                default = "epigraph" if in_quote or tag == "blockquote" else "prose"
+                kind = block_kind(element, default)
+                text = _element_text(element, glyph_for)
                 if text:
                     _append_block(blocks, kind, text)
                     remember_descendant_images(element)
@@ -546,11 +585,14 @@ def _xhtml_content(
 
     walk(body)
     if not blocks:
-        _append_block(blocks, "prose", _element_text(body))
+        _append_block(blocks, "prose", _element_text(body, glyph_for))
     return blocks, images
 
 
-def _element_text(element: ElementTree.Element) -> str:
+def _element_text(
+    element: ElementTree.Element,
+    glyph_for: GlyphResolver = _no_glyphs,
+) -> str:
     parts: list[str] = []
 
     def collect(node: ElementTree.Element) -> None:
@@ -560,6 +602,12 @@ def _element_text(element: ElementTree.Element) -> str:
             tag = _local_name(child.tag)
             if tag == "br":
                 parts.append("\n")
+            elif tag == "img":
+                # A mapped glyph image is a rare character the publisher could
+                # only typeset as a picture; restore it into the text stream.
+                glyph = glyph_for(child.get("src", "").strip())
+                if glyph:
+                    parts.append(glyph)
             elif tag not in _IGNORED_TAGS:
                 collect(child)
             if child.tail:
@@ -567,6 +615,38 @@ def _element_text(element: ElementTree.Element) -> str:
 
     collect(element)
     return _normalize_text("".join(parts))
+
+
+def _is_link_only(element: ElementTree.Element, glyph_for: GlyphResolver) -> bool:
+    """True when every visible character of the block sits inside a hyperlink.
+
+    Such blocks are print navigation (tables of contents, jump lists); the
+    Reader keeps them in the source but out of the linear reading flow.
+    """
+
+    has_link = False
+    parts: list[str] = []
+
+    def collect(node: ElementTree.Element) -> None:
+        if node.text:
+            parts.append(node.text)
+        for child in node:
+            tag = _local_name(child.tag)
+            if tag == "a" and child.get("href", "").strip():
+                nonlocal has_link
+                if _element_text(child, glyph_for):
+                    has_link = True
+            elif tag == "img":
+                glyph = glyph_for(child.get("src", "").strip())
+                if glyph:
+                    parts.append(glyph)
+            elif tag not in _IGNORED_TAGS:
+                collect(child)
+            if child.tail:
+                parts.append(child.tail)
+
+    collect(element)
+    return has_link and not _normalize_text("".join(parts))
 
 
 def _append_block(

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -42,6 +43,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="input encoding (default: detect UTF BOM, UTF-8, then GB18030)",
     )
     parser.add_argument(
+        "--glyph-map",
+        type=Path,
+        default=None,
+        help=(
+            "EPUB only: JSON file mapping archive image paths to the rare "
+            "characters they depict; mapped images are restored into the text "
+            "instead of becoming source illustrations"
+        ),
+    )
+    parser.add_argument(
         "--first-block-is-title",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -50,11 +61,36 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def load_glyph_map(path: Path | None) -> dict[str, str] | None:
+    """Read a glyph-map JSON file: archive image path -> depicted characters."""
+
+    if path is None:
+        return None
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise BookImportError(f"cannot read glyph map {path}: {error}") from error
+    if not isinstance(raw, dict) or not raw:
+        raise BookImportError("glyph map must be a non-empty JSON object")
+    glyph_map: dict[str, str] = {}
+    for href, glyph in raw.items():
+        if not isinstance(href, str) or not href.strip():
+            raise BookImportError("glyph map keys must be archive image paths")
+        if not isinstance(glyph, str) or not glyph or len(glyph) > 4:
+            raise BookImportError(
+                f"glyph map value for {href!r} must be 1-4 characters of text"
+            )
+        glyph_map[href] = glyph
+    return glyph_map
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         suffix = args.input.suffix.lower()
         if suffix == ".txt":
+            if args.glyph_map is not None:
+                raise BookImportError("--glyph-map only applies to EPUB input")
             result = import_txt(
                 args.input,
                 args.output,
@@ -75,6 +111,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 revision=args.revision,
                 title=args.title,
                 language=args.language,
+                glyph_map=load_glyph_map(args.glyph_map),
             )
         else:
             raise BookImportError(
