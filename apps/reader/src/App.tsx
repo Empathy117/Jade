@@ -360,7 +360,7 @@ export function App() {
   useEffect(() => {
     if (!started) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
+      const target = event.target instanceof HTMLElement ? event.target : null;
       const isFormControl = target?.matches("input, select, textarea");
       if (event.key === "ArrowUp" && !isFormControl) {
         event.preventDefault();
@@ -478,6 +478,9 @@ export function App() {
   function openNoteMarker(marker: string) {
     const noteIndex = currentChapterNotes.get(marker);
     if (noteIndex === undefined) return;
+    // Drop focus from the tapped marker so Space returns to page-turning
+    // once the annotation is dismissed.
+    (document.activeElement as HTMLElement | null)?.blur();
     setSettingsOpen(false);
     setHistoryOpen(false);
     setChaptersOpen(false);
