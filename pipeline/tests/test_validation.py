@@ -236,6 +236,157 @@ def test_guide_reference_must_select_a_source_illustration(tmp_path: Path) -> No
     assert "illustration_not_found" in issue_codes(issues)
 
 
+def make_codex(source: dict[str, object]) -> dict[str, object]:
+    """A codex exercising every section against the valid fixture bundle."""
+
+    return {
+        "schema_version": 1,
+        "book_id": source["book_id"],
+        "source_revision": source["revision"],
+        "source_sha256": source["source"]["sha256"],  # type: ignore[index]
+        "characters": [
+            {
+                "id": "char_ada",
+                "name": "艾达",
+                "at": "p0002",
+                "role": "领航员",
+                "group": "旅人",
+                "aliases": [{"name": "小艾", "at": "p0003"}],
+                "facts": [{"text": "住在山林深处。", "at": "p0003"}],
+                "status": [{"label": "失踪", "kind": "missing", "at": "p0004"}],
+            },
+            {"id": "char_bo", "name": "博", "at": "p0003"},
+        ],
+        "relationships": [
+            {"a": "char_ada", "b": "char_bo", "kind": "parent", "label": "母子", "at": "p0003"},
+        ],
+        "trees": [
+            {
+                "id": "tree_family",
+                "title": "家族",
+                "at": "p0002",
+                "nodes": [
+                    {"character_id": "char_ada", "row": 0, "col": 0},
+                    {"character_id": "char_bo", "row": 1, "col": 0},
+                ],
+            }
+        ],
+        "places": [
+            {
+                "id": "mountain_forest",
+                "name": "山林",
+                "at": "p0002",
+                "facts": [{"text": "常年多雾。", "at": "p0003"}],
+            },
+            {"id": "cabin", "name": "小屋", "parent": "mountain_forest", "at": "p0003"},
+        ],
+        "maps": [
+            {
+                "id": "map_forest",
+                "title": "山林图",
+                "at": "p0004",
+                "image": "codex-assets/map-forest.svg",
+                "width": 100,
+                "height": 80,
+                "markers": [{"place_id": "cabin", "x": 10, "y": 20}],
+            }
+        ],
+    }
+
+
+def write_codex_bundle(bundle: Path) -> dict[str, object]:
+    source = load_json(bundle / "source.json")
+    codex = make_codex(source)
+    write_json(bundle / "codex.json", codex)
+    image = bundle / "codex-assets" / "map-forest.svg"
+    image.parent.mkdir(parents=True, exist_ok=True)
+    image.write_text("<svg xmlns='http://www.w3.org/2000/svg'/>", encoding="utf-8")
+    return codex
+
+
+def test_optional_codex_valid_document_passes(tmp_path: Path) -> None:
+    bundle = copy_bundle(tmp_path)
+    write_codex_bundle(bundle)
+
+    assert validate_bundle(bundle, contracts_dir=CONTRACTS) == []
+
+
+def test_codex_cross_references_are_validated(tmp_path: Path) -> None:
+    bundle = copy_bundle(tmp_path)
+    codex = write_codex_bundle(bundle)
+
+    codex["relationships"] = [
+        {"a": "char_ada", "b": "char_ada", "kind": "spouse", "at": "p0002"},
+        {"a": "char_ada", "b": "char_ghost", "kind": "parent", "at": "p0002"},
+        {"a": "char_ada", "b": "char_bo", "kind": "parent", "at": "p0002"},
+        {"a": "char_ada", "b": "char_bo", "kind": "parent", "at": "p0003"},
+    ]
+    codex["trees"] = [
+        {
+            "id": "tree_family",
+            "title": "家族",
+            "at": "p0002",
+            "nodes": [
+                {"character_id": "char_ada", "row": 0, "col": 0},
+                {"character_id": "char_ada", "row": 0, "col": 0},
+            ],
+        }
+    ]
+    codex["places"] = [
+        {"id": "mountain_forest", "name": "山林", "parent": "cabin", "at": "p0002"},
+        {"id": "cabin", "name": "小屋", "parent": "mountain_forest", "at": "p0003"},
+    ]
+    codex["maps"] = [
+        {
+            "id": "map_forest",
+            "title": "山林图",
+            "at": "p0004",
+            "image": "codex-assets/missing.svg",
+            "width": 100,
+            "height": 80,
+            "source_illustration_id": "ill0001",
+            "markers": [
+                {"place_id": "nowhere", "x": 10, "y": 20},
+                {"place_id": "cabin", "x": 120, "y": 20},
+            ],
+        }
+    ]
+    write_json(bundle / "codex.json", codex)
+
+    codes = issue_codes(validate_bundle(bundle, contracts_dir=CONTRACTS))
+
+    assert {
+        "relationship_self",
+        "character_not_found",
+        "duplicate_relationship",
+        "duplicate_tree_character",
+        "tree_cell_occupied",
+        "place_parent_cycle",
+        "map_image_missing",
+        "illustration_not_found",
+        "place_not_found",
+        "marker_outside_map",
+    } <= codes
+
+
+def test_codex_anchor_and_identity_are_validated(tmp_path: Path) -> None:
+    bundle = copy_bundle(tmp_path)
+    codex = write_codex_bundle(bundle)
+
+    codex["source_revision"] = 99
+    codex["characters"][0]["status"][0]["at"] = "p9999"  # type: ignore[index]
+    write_json(bundle / "codex.json", codex)
+
+    issues = validate_bundle(bundle, contracts_dir=CONTRACTS)
+
+    assert "source_identity_mismatch" in issue_codes(issues)
+    assert any(
+        issue.code == "paragraph_not_found"
+        and issue.path == "$.characters[0].status[0].at"
+        for issue in issues
+    )
+
+
 def test_cli_succeeds_for_valid_bundle(capsys: object) -> None:
     exit_code = main([str(VALID_BUNDLE), "--contracts", str(CONTRACTS)])
 

@@ -1,0 +1,350 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://immersive-reader.local/contracts/v1/codex.schema.json",
+  "title": "Optional reading dossier: characters, relationships, places, maps",
+  "description": "Every displayable atom carries a paragraph anchor `at`; the Reader shows it only once the reader's furthest-read position has passed that anchor. The dossier must never state anything the source text has not yet said.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "book_id",
+    "source_revision",
+    "source_sha256"
+  ],
+  "anyOf": [
+    { "required": ["characters"] },
+    { "required": ["places"] },
+    { "required": ["maps"] }
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "book_id": {
+      "$ref": "#/$defs/bookId"
+    },
+    "source_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "source_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "characters": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/character"
+      }
+    },
+    "relationships": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/relationship"
+      }
+    },
+    "trees": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/tree"
+      }
+    },
+    "places": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/place"
+      }
+    },
+    "maps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/map"
+      }
+    }
+  },
+  "$defs": {
+    "bookId": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "paragraphId": {
+      "type": "string",
+      "pattern": "^p[0-9]{4,}$"
+    },
+    "characterId": {
+      "type": "string",
+      "pattern": "^char_[a-z0-9]+(?:_[a-z0-9]+)*$"
+    },
+    "placeId": {
+      "description": "Shares the direction.json location-tag namespace; a place whose id matches a scene location gains you-are-here and read-scene links for free.",
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$"
+    },
+    "treeId": {
+      "type": "string",
+      "pattern": "^tree_[a-z0-9]+(?:_[a-z0-9]+)*$"
+    },
+    "mapId": {
+      "type": "string",
+      "pattern": "^map_[a-z0-9]+(?:_[a-z0-9]+)*$"
+    },
+    "illustrationId": {
+      "type": "string",
+      "pattern": "^ill[0-9]{4,}$"
+    },
+    "revealedText": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "at"],
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "at": {
+          "$ref": "#/$defs/paragraphId"
+        }
+      }
+    },
+    "alias": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "at"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "at": {
+          "$ref": "#/$defs/paragraphId"
+        }
+      }
+    },
+    "statusEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "kind", "at"],
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": ["alive", "dead", "undead", "missing", "unknown"]
+        },
+        "at": {
+          "$ref": "#/$defs/paragraphId"
+        }
+      }
+    },
+    "character": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "at"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/characterId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "at": {
+          "description": "First-appearance anchor: unlocks the entry and is its jump target.",
+          "$ref": "#/$defs/paragraphId"
+        },
+        "role": {
+          "description": "One-line identity, revealed together with `at`.",
+          "type": "string",
+          "minLength": 1
+        },
+        "group": {
+          "type": "string",
+          "minLength": 1
+        },
+        "portrait": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aliases": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/alias"
+          }
+        },
+        "facts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/revealedText"
+          }
+        },
+        "status": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/statusEntry"
+          }
+        }
+      }
+    },
+    "relationship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["a", "b", "kind", "at"],
+      "properties": {
+        "a": {
+          "$ref": "#/$defs/characterId"
+        },
+        "b": {
+          "$ref": "#/$defs/characterId"
+        },
+        "kind": {
+          "description": "`spouse` and `parent` (a is the parent of b) also drive tree rendering; any other kind is display-only.",
+          "type": "string",
+          "pattern": "^[a-z]+(?:_[a-z]+)*$"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "at": {
+          "$ref": "#/$defs/paragraphId"
+        }
+      }
+    },
+    "tree": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "at", "nodes"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/treeId"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "at": {
+          "description": "Where the book itself reveals the whole structure (typically its genealogy diagram); names on the tree become visible here even before their own first appearance.",
+          "$ref": "#/$defs/paragraphId"
+        },
+        "nodes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["character_id", "row", "col"],
+            "properties": {
+              "character_id": {
+                "$ref": "#/$defs/characterId"
+              },
+              "row": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "col": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "place": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "at"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/placeId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "at": {
+          "$ref": "#/$defs/paragraphId"
+        },
+        "parent": {
+          "$ref": "#/$defs/placeId"
+        },
+        "facts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/revealedText"
+          }
+        }
+      }
+    },
+    "map": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "at", "image", "width", "height", "markers"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/mapId"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "at": {
+          "description": "The map unlocks as a whole here — at the source illustration's own anchor when one exists, honouring the book's information pacing.",
+          "$ref": "#/$defs/paragraphId"
+        },
+        "image": {
+          "description": "Bundle-relative path of the redrawn map artwork (e.g. codex-assets/map.svg).",
+          "type": "string",
+          "minLength": 1
+        },
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "height": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "source_illustration_id": {
+          "description": "Provenance: the original source illustration this map was redrawn from.",
+          "$ref": "#/$defs/illustrationId"
+        },
+        "markers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["place_id", "x", "y"],
+            "properties": {
+              "place_id": {
+                "$ref": "#/$defs/placeId"
+              },
+              "x": {
+                "type": "number",
+                "minimum": 0
+              },
+              "y": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

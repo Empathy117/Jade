@@ -25,6 +25,7 @@ DOCUMENT_SCHEMAS = {
 
 OPTIONAL_DOCUMENT_SCHEMAS = {
     "guide.json": "guide.schema.json",
+    "codex.json": "codex.schema.json",
 }
 
 
@@ -83,6 +84,15 @@ def validate_bundle(
 
     if {"source.json", "guide.json"} <= schema_valid_documents:
         issues.extend(_validate_guide(documents["source.json"], documents["guide.json"]))
+
+    if {"source.json", "codex.json"} <= schema_valid_documents:
+        issues.extend(
+            _validate_codex(
+                bundle_dir,
+                documents["source.json"],
+                documents["codex.json"],
+            )
+        )
 
     if "assets.json" in schema_valid_documents:
         issues.extend(_validate_assets(bundle_dir, documents["assets.json"]))
@@ -423,6 +433,262 @@ def _validate_guide(source: JsonObject, guide: JsonObject) -> list[ValidationIss
                 )
             )
         selected_illustrations.add(illustration_id)
+    return issues
+
+
+def _validate_codex(
+    bundle_dir: Path,
+    source: JsonObject,
+    codex: JsonObject,
+) -> list[ValidationIssue]:
+    issues = _validate_source_identity("codex.json", source, codex)
+    paragraph_ids = {paragraph["id"] for paragraph in source["paragraphs"]}
+    illustration_ids = {
+        illustration["id"] for illustration in source.get("illustrations", [])
+    }
+
+    def check_anchor(paragraph_id: str, path: str) -> None:
+        if paragraph_id not in paragraph_ids:
+            issues.append(
+                ValidationIssue(
+                    "codex.json",
+                    path,
+                    "paragraph_not_found",
+                    f"paragraph does not exist: {paragraph_id}",
+                )
+            )
+
+    character_ids: set[str] = set()
+    for index, character in enumerate(codex.get("characters", [])):
+        character_path = f"$.characters[{index}]"
+        character_id = character["id"]
+        if character_id in character_ids:
+            issues.append(
+                ValidationIssue(
+                    "codex.json",
+                    f"{character_path}.id",
+                    "duplicate_character_id",
+                    f"character id is already used: {character_id}",
+                )
+            )
+        character_ids.add(character_id)
+        check_anchor(character["at"], f"{character_path}.at")
+        for alias_index, alias in enumerate(character.get("aliases", [])):
+            check_anchor(alias["at"], f"{character_path}.aliases[{alias_index}].at")
+        for fact_index, fact in enumerate(character.get("facts", [])):
+            check_anchor(fact["at"], f"{character_path}.facts[{fact_index}].at")
+        for status_index, status in enumerate(character.get("status", [])):
+            check_anchor(status["at"], f"{character_path}.status[{status_index}].at")
+
+    def check_character(character_id: str, path: str) -> None:
+        if character_id not in character_ids:
+            issues.append(
+                ValidationIssue(
+                    "codex.json",
+                    path,
+                    "character_not_found",
+                    f"character does not exist: {character_id}",
+                )
+            )
+
+    seen_relationships: set[tuple[str, str, str]] = set()
+    for index, relationship in enumerate(codex.get("relationships", [])):
+        relationship_path = f"$.relationships[{index}]"
+        check_character(relationship["a"], f"{relationship_path}.a")
+        check_character(relationship["b"], f"{relationship_path}.b")
+        check_anchor(relationship["at"], f"{relationship_path}.at")
+        if relationship["a"] == relationship["b"]:
+            issues.append(
+                ValidationIssue(
+                    "codex.json",
+                    f"{relationship_path}.b",
+                    "relationship_self",
+                    f"relationship links a character to itself: {relationship['a']}",
+                )
+            )
+        key = (relationship["a"], relationship["b"], relationship["kind"])
+        if key in seen_relationships:
+            issues.append(
+                ValidationIssue(
+                    "codex.json",
+                    f"{relationship_path}.kind",
+                    "duplicate_relationship",
+                    f"relationship is already declared: {' '.join(key)}",
+                )
+            )
+        seen_relationships.add(key)
+
+    tree_ids: set[str] = set()
+    for index, tree in enumerate(codex.get("trees", [])):
+        tree_path = f"$.trees[{index}]"
+        tree_id = tree["id"]
+        if tree_id in tree_ids:
+            issues.append(
+                ValidationIssue(
+                    "codex.json",
+                    f"{tree_path}.id",
+                    "duplicate_tree_id",
+                    f"tree id is already used: {tree_id}",
+                )
+            )
+        tree_ids.add(tree_id)
+        check_anchor(tree["at"], f"{tree_path}.at")
+        node_characters: set[str] = set()
+        node_cells: set[tuple[int, int]] = set()
+        for node_index, node in enumerate(tree["nodes"]):
+            node_path = f"{tree_path}.nodes[{node_index}]"
+            check_character(node["character_id"], f"{node_path}.character_id")
+            if node["character_id"] in node_characters:
+                issues.append(
+                    ValidationIssue(
+                        "codex.json",
+                        f"{node_path}.character_id",
+                        "duplicate_tree_character",
+                        f"character appears twice in one tree: {node['character_id']}",
+                    )
+                )
+            node_characters.add(node["character_id"])
+            cell = (node["row"], node["col"])
+            if cell in node_cells:
+                issues.append(
+                    ValidationIssue(
+                        "codex.json",
+                        f"{node_path}.col",
+                        "tree_cell_occupied",
+                        f"tree cell is already occupied: row {cell[0]}, col {cell[1]}",
+                    )
+                )
+            node_cells.add(cell)
+
+    place_ids: set[str] = set()
+    place_parents: dict[str, str] = {}
+    for index, place in enumerate(codex.get("places", [])):
+        place_path = f"$.places[{index}]"
+        place_id = place["id"]
+        if place_id in place_ids:
+            issues.append(
+                ValidationIssue(
+                    "codex.json",
+                    f"{place_path}.id",
+                    "duplicate_place_id",
+                    f"place id is already used: {place_id}",
+                )
+            )
+        place_ids.add(place_id)
+        check_anchor(place["at"], f"{place_path}.at")
+        for fact_index, fact in enumerate(place.get("facts", [])):
+            check_anchor(fact["at"], f"{place_path}.facts[{fact_index}].at")
+        if "parent" in place:
+            place_parents[place_id] = place["parent"]
+
+    for index, place in enumerate(codex.get("places", [])):
+        parent = place.get("parent")
+        if parent is None:
+            continue
+        place_path = f"$.places[{index}].parent"
+        if parent not in place_ids:
+            issues.append(
+                ValidationIssue(
+                    "codex.json",
+                    place_path,
+                    "place_not_found",
+                    f"parent place does not exist: {parent}",
+                )
+            )
+            continue
+        visited = {place["id"]}
+        cursor: str | None = parent
+        while cursor is not None:
+            if cursor in visited:
+                issues.append(
+                    ValidationIssue(
+                        "codex.json",
+                        place_path,
+                        "place_parent_cycle",
+                        f"place parents form a cycle at: {place['id']}",
+                    )
+                )
+                break
+            visited.add(cursor)
+            cursor = place_parents.get(cursor)
+
+    map_ids: set[str] = set()
+    for index, map_document in enumerate(codex.get("maps", [])):
+        map_path = f"$.maps[{index}]"
+        map_id = map_document["id"]
+        if map_id in map_ids:
+            issues.append(
+                ValidationIssue(
+                    "codex.json",
+                    f"{map_path}.id",
+                    "duplicate_map_id",
+                    f"map id is already used: {map_id}",
+                )
+            )
+        map_ids.add(map_id)
+        check_anchor(map_document["at"], f"{map_path}.at")
+
+        illustration_id = map_document.get("source_illustration_id")
+        if illustration_id is not None and illustration_id not in illustration_ids:
+            issues.append(
+                ValidationIssue(
+                    "codex.json",
+                    f"{map_path}.source_illustration_id",
+                    "illustration_not_found",
+                    f"source illustration does not exist: {illustration_id}",
+                )
+            )
+
+        image_path = _resolve_in_bundle(
+            bundle_dir,
+            map_document["image"],
+            "codex.json",
+            f"{map_path}.image",
+            issues,
+        )
+        if image_path is not None and not image_path.is_file():
+            issues.append(
+                ValidationIssue(
+                    "codex.json",
+                    f"{map_path}.image",
+                    "map_image_missing",
+                    f"map image does not exist: {image_path}",
+                )
+            )
+
+        marker_places: set[str] = set()
+        for marker_index, marker in enumerate(map_document["markers"]):
+            marker_path = f"{map_path}.markers[{marker_index}]"
+            place_id = marker["place_id"]
+            if place_id not in place_ids:
+                issues.append(
+                    ValidationIssue(
+                        "codex.json",
+                        f"{marker_path}.place_id",
+                        "place_not_found",
+                        f"place does not exist: {place_id}",
+                    )
+                )
+            if place_id in marker_places:
+                issues.append(
+                    ValidationIssue(
+                        "codex.json",
+                        f"{marker_path}.place_id",
+                        "duplicate_map_marker",
+                        f"place is marked twice on one map: {place_id}",
+                    )
+                )
+            marker_places.add(place_id)
+            if marker["x"] > map_document["width"] or marker["y"] > map_document["height"]:
+                issues.append(
+                    ValidationIssue(
+                        "codex.json",
+                        marker_path,
+                        "marker_outside_map",
+                        f"marker lies outside the map canvas: {place_id}",
+                    )
+                )
+
     return issues
 
 
