@@ -192,6 +192,23 @@ def build_playback(source: dict, direction: dict) -> dict:
         if changed or clear:
             cue["clear_text"] = clear
             cues.append(cue)
+
+    # Every chapter heading clears the accumulated text, even when the scene
+    # cut sits elsewhere (front-matter sections included): the paragraph
+    # stack would otherwise grow across chapters without bound.
+    positions = {p["id"]: i for i, p in enumerate(source["paragraphs"])}
+    cued = {c["at"] for c in cues}
+    ranges = [
+        (positions[s["start"]], positions[s["end"]], s["id"])
+        for s in direction["scenes"]
+    ]
+    for pid, kind in kinds.items():
+        if kind != "chapter_heading" or pid in cued:
+            continue
+        at = positions[pid]
+        scene_id = next(sid for lo, hi, sid in ranges if lo <= at <= hi)
+        cues.append({"at": pid, "scene_id": scene_id, "clear_text": True})
+    cues.sort(key=lambda c: positions[c["at"]])
     return {
         "schema_version": 1,
         "book_id": source["book_id"],
