@@ -131,4 +131,32 @@ describe("App", () => {
     const paragraphs = document.querySelectorAll(".reading-block");
     expect(paragraphs[paragraphs.length - 1]?.getAttribute("data-paragraph-id")).toBe("p0012");
   });
+
+  it("unlocks the dossier with reading progress and opens it from the header", async () => {
+    vi.stubGlobal(
+      "fetch",
+      stubBookFetch(6, {
+        codex: {
+          schema_version: 1,
+          book_id: "test-book",
+          source_revision: 1,
+          source_sha256: "0".repeat(64),
+          characters: [
+            { id: "char_ann", name: "安", at: "p0003", role: "领航员", group: "旅人" },
+          ],
+        },
+      }),
+    );
+    const user = await startReading();
+
+    // 安 first appears one paragraph ahead — the dossier has nothing to say yet.
+    expect(screen.queryByRole("button", { name: "档案" })).toBeNull();
+
+    await user.keyboard(" ");
+    await user.click(await screen.findByRole("button", { name: "档案" }));
+
+    expect(screen.getByRole("dialog", { name: "档案" })).toBeDefined();
+    expect(screen.getByRole("heading", { name: "安" })).toBeDefined();
+    expect(screen.getByText("领航员")).toBeDefined();
+  });
 });

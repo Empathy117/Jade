@@ -55,6 +55,98 @@ export interface GuideDocument {
   references?: GuideReference[];
 }
 
+export interface CodexAlias {
+  name: string;
+  at: string;
+}
+
+export interface CodexRevealedText {
+  text: string;
+  at: string;
+}
+
+export type CodexStatusKind = "alive" | "dead" | "undead" | "missing" | "unknown";
+
+export interface CodexStatusEntry {
+  label: string;
+  kind: CodexStatusKind;
+  at: string;
+}
+
+export interface CodexCharacter {
+  id: string;
+  name: string;
+  /** First-appearance anchor: unlocks the entry and is its jump target. */
+  at: string;
+  role?: string;
+  group?: string;
+  portrait?: string;
+  aliases?: CodexAlias[];
+  facts?: CodexRevealedText[];
+  status?: CodexStatusEntry[];
+}
+
+export interface CodexRelationship {
+  a: string;
+  b: string;
+  /** `spouse` and `parent` (a is the parent of b) also drive tree rendering. */
+  kind: string;
+  label?: string;
+  at: string;
+}
+
+export interface CodexTreeNode {
+  character_id: string;
+  row: number;
+  col: number;
+}
+
+export interface CodexTree {
+  id: string;
+  title: string;
+  /** Where the book itself reveals the whole structure. */
+  at: string;
+  nodes: CodexTreeNode[];
+}
+
+export interface CodexPlace {
+  /** Shares the direction.json location-tag namespace. */
+  id: string;
+  name: string;
+  at: string;
+  parent?: string;
+  facts?: CodexRevealedText[];
+}
+
+export interface CodexMapMarker {
+  place_id: string;
+  x: number;
+  y: number;
+}
+
+export interface CodexMap {
+  id: string;
+  title: string;
+  at: string;
+  image: string;
+  width: number;
+  height: number;
+  source_illustration_id?: string;
+  markers: CodexMapMarker[];
+}
+
+export interface CodexDocument {
+  schema_version: 1;
+  book_id: string;
+  source_revision: number;
+  source_sha256: string;
+  characters?: CodexCharacter[];
+  relationships?: CodexRelationship[];
+  trees?: CodexTree[];
+  places?: CodexPlace[];
+  maps?: CodexMap[];
+}
+
 export interface Scene {
   id: string;
   label?: string;
@@ -135,6 +227,7 @@ export interface BookBundle {
   assets: AssetsDocument;
   playback: PlaybackDocument;
   guide: GuideDocument | null;
+  codex: CodexDocument | null;
 }
 
 export type BookProductionMode = "manual" | "agent-assisted" | "automated";

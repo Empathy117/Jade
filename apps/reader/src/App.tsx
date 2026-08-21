@@ -12,11 +12,18 @@ import {
 } from "./reader/data";
 import { ChapterPanel } from "./reader/ChapterPanel";
 import { unlockedChapters } from "./reader/chapters";
+import {
+  codexSeenStorageKey,
+  EMPTY_CODEX_VIEW,
+  unlockedAnchorPositions,
+  unlockedCodex,
+} from "./reader/codex";
+import { CodexPanel } from "./reader/CodexPanel";
+import type { CodexTab } from "./reader/CodexPanel";
 import { HistoryPanel } from "./reader/HistoryPanel";
 import { safeGet, safeKeys, safeRemove, safeSet } from "./reader/localStorage";
 import { resolveSwipe } from "./reader/touch";
 import { ReadingViewport } from "./reader/ReadingViewport";
-import { ReferenceGallery } from "./reader/ReferenceGallery";
 import { resolveGuideReferences } from "./reader/guideReferences";
 import { loadSettings, SETTINGS_KEY } from "./reader/readerSettings";
 import type { ReaderSettings } from "./reader/readerSettings";
@@ -80,9 +87,18 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [chaptersOpen, setChaptersOpen] = useState(false);
-  const [referencesOpen, setReferencesOpen] = useState(false);
+  const [codexOpen, setCodexOpen] = useState(false);
   const [openNoteIndex, setOpenNoteIndex] = useState<number | null>(null);
-  const [selectedReferenceId, setSelectedReferenceId] = useState<string | null>(null);
+  const [codexIntent, setCodexIntent] = useState<{
+    tab: CodexTab | null;
+    referenceId: string | null;
+  }>({ tab: null, referenceId: null });
+  // Furthest-read position at the previous dossier visit; anything anchored
+  // later is new to the reader and lights the badge dot.
+  const [codexSeenIndex, setCodexSeenIndex] = useState(-1);
+  // Snapshot handed to an opening panel, so its 「新」 marks hold steady while
+  // the live watermark advances the moment the panel opens.
+  const [codexPanelSeen, setCodexPanelSeen] = useState(-1);
   const [readingFloorIndex, setReadingFloorIndex] = useState(1);
   const [settings, setSettings] = useState<ReaderSettings>(loadSettings);
   const readingViewportRef = useRef<HTMLElement | null>(null);
@@ -129,8 +145,8 @@ export function App() {
     setSettingsOpen(false);
     setHistoryOpen(false);
     setChaptersOpen(false);
-    setReferencesOpen(false);
-    setSelectedReferenceId(null);
+    setCodexOpen(false);
+    setCodexIntent({ tab: null, referenceId: null });
     setOpenNoteIndex(null);
     setBundle(null);
     setLoadError(null);
@@ -150,6 +166,11 @@ export function App() {
         setBundle(loaded);
         setHasSavedProgress(Boolean(savedId));
         removeStaleProgress(loaded.source.book_id, loaded.source.revision);
+        const savedSeen = safeGet(
+          codexSeenStorageKey(loaded.source.book_id, loaded.source.revision),
+        );
+        const parsedSeen = savedSeen === null ? Number.NaN : Number.parseInt(savedSeen, 10);
+        setCodexSeenIndex(Number.isFinite(parsedSeen) ? parsedSeen : -1);
         setReadingFloorIndex(savedIndex < preferredStart ? sourceStart : preferredStart);
         setCursor({
           currentIndex: savedIndex,
@@ -200,6 +221,24 @@ export function App() {
     () => new Set(availableReferences.map((item) => item.illustration.id)),
     [availableReferences],
   );
+  const codexView = useMemo(
+    () =>
+      bundle
+        ? unlockedCodex(bundle.codex, bundle.direction, sourcePositions, furthestReadIndex)
+        : EMPTY_CODEX_VIEW,
+    [bundle, furthestReadIndex, sourcePositions],
+  );
+  const codexHasContent =
+    codexView.hasPeople || codexView.hasAtlas || availableReferences.length > 0;
+  const codexHasFresh = useMemo(() => {
+    if (!bundle) return false;
+    const anchors = unlockedAnchorPositions(bundle.codex, sourcePositions, furthestReadIndex);
+    for (const item of availableReferences) {
+      const position = sourcePositions.get(item.illustration.at);
+      if (position !== undefined) anchors.push(position);
+    }
+    return anchors.some((position) => position > codexSeenIndex);
+  }, [availableReferences, bundle, codexSeenIndex, furthestReadIndex, sourcePositions]);
   const chapters = useMemo(
     () =>
       bundle
@@ -365,7 +404,7 @@ export function App() {
       if (event.key === "ArrowUp" && !isFormControl) {
         event.preventDefault();
         setSettingsOpen(false);
-        setReferencesOpen(false);
+        setCodexOpen(false);
         setChaptersOpen(false);
         setHistoryOpen((open) => !open);
         return;
@@ -374,12 +413,12 @@ export function App() {
         setSettingsOpen(false);
         setHistoryOpen(false);
         setChaptersOpen(false);
-        setReferencesOpen(false);
+        setCodexOpen(false);
         setOpenNoteIndex(null);
         return;
       }
       if (target?.matches("input, button, select, textarea")) return;
-      if (historyOpen || chaptersOpen || referencesOpen) return;
+      if (historyOpen || chaptersOpen || codexOpen) return;
       if (openNoteIndex !== null) {
         // Any advance key first puts the annotation away.
         if (event.key === " " || event.key === "ArrowRight" || event.key === "ArrowLeft") {
@@ -398,7 +437,7 @@ export function App() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [chaptersOpen, historyOpen, next, openNoteIndex, previous, referencesOpen, started]);
+  }, [chaptersOpen, codexOpen, historyOpen, next, openNoteIndex, previous, started]);
 
   function beginReading(mode: "resume" | "preferred" | "beginning") {
     if (!bundle) return;
@@ -418,14 +457,14 @@ export function App() {
 
   function toggleHistory() {
     setSettingsOpen(false);
-    setReferencesOpen(false);
+    setCodexOpen(false);
     setChaptersOpen(false);
     setHistoryOpen((open) => !open);
   }
 
   function toggleChapters() {
     setSettingsOpen(false);
-    setReferencesOpen(false);
+    setCodexOpen(false);
     setHistoryOpen(false);
     setChaptersOpen((open) => !open);
   }
@@ -436,16 +475,31 @@ export function App() {
     setChaptersOpen(false);
   }
 
-  function toggleReferences() {
+  function openCodex(tab: CodexTab | null, referenceId: string | null) {
     setSettingsOpen(false);
     setHistoryOpen(false);
     setChaptersOpen(false);
-    setSelectedReferenceId((current) =>
-      availableReferences.some((item) => item.reference.id === current)
-        ? current
-        : availableReferences[0]?.reference.id ?? null,
-    );
-    setReferencesOpen((open) => !open);
+    setCodexIntent({ tab, referenceId });
+    if (!codexOpen && bundle) {
+      // The panel keeps the previous watermark for its 「新」 marks; the live
+      // watermark advances now, so the badge dot goes out once this closes.
+      setCodexPanelSeen(codexSeenIndex);
+      const seen = Math.max(codexSeenIndex, furthestReadIndex);
+      setCodexSeenIndex(seen);
+      safeSet(
+        codexSeenStorageKey(bundle.source.book_id, bundle.source.revision),
+        String(seen),
+      );
+    }
+    setCodexOpen(true);
+  }
+
+  function toggleCodex() {
+    if (codexOpen) {
+      setCodexOpen(false);
+      return;
+    }
+    openCodex(null, null);
   }
 
   function openReferenceForIllustration(illustrationId: string) {
@@ -453,14 +507,10 @@ export function App() {
       (reference) => reference.illustration.id === illustrationId,
     );
     if (!item) return;
-    setSettingsOpen(false);
-    setHistoryOpen(false);
-    setChaptersOpen(false);
-    setSelectedReferenceId(item.reference.id);
-    setReferencesOpen(true);
+    openCodex("gallery", item.reference.id);
   }
 
-  function jumpToReference(paragraphId: string) {
+  function jumpFromCodex(paragraphId: string) {
     if (!bundle) return;
     const targetIndex = sourcePositions.get(paragraphId);
     if (targetIndex === undefined) return;
@@ -472,7 +522,7 @@ export function App() {
         snapToFlow(bundle.source.paragraphs, targetIndex),
       ),
     );
-    setReferencesOpen(false);
+    setCodexOpen(false);
   }
 
   function openNoteMarker(marker: string) {
@@ -484,7 +534,7 @@ export function App() {
     setSettingsOpen(false);
     setHistoryOpen(false);
     setChaptersOpen(false);
-    setReferencesOpen(false);
+    setCodexOpen(false);
     setOpenNoteIndex(noteIndex);
   }
 
@@ -519,7 +569,7 @@ export function App() {
   function handleTouchEnd(event: React.TouchEvent<HTMLElement>) {
     const origin = touchOrigin.current;
     touchOrigin.current = null;
-    if (!origin || historyOpen || chaptersOpen || referencesOpen || settingsOpen) return;
+    if (!origin || historyOpen || chaptersOpen || codexOpen || settingsOpen) return;
     if (openNoteIndex !== null) {
       setOpenNoteIndex(null);
       return;
@@ -617,17 +667,17 @@ export function App() {
               <strong>{activeScene ? activeScene.label ?? activeScene.location : ""}</strong>
             </div>
             <div className="header-actions">
-              {availableReferences.length > 0 ? (
+              {codexHasContent ? (
                 <button
-                  className="icon-button icon-button--references"
+                  className={`icon-button icon-button--codex${codexHasFresh ? " has-fresh" : ""}`}
                   type="button"
                   data-interactive="true"
-                  aria-label="资料图册"
-                  aria-expanded={referencesOpen}
-                  title={`资料图册（已解锁 ${availableReferences.length} 张）`}
-                  onClick={toggleReferences}
+                  aria-label="档案"
+                  aria-expanded={codexOpen}
+                  title={codexHasFresh ? "档案（有新解锁）" : "档案"}
+                  onClick={toggleCodex}
                 >
-                  <span aria-hidden="true">图</span>
+                  <span aria-hidden="true">档</span>
                 </button>
               ) : null}
               {chapters.length > 0 ? (
@@ -662,7 +712,7 @@ export function App() {
                 aria-expanded={settingsOpen}
                 onClick={() => {
                   setHistoryOpen(false);
-                  setReferencesOpen(false);
+                  setCodexOpen(false);
                   setSettingsOpen((open) => !open);
                 }}
               >
@@ -737,13 +787,18 @@ export function App() {
               onReturnToLatest={returnToLatest}
             />
           ) : null}
-          {referencesOpen ? (
-            <ReferenceGallery
-              items={availableReferences}
-              selectedId={selectedReferenceId}
-              onSelect={setSelectedReferenceId}
-              onClose={() => setReferencesOpen(false)}
-              onJump={jumpToReference}
+          {codexOpen ? (
+            <CodexPanel
+              view={codexView}
+              references={availableReferences}
+              bookPath={selectedBook.path}
+              activeLocation={activeScene?.location ?? null}
+              seenIndex={codexPanelSeen}
+              positions={sourcePositions}
+              initialTab={codexIntent.tab}
+              initialReferenceId={codexIntent.referenceId}
+              onJump={jumpFromCodex}
+              onClose={() => setCodexOpen(false)}
             />
           ) : null}
           {openNoteIndex !== null ? (
@@ -765,17 +820,25 @@ export function App() {
 }
 
 /**
- * Drop progress saved under other revisions of the same book.
+ * Drop progress and dossier watermarks saved under other revisions of the book.
  *
  * A re-import bumps the revision and paragraph ids may no longer line up, so
  * the old keys can never be read again — they would otherwise sit in
  * localStorage forever.
  */
 function removeStaleProgress(bookId: string, revision: number): void {
-  const keep = progressStorageKey(bookId, revision);
-  const prefix = `immersive-reader:${bookId}:revision-`;
+  const keep = new Set([
+    progressStorageKey(bookId, revision),
+    codexSeenStorageKey(bookId, revision),
+  ]);
+  const prefixes = [
+    `immersive-reader:${bookId}:revision-`,
+    `immersive-reader:${bookId}:codex-seen:revision-`,
+  ];
   for (const key of safeKeys()) {
-    if (key.startsWith(prefix) && key !== keep) safeRemove(key);
+    if (prefixes.some((prefix) => key.startsWith(prefix)) && !keep.has(key)) {
+      safeRemove(key);
+    }
   }
 }
 

@@ -2,6 +2,7 @@ import type {
   Asset,
   AssetsDocument,
   BookBundle,
+  CodexDocument,
   DirectionDocument,
   GuideDocument,
   LibraryBook,
@@ -69,14 +70,15 @@ export function mergeLibraries(
 
 export async function loadBookBundle(book: LibraryBook): Promise<BookBundle> {
   const baseUrl = bookBaseUrl(book.path);
-  const [source, direction, assets, playback, guide] = await Promise.all([
+  const [source, direction, assets, playback, guide, codex] = await Promise.all([
     fetchJson<SourceDocument>(`${baseUrl}/source.json`),
     fetchJson<DirectionDocument>(`${baseUrl}/direction.json`),
     fetchJson<AssetsDocument>(`${baseUrl}/assets.json`),
     fetchJson<PlaybackDocument>(`${baseUrl}/playback.json`),
     fetchOptionalJson<GuideDocument>(`${baseUrl}/guide.json`),
+    fetchOptionalJson<CodexDocument>(`${baseUrl}/codex.json`),
   ]);
-  return { source, direction, assets, playback, guide };
+  return { source, direction, assets, playback, guide, codex };
 }
 
 export function bookBaseUrl(bookPath: string): string {

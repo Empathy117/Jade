@@ -1,6 +1,8 @@
 import type {
   AssetsDocument,
+  CodexDocument,
   DirectionDocument,
+  GuideDocument,
   LibraryDocument,
   Paragraph,
   PlaybackDocument,
@@ -122,10 +124,13 @@ export function makeBundleDocuments(paragraphCount = 6): {
 /**
  * A `fetch` that answers the Reader's bundle requests from memory.
  *
- * `guide.json` is absent, which is the common case and exercises the optional
- * document path.
+ * `guide.json` and `codex.json` are absent unless passed in, which is the
+ * common case and exercises the optional document path.
  */
-export function stubBookFetch(paragraphCount = 6): typeof fetch {
+export function stubBookFetch(
+  paragraphCount = 6,
+  extras: { guide?: GuideDocument; codex?: CodexDocument } = {},
+): typeof fetch {
   const library = makeLibrary(paragraphCount);
   const documents = makeBundleDocuments(paragraphCount);
   const byUrl = new Map<string, unknown>([
@@ -135,6 +140,8 @@ export function stubBookFetch(paragraphCount = 6): typeof fetch {
     ["/test-book/assets.json", documents.assets],
     ["/test-book/playback.json", documents.playback],
   ]);
+  if (extras.guide) byUrl.set("/test-book/guide.json", extras.guide);
+  if (extras.codex) byUrl.set("/test-book/codex.json", extras.codex);
 
   return ((input: RequestInfo | URL) => {
     const url = input instanceof Request ? input.url : input.toString();
