@@ -97,6 +97,7 @@ def build_epub_source_document(
     title: str | None = None,
     language: str | None = None,
     glyph_map: dict[str, str] | None = None,
+    note_documents: set[str] | None = None,
 ) -> dict[str, object]:
     """Compile EPUB package metadata and spine text into source.json data."""
 
@@ -107,6 +108,7 @@ def build_epub_source_document(
         title=title,
         language=language,
         glyph_map=glyph_map,
+        note_documents=note_documents,
     ).document
 
 
@@ -118,6 +120,7 @@ def _compile_epub_source(
     title: str | None,
     language: str | None,
     glyph_map: dict[str, str] | None = None,
+    note_documents: set[str] | None = None,
 ) -> EpubCompilation:
     """Compile EPUB text and supported source illustrations deterministically."""
 
@@ -161,6 +164,7 @@ def _compile_epub_source(
             spine_ids,
             metadata.title,
             glyph_map or {},
+            note_documents or set(),
         )
 
     if not blocks:
@@ -226,6 +230,7 @@ def import_epub(
     title: str | None = None,
     language: str | None = None,
     glyph_map: dict[str, str] | None = None,
+    note_documents: set[str] | None = None,
 ) -> ImportResult:
     """Freeze an EPUB and atomically write its unified source manifest."""
 
@@ -240,6 +245,7 @@ def import_epub(
         title=title,
         language=language,
         glyph_map=glyph_map,
+        note_documents=note_documents,
     )
     return write_source_bundle(
         input_path,
@@ -391,6 +397,7 @@ def _spine_content(
     spine_ids: list[str],
     title: str,
     glyph_map: dict[str, str],
+    note_documents: set[str],
 ) -> tuple[list[EpubTextBlock], list[EpubRawIllustration]]:
     package_dir = str(PurePosixPath(package_path).parent)
     if package_dir == ".":
@@ -435,6 +442,11 @@ def _spine_content(
             if first.kind == "chapter_heading" and _same_text(first.text, title):
                 document_blocks = document_blocks[1:]
                 removed_leading_blocks = 1
+        if member_path in note_documents:
+            document_blocks = [
+                EpubTextBlock("note", block.text, block.is_caption)
+                for block in document_blocks
+            ]
 
         global_block_offset = len(blocks)
         document_dir = str(PurePosixPath(member_path).parent)

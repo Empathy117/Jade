@@ -389,6 +389,20 @@ def test_note_and_link_only_blocks_are_classified() -> None:
         {"id": "p0005", "kind": "nav", "text": "第二回 链接目录行"},
         {"id": "p0006", "kind": "prose", "text": "链接与正文混排不算目录。"},
     ]
+
+
+def test_selected_epub_document_can_be_preserved_as_notes() -> None:
+    document = build_epub_source_document(
+        make_epub(),
+        book_id="apparatus-epub",
+        note_documents={"EPUB/Text/chapter-two.xhtml"},
+    )
+
+    assert document["paragraphs"][-3:] == [
+        {"id": "p0005", "kind": "note", "text": "第二章"},
+        {"id": "p0006", "kind": "note", "text": "一段题记。"},
+        {"id": "p0007", "kind": "note", "text": "第二章正文。"},
+    ]
     schema = json.loads(SOURCE_SCHEMA.read_text(encoding="utf-8"))
     Draft202012Validator(schema).validate(document)
 

@@ -53,6 +53,17 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--epub-note-document",
+        action="append",
+        default=[],
+        metavar="ARCHIVE_PATH",
+        help=(
+            "EPUB only: classify every readable block in this spine document "
+            "as a note; repeat for producer notes or other preserved apparatus "
+            "that should not enter the linear reading flow"
+        ),
+    )
+    parser.add_argument(
         "--first-block-is-title",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -91,6 +102,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         if suffix == ".txt":
             if args.glyph_map is not None:
                 raise BookImportError("--glyph-map only applies to EPUB input")
+            if args.epub_note_document:
+                raise BookImportError("--epub-note-document only applies to EPUB input")
             result = import_txt(
                 args.input,
                 args.output,
@@ -112,6 +125,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 title=args.title,
                 language=args.language,
                 glyph_map=load_glyph_map(args.glyph_map),
+                note_documents=set(args.epub_note_document),
             )
         else:
             raise BookImportError(

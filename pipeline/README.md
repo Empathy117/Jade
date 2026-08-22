@@ -29,6 +29,20 @@ immersive-reader-import novel.epub \
   --book-id my-epub
 ```
 
+If an EPUB keeps producer notes or other apparatus in its linear spine without
+semantic markup, preserve those blocks while removing them from the Reader's
+linear flow by naming each archive document explicitly:
+
+```sh
+immersive-reader-import novel.epub \
+  --output books/my-epub \
+  --book-id my-epub \
+  --epub-note-document Text/producer-notes.xhtml
+```
+
+The option is repeatable and does not alter the frozen EPUB bytes or paragraph
+order; it only classifies the selected document's readable blocks as notes.
+
 Phase 2 provides the first tool, a bundle validator:
 
 ```sh
