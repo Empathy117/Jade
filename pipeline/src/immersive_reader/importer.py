@@ -64,6 +64,27 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--epub-note-class",
+        action="append",
+        default=[],
+        metavar="CLASS_TOKEN",
+        help=(
+            "EPUB only: classify blocks carrying this CSS class token as "
+            "notes; repeat when an edition uses several unlabelled footnote classes"
+        ),
+    )
+    parser.add_argument(
+        "--epub-skip-document",
+        action="append",
+        default=[],
+        metavar="ARCHIVE_PATH",
+        help=(
+            "EPUB only: omit this entire spine document from source.json while "
+            "keeping it unchanged inside the frozen source.epub; repeat only for "
+            "confirmed non-book advertising or acquisition paratext"
+        ),
+    )
+    parser.add_argument(
         "--first-block-is-title",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -104,6 +125,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 raise BookImportError("--glyph-map only applies to EPUB input")
             if args.epub_note_document:
                 raise BookImportError("--epub-note-document only applies to EPUB input")
+            if args.epub_note_class:
+                raise BookImportError("--epub-note-class only applies to EPUB input")
+            if args.epub_skip_document:
+                raise BookImportError("--epub-skip-document only applies to EPUB input")
             result = import_txt(
                 args.input,
                 args.output,
@@ -126,6 +151,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 language=args.language,
                 glyph_map=load_glyph_map(args.glyph_map),
                 note_documents=set(args.epub_note_document),
+                note_class_tokens=set(args.epub_note_class),
+                skip_documents=set(args.epub_skip_document),
             )
         else:
             raise BookImportError(

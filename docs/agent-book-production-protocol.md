@@ -55,7 +55,11 @@ books/<book-path>/
 ## 3. 不可违反的数据边界
 
 1. `source.txt` 或 `source.epub` 保存输入原始字节，任何生产步骤都不得重写。
-2. 只有 Importer 可以生成 `source.json` 和 paragraph ID。
+2. 只有 Importer 可以生成 `source.json` 和 paragraph ID。经用户明确授权，且能
+   逐份证明某个 EPUB spine 文档只是下载站广告、募捐页或获取渠道推广页时，
+   Importer 可以不把该文档编入 `source.json`；原始文档仍须原封不动保留在
+   `source.epub`。版权页、献词、目录、作者/译者前后记、正文附录和原书插图
+   永远不适用此例外。
 3. `direction.json`、`assets.json`、`playback.json` 禁止复制或改写正文。
 4. Director 只描述语义；素材清单只描述资源；Playback 只描述执行决定。
 5. 背景、音乐、环境音是三条独立状态通道。
@@ -89,6 +93,11 @@ TXT 检查编码和空行分段；EPUB 检查 package metadata、spine 顺序、
 和题记分类。原书附图属于 source 层，必须保留哈希与正文锚点，不得当成背景素材。
 Importer 报告冲突时
 不得强制覆盖，应使用新 revision 或新目录并向用户说明。
+
+若 EPUB 把第三方下载站广告或募捐页混入线性 spine，先逐份打开核实，再在用户
+明确授权后用 repeatable `--epub-skip-document <archive-path>` 排除。必须在
+`production-notes.md` 记录被排除的 archive path、判定依据和用户授权；不得按
+关键词批量猜测，也不得借此删除任何书籍自身的前置或后置内容。
 
 Importer 完成后必须人工核对一次 source 层：
 

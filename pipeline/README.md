@@ -42,6 +42,15 @@ immersive-reader-import novel.epub \
 
 The option is repeatable and does not alter the frozen EPUB bytes or paragraph
 order; it only classifies the selected document's readable blocks as notes.
+For editions whose footnotes use a publisher-specific CSS class instead, pass
+that class token with repeatable `--epub-note-class` options.
+
+With explicit authorization, a document proven to be unrelated acquisition
+paratext (for example a download-site advertisement or donation page) can be
+left out of `source.json` with repeatable `--epub-skip-document` options. The
+original document remains byte-for-byte present in the frozen `source.epub`;
+never use this option for copyright pages, dedications, tables of contents,
+author or translator notes, illustrations, or genuine book appendices.
 
 Phase 2 provides the first tool, a bundle validator:
 

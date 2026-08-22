@@ -98,6 +98,8 @@ def build_epub_source_document(
     language: str | None = None,
     glyph_map: dict[str, str] | None = None,
     note_documents: set[str] | None = None,
+    note_class_tokens: set[str] | None = None,
+    skip_documents: set[str] | None = None,
 ) -> dict[str, object]:
     """Compile EPUB package metadata and spine text into source.json data."""
 
@@ -109,6 +111,8 @@ def build_epub_source_document(
         language=language,
         glyph_map=glyph_map,
         note_documents=note_documents,
+        note_class_tokens=note_class_tokens,
+        skip_documents=skip_documents,
     ).document
 
 
@@ -121,6 +125,8 @@ def _compile_epub_source(
     language: str | None,
     glyph_map: dict[str, str] | None = None,
     note_documents: set[str] | None = None,
+    note_class_tokens: set[str] | None = None,
+    skip_documents: set[str] | None = None,
 ) -> EpubCompilation:
     """Compile EPUB text and supported source illustrations deterministically."""
 
@@ -137,6 +143,10 @@ def _compile_epub_source(
         raise EpubImportError(f"invalid EPUB ZIP container: {error}") from error
 
     with archive:
+        if (note_documents or set()) & (skip_documents or set()):
+            raise EpubImportError(
+                "an EPUB document cannot be both preserved as notes and skipped"
+            )
         members = _validate_archive(archive)
         if "mimetype" not in members:
             raise EpubImportError("EPUB is missing the required mimetype file")
@@ -165,6 +175,8 @@ def _compile_epub_source(
             metadata.title,
             glyph_map or {},
             note_documents or set(),
+            note_class_tokens or set(),
+            skip_documents or set(),
         )
 
     if not blocks:
@@ -231,6 +243,8 @@ def import_epub(
     language: str | None = None,
     glyph_map: dict[str, str] | None = None,
     note_documents: set[str] | None = None,
+    note_class_tokens: set[str] | None = None,
+    skip_documents: set[str] | None = None,
 ) -> ImportResult:
     """Freeze an EPUB and atomically write its unified source manifest."""
 
@@ -246,6 +260,8 @@ def import_epub(
         language=language,
         glyph_map=glyph_map,
         note_documents=note_documents,
+        note_class_tokens=note_class_tokens,
+        skip_documents=skip_documents,
     )
     return write_source_bundle(
         input_path,
@@ -398,6 +414,8 @@ def _spine_content(
     title: str,
     glyph_map: dict[str, str],
     note_documents: set[str],
+    note_class_tokens: set[str],
+    skip_documents: set[str],
 ) -> tuple[list[EpubTextBlock], list[EpubRawIllustration]]:
     package_dir = str(PurePosixPath(package_path).parent)
     if package_dir == ".":
@@ -419,6 +437,8 @@ def _spine_content(
                 f"unsupported spine media type {item.media_type!r} for {item.href}"
             )
         member_path = _normalize_member_path(package_dir, item.href)
+        if member_path in skip_documents:
+            continue
         root = _parse_xml(
             _read_required_member(archive, members, member_path),
             member_path,
@@ -435,7 +455,11 @@ def _spine_content(
             except EpubImportError:
                 return None
 
-        document_blocks, document_images = _xhtml_content(root, glyph_for)
+        document_blocks, document_images = _xhtml_content(
+            root,
+            glyph_for,
+            note_class_tokens,
+        )
         removed_leading_blocks = 0
         if not blocks and document_blocks:
             first = document_blocks[0]
@@ -512,6 +536,7 @@ def _no_glyphs(_href: str) -> str | None:
 def _xhtml_content(
     root: ElementTree.Element,
     glyph_for: GlyphResolver = _no_glyphs,
+    note_class_tokens: set[str] | None = None,
 ) -> tuple[list[EpubTextBlock], list[EpubImageReference]]:
     body = next(
         (element for element in root.iter() if _local_name(element.tag) == "body"),
@@ -519,6 +544,7 @@ def _xhtml_content(
     )
     blocks: list[EpubTextBlock] = []
     images: list[EpubImageReference] = []
+    custom_note_classes = note_class_tokens or set()
 
     def remember_descendant_images(element: ElementTree.Element) -> None:
         for descendant in element.iter():
@@ -536,7 +562,7 @@ def _xhtml_content(
 
     def block_kind(element: ElementTree.Element, default: str) -> str:
         class_tokens = set(element.get("class", "").lower().split())
-        if class_tokens & _NOTE_CLASS_TOKENS:
+        if class_tokens & (_NOTE_CLASS_TOKENS | custom_note_classes):
             return "note"
         if _is_link_only(element, glyph_for):
             return "nav"

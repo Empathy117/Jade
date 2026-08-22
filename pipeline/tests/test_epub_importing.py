@@ -389,6 +389,8 @@ def test_note_and_link_only_blocks_are_classified() -> None:
         {"id": "p0005", "kind": "nav", "text": "第二回 链接目录行"},
         {"id": "p0006", "kind": "prose", "text": "链接与正文混排不算目录。"},
     ]
+    schema = json.loads(SOURCE_SCHEMA.read_text(encoding="utf-8"))
+    Draft202012Validator(schema).validate(document)
 
 
 def test_selected_epub_document_can_be_preserved_as_notes() -> None:
@@ -403,8 +405,52 @@ def test_selected_epub_document_can_be_preserved_as_notes() -> None:
         {"id": "p0006", "kind": "note", "text": "一段题记。"},
         {"id": "p0007", "kind": "note", "text": "第二章正文。"},
     ]
-    schema = json.loads(SOURCE_SCHEMA.read_text(encoding="utf-8"))
-    Draft202012Validator(schema).validate(document)
+
+
+def test_custom_epub_class_can_be_classified_as_notes() -> None:
+    chapter = CHAPTER_ONE.replace(
+        '<ul><li>列表内容</li></ul>',
+        '<ul><li class="publisher-footnote">列表内容</li></ul>',
+    )
+    document = build_epub_source_document(
+        make_epub(chapter_one=chapter),
+        book_id="custom-note-class-epub",
+        note_class_tokens={"publisher-footnote"},
+    )
+
+    assert document["paragraphs"][3] == {
+        "id": "p0004",
+        "kind": "note",
+        "text": "列表内容",
+    }
+
+
+def test_selected_non_book_document_can_be_skipped() -> None:
+    source_bytes = make_epub()
+    document = build_epub_source_document(
+        source_bytes,
+        book_id="skip-advertising-epub",
+        skip_documents={"EPUB/Text/chapter-two.xhtml"},
+    )
+
+    assert [paragraph["text"] for paragraph in document["paragraphs"]] == [
+        "测试 EPUB",
+        "第一章正文\n仍在同一段，强调文字保留。",
+        "只有 div 的正文。",
+        "列表内容",
+    ]
+    assert document["source"]["sha256"] == hashlib.sha256(source_bytes).hexdigest()
+
+
+def test_document_cannot_be_both_noted_and_skipped() -> None:
+    path = "EPUB/Text/chapter-two.xhtml"
+    with pytest.raises(EpubImportError, match="both preserved as notes and skipped"):
+        build_epub_source_document(
+            make_epub(),
+            book_id="ambiguous-document-policy-epub",
+            note_documents={path},
+            skip_documents={path},
+        )
 
 
 GLYPH_CHAPTER = """<?xml version="1.0" encoding="UTF-8"?>
