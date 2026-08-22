@@ -24,13 +24,13 @@ import { HistoryPanel } from "./reader/HistoryPanel";
 import { safeGet, safeKeys, safeRemove, safeSet } from "./reader/localStorage";
 import { resolveSwipe } from "./reader/touch";
 import { ReadingViewport } from "./reader/ReadingViewport";
+import { readingBeats } from "./reader/readingBeats";
 import { resolveGuideReferences } from "./reader/guideReferences";
 import { loadSettings, SETTINGS_KEY } from "./reader/readerSettings";
 import type { ReaderSettings } from "./reader/readerSettings";
 import {
   chapterNotes,
   flowPositionCounts,
-  isFlowParagraph,
   lastFlowIndex,
   nextFlowIndex,
   previousFlowIndex,
@@ -45,13 +45,13 @@ import {
   preferredStartIndex,
   progressIndex,
   progressStorageKey,
+  readingBeatStorageKey,
   resolvePlaybackAt,
   sceneAt,
   sourceProgressStorageKey,
-  visibleStartIndex,
+  sourceReadingBeatStorageKey,
 } from "./reader/readerState";
 import type { ReadingCursor } from "./reader/readerState";
-import { keepParagraphAboveBottomFade } from "./reader/readingScroll";
 import { ErrorScreen, LoadingScreen } from "./reader/screens";
 import { SettingsPanel } from "./reader/SettingsPanel";
 import type {
@@ -84,6 +84,7 @@ export function App() {
     currentIndex: 1,
     furthestReadIndex: 1,
   });
+  const [beatIndex, setBeatIndex] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [chaptersOpen, setChaptersOpen] = useState(false);
@@ -101,8 +102,6 @@ export function App() {
   const [codexPanelSeen, setCodexPanelSeen] = useState(-1);
   const [readingFloorIndex, setReadingFloorIndex] = useState(1);
   const [settings, setSettings] = useState<ReaderSettings>(loadSettings);
-  const readingViewportRef = useRef<HTMLElement | null>(null);
-  const latestParagraphRef = useRef<HTMLDivElement | null>(null);
   const touchOrigin = useRef<{ x: number; y: number } | null>(null);
   const { currentIndex, furthestReadIndex } = cursor;
 
@@ -148,6 +147,7 @@ export function App() {
     setCodexOpen(false);
     setCodexIntent({ tab: null, referenceId: null });
     setOpenNoteIndex(null);
+    setBeatIndex(0);
     setBundle(null);
     setLoadError(null);
     if (!selectedBook) return () => { cancelled = true; };
@@ -157,6 +157,7 @@ export function App() {
         if (cancelled) return;
         const positions = paragraphIndex(loaded.source);
         const savedId = safeGet(sourceProgressStorageKey(loaded.source));
+        const savedBeat = safeGet(sourceReadingBeatStorageKey(loaded.source));
         const sourceStart = firstReadableIndex(loaded.source);
         const preferredStart = preferredStartIndex(loaded.source, loaded.guide, positions);
         const savedIndex = snapToFlow(
@@ -176,6 +177,8 @@ export function App() {
           currentIndex: savedIndex,
           furthestReadIndex: savedIndex,
         });
+        const parsedBeat = savedBeat === null ? Number.NaN : Number.parseInt(savedBeat, 10);
+        setBeatIndex(savedId && Number.isFinite(parsedBeat) ? Math.max(0, parsedBeat) : 0);
       })
       .catch((error: unknown) => {
         if (!cancelled) {
@@ -288,21 +291,18 @@ export function App() {
     () => (bundle ? chapterNotes(bundle.source.paragraphs, currentIndex) : new Map<string, number>()),
     [bundle, currentIndex],
   );
-  const visibleStart = useMemo(
-    () =>
-      bundle
-        ? visibleStartIndex(sourcePositions, bundle.playback, currentIndex, firstIndex)
-        : firstIndex,
-    [bundle, currentIndex, firstIndex, sourcePositions],
+  const currentBeats = useMemo(
+    () => (bundle ? readingBeats(bundle.source.paragraphs[currentIndex]) : []),
+    [bundle, currentIndex],
   );
+  const activeBeatIndex = Math.min(beatIndex, Math.max(0, currentBeats.length - 1));
+  const currentBeat = currentBeats[activeBeatIndex];
   const visibleParagraphs = useMemo(
     () =>
-      bundle
-        ? bundle.source.paragraphs
-            .slice(visibleStart, currentIndex + 1)
-            .filter(isFlowParagraph)
+      bundle && currentBeat
+        ? [{ ...bundle.source.paragraphs[currentIndex], text: currentBeat.text }]
         : [],
-    [bundle, currentIndex, visibleStart],
+    [bundle, currentBeat, currentIndex],
   );
   // Progress counts only flow paragraphs: a scholarly edition can carry as many
   // annotation paragraphs as prose, and those never enter the tap-through path.
@@ -349,7 +349,13 @@ export function App() {
   }, [started, upcomingBackgroundSrc]);
 
   const next = useCallback(() => {
-    if (!bundle || currentIndex >= lastIndex) return;
+    if (!bundle) return;
+    if (activeBeatIndex < currentBeats.length - 1) {
+      setBeatIndex(activeBeatIndex + 1);
+      return;
+    }
+    if (currentIndex >= lastIndex) return;
+    setBeatIndex(0);
     setCursor((current) =>
       moveReadingCursor(
         bundle.source,
@@ -357,22 +363,29 @@ export function App() {
         nextFlowIndex(bundle.source.paragraphs, current.currentIndex),
       ),
     );
-  }, [bundle, currentIndex, lastIndex]);
+  }, [activeBeatIndex, bundle, currentBeats.length, currentIndex, lastIndex]);
 
   const previous = useCallback(() => {
     if (!bundle) return;
+    if (activeBeatIndex > 0) {
+      setBeatIndex(activeBeatIndex - 1);
+      return;
+    }
+    const targetIndex = previousFlowIndex(
+      bundle.source.paragraphs,
+      currentIndex,
+      readingFloorIndex,
+    );
+    const targetBeats = readingBeats(bundle.source.paragraphs[targetIndex]);
+    setBeatIndex(Math.max(0, targetBeats.length - 1));
     setCursor((current) =>
       moveReadingCursor(
         bundle.source,
         current,
-        previousFlowIndex(
-          bundle.source.paragraphs,
-          current.currentIndex,
-          readingFloorIndex,
-        ),
+        targetIndex,
       ),
     );
-  }, [bundle, readingFloorIndex]);
+  }, [activeBeatIndex, bundle, currentIndex, readingFloorIndex]);
 
   useEffect(() => {
     if (!started || !bundle) return;
@@ -383,18 +396,9 @@ export function App() {
   }, [bundle, furthestReadIndex, started]);
 
   useEffect(() => {
-    if (!started || !bundle || historyOpen) return;
-    const animationFrame = window.requestAnimationFrame(() => {
-      if (readingViewportRef.current && latestParagraphRef.current) {
-        keepParagraphAboveBottomFade(
-          readingViewportRef.current,
-          latestParagraphRef.current,
-          settings.reducedMotion,
-        );
-      }
-    });
-    return () => window.cancelAnimationFrame(animationFrame);
-  }, [bundle, currentIndex, historyOpen, settings.reducedMotion, started]);
+    if (!started || !bundle || currentIndex !== furthestReadIndex) return;
+    safeSet(sourceReadingBeatStorageKey(bundle.source), String(activeBeatIndex));
+  }, [activeBeatIndex, bundle, currentIndex, furthestReadIndex, started]);
 
   useEffect(() => {
     if (!started) return;
@@ -447,8 +451,10 @@ export function App() {
         currentIndex: startIndex,
         furthestReadIndex: startIndex,
       });
+      setBeatIndex(0);
       setReadingFloorIndex(startIndex);
       safeRemove(sourceProgressStorageKey(bundle.source));
+      safeRemove(sourceReadingBeatStorageKey(bundle.source));
       setHasSavedProgress(false);
     }
     unlockAudio();
@@ -472,6 +478,7 @@ export function App() {
   function jumpToChapter(targetIndex: number) {
     if (!bundle) return;
     setCursor((current) => moveReadingCursor(bundle.source, current, targetIndex));
+    setBeatIndex(0);
     setChaptersOpen(false);
   }
 
@@ -522,6 +529,7 @@ export function App() {
         snapToFlow(bundle.source.paragraphs, targetIndex),
       ),
     );
+    setBeatIndex(0);
     setCodexOpen(false);
   }
 
@@ -541,6 +549,7 @@ export function App() {
   function jumpToHistory(targetIndex: number) {
     if (!bundle) return;
     setCursor((current) => moveReadingCursor(bundle.source, current, targetIndex));
+    setBeatIndex(0);
     setHistoryOpen(false);
   }
 
@@ -549,6 +558,7 @@ export function App() {
       ...current,
       currentIndex: current.furthestReadIndex,
     }));
+    setBeatIndex(0);
     setHistoryOpen(false);
   }
 
@@ -728,12 +738,14 @@ export function App() {
           <ReadingViewport
             bookPath={selectedBook.path}
             paragraphs={visibleParagraphs}
+            pageKey={`${currentIndex}-${activeBeatIndex}`}
+            beatIndex={activeBeatIndex}
+            beatCount={currentBeats.length}
+            showIllustrations={activeBeatIndex === currentBeats.length - 1}
             illustrationsByAnchor={illustrationsByAnchor}
             referenceIllustrationIds={referenceIllustrationIds}
             noteMarkers={currentChapterNotes}
-            atEnd={currentIndex === lastIndex}
-            viewportRef={readingViewportRef}
-            latestParagraphRef={latestParagraphRef}
+            atEnd={currentIndex === lastIndex && activeBeatIndex === currentBeats.length - 1}
             onOpenReference={openReferenceForIllustration}
             onOpenNote={openNoteMarker}
           />
@@ -743,10 +755,10 @@ export function App() {
               className="nav-button"
               type="button"
               data-interactive="true"
-              disabled={currentIndex <= firstIndex}
+              disabled={currentIndex <= firstIndex && activeBeatIndex === 0}
               onClick={previous}
             >
-              <span aria-hidden="true">←</span>上一段
+              <span aria-hidden="true">←</span>上一页
             </button>
             <div className="now-playing">
               <span aria-hidden="true">♪</span>
@@ -757,10 +769,12 @@ export function App() {
               className="nav-button nav-button--next"
               type="button"
               data-interactive="true"
-              disabled={currentIndex >= lastIndex}
+              disabled={currentIndex >= lastIndex && activeBeatIndex >= currentBeats.length - 1}
               onClick={next}
             >
-              {currentIndex >= lastIndex ? "已读完" : "下一段"}
+              {currentIndex >= lastIndex && activeBeatIndex >= currentBeats.length - 1
+                ? "已读完"
+                : "下一页"}
               <span aria-hidden="true">→</span>
             </button>
           </footer>
@@ -829,10 +843,12 @@ export function App() {
 function removeStaleProgress(bookId: string, revision: number): void {
   const keep = new Set([
     progressStorageKey(bookId, revision),
+    readingBeatStorageKey(bookId, revision),
     codexSeenStorageKey(bookId, revision),
   ]);
   const prefixes = [
     `immersive-reader:${bookId}:revision-`,
+    `immersive-reader:${bookId}:reading-beat:revision-`,
     `immersive-reader:${bookId}:codex-seen:revision-`,
   ];
   for (const key of safeKeys()) {

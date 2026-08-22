@@ -156,8 +156,16 @@ export function progressStorageKey(bookId: string, sourceRevision: number): stri
   return `immersive-reader:${bookId}:revision-${sourceRevision}`;
 }
 
+export function readingBeatStorageKey(bookId: string, sourceRevision: number): string {
+  return `immersive-reader:${bookId}:reading-beat:revision-${sourceRevision}`;
+}
+
 export function sourceProgressStorageKey(source: SourceDocument): string {
   return progressStorageKey(source.book_id, source.revision);
+}
+
+export function sourceReadingBeatStorageKey(source: SourceDocument): string {
+  return readingBeatStorageKey(source.book_id, source.revision);
 }
 
 export function progressIndex(

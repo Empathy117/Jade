@@ -129,10 +129,15 @@ export function makeBundleDocuments(paragraphCount = 6): {
  */
 export function stubBookFetch(
   paragraphCount = 6,
-  extras: { guide?: GuideDocument; codex?: CodexDocument } = {},
+  extras: {
+    guide?: GuideDocument;
+    codex?: CodexDocument;
+    firstProseText?: string;
+  } = {},
 ): typeof fetch {
   const library = makeLibrary(paragraphCount);
   const documents = makeBundleDocuments(paragraphCount);
+  if (extras.firstProseText) documents.source.paragraphs[1].text = extras.firstProseText;
   const byUrl = new Map<string, unknown>([
     ["/library.json", library],
     ["/test-book/source.json", documents.source],

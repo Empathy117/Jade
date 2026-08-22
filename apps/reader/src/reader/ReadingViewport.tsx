@@ -5,14 +5,16 @@ import type { Paragraph, SourceIllustration } from "./types";
 interface ReadingViewportProps {
   bookPath: string;
   paragraphs: Paragraph[];
+  pageKey: string;
+  beatIndex: number;
+  beatCount: number;
+  showIllustrations: boolean;
   illustrationsByAnchor: Map<string, SourceIllustration[]>;
   /** Illustrations the reader has unlocked in the guide gallery. */
   referenceIllustrationIds: Set<string>;
   /** Markers of the current chapter that resolve to an annotation. */
   noteMarkers: Map<string, number>;
   atEnd: boolean;
-  viewportRef: React.RefObject<HTMLElement | null>;
-  latestParagraphRef: React.RefObject<HTMLDivElement | null>;
   onOpenReference: (illustrationId: string) => void;
   onOpenNote: (marker: string) => void;
 }
@@ -20,35 +22,51 @@ interface ReadingViewportProps {
 export function ReadingViewport({
   bookPath,
   paragraphs,
+  pageKey,
+  beatIndex,
+  beatCount,
+  showIllustrations,
   illustrationsByAnchor,
   referenceIllustrationIds,
   noteMarkers,
   atEnd,
-  viewportRef,
-  latestParagraphRef,
   onOpenReference,
   onOpenNote,
 }: ReadingViewportProps) {
   const lastOffset = paragraphs.length - 1;
+  const hasSourceIllustration =
+    showIllustrations &&
+    paragraphs.some((paragraph) => (illustrationsByAnchor.get(paragraph.id) ?? []).length > 0);
 
   return (
-    <section className="reading-viewport" aria-label="小说正文" ref={viewportRef}>
+    <section
+      className={`reading-viewport${hasSourceIllustration ? " has-source-illustration" : ""}`}
+      aria-label="小说正文"
+    >
       <div className="paragraph-stack" aria-live="polite">
         {paragraphs.map((paragraph, offset) => {
           const isLatest = offset === lastOffset;
           return (
             <div
               className="reading-block"
-              key={paragraph.id}
-              ref={isLatest ? latestParagraphRef : undefined}
+              key={`${paragraph.id}-${pageKey}`}
               data-paragraph-id={paragraph.id}
+              data-reading-beat={`${beatIndex + 1}/${beatCount}`}
             >
               <div
                 className={`paragraph paragraph--${paragraph.kind}${isLatest ? " is-current" : ""}`}
               >
                 {renderLines(paragraph, noteMarkers, onOpenNote)}
               </div>
-              {(illustrationsByAnchor.get(paragraph.id) ?? []).map((illustration) => (
+              {isLatest && beatCount > 1 ? (
+                <div
+                  className="reading-beat-mark"
+                  aria-label={`本段第 ${beatIndex + 1} 页，共 ${beatCount} 页`}
+                >
+                  {beatIndex + 1} / {beatCount}
+                </div>
+              ) : null}
+              {(showIllustrations ? illustrationsByAnchor.get(paragraph.id) ?? [] : []).map((illustration) => (
                 <SourceIllustrationFigure
                   key={illustration.id}
                   bookPath={bookPath}

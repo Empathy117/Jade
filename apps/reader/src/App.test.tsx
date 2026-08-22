@@ -3,10 +3,11 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
-import { progressStorageKey } from "./reader/readerState";
+import { progressStorageKey, readingBeatStorageKey } from "./reader/readerState";
 import { stubBookFetch } from "./test/bookFixture";
 
 const PROGRESS_KEY = progressStorageKey("test-book", 1);
+const READING_BEAT_KEY = readingBeatStorageKey("test-book", 1);
 
 async function openBook() {
   const user = userEvent.setup();
@@ -22,7 +23,7 @@ async function openBook() {
 async function startReading() {
   const user = await openBook();
   await user.click(screen.getByRole("button", { name: /^开始阅读/ }));
-  await screen.findByRole("button", { name: "下一段" });
+  await screen.findByRole("button", { name: "下一页" });
   return user;
 }
 
@@ -52,13 +53,31 @@ describe("App", () => {
     expect(screen.queryByText("第 2 段正文。")).toBeNull();
   });
 
-  it("advances on Space and keeps earlier paragraphs on screen", async () => {
+  it("advances on Space and keeps only the current reading page on screen", async () => {
     const user = await startReading();
 
     await user.keyboard(" ");
 
     expect(await screen.findByText("第 2 段正文。")).toBeDefined();
-    expect(screen.getByText("第 1 段正文。")).toBeDefined();
+    expect(screen.queryByText("第 1 段正文。")).toBeNull();
+  });
+
+  it("turns through a long source paragraph before advancing its paragraph id", async () => {
+    vi.stubGlobal(
+      "fetch",
+      stubBookFetch(6, { firstProseText: "第一句。".repeat(90) }),
+    );
+    const user = await openBook();
+    await user.click(screen.getByRole("button", { name: /^开始阅读/ }));
+
+    expect(await screen.findByLabelText(/本段第 1 页/)).toBeDefined();
+    expect(document.querySelector(".reading-block")?.getAttribute("data-paragraph-id")).toBe("p0002");
+
+    await user.keyboard(" ");
+
+    expect(await screen.findByLabelText(/本段第 2 页/)).toBeDefined();
+    expect(document.querySelector(".reading-block")?.getAttribute("data-paragraph-id")).toBe("p0002");
+    expect(window.localStorage.getItem(READING_BEAT_KEY)).toBe("1");
   });
 
   it("stores the furthest read paragraph so the book can resume", async () => {
@@ -93,6 +112,20 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: /继续阅读/ })).toBeDefined();
   });
 
+  it("resumes the saved page inside a long paragraph", async () => {
+    vi.stubGlobal(
+      "fetch",
+      stubBookFetch(6, { firstProseText: "第一句。".repeat(90) }),
+    );
+    window.localStorage.setItem(PROGRESS_KEY, "p0002");
+    window.localStorage.setItem(READING_BEAT_KEY, "2");
+    const user = await openBook();
+
+    await user.click(screen.getByRole("button", { name: /继续阅读/ }));
+
+    expect(await screen.findByLabelText(/本段第 3 页/)).toBeDefined();
+  });
+
   it("reports a failed bundle instead of rendering an empty reader", async () => {
     vi.stubGlobal(
       "fetch",
@@ -106,12 +139,15 @@ describe("App", () => {
 
   it("sweeps progress stored under other revisions of the same book", async () => {
     const stale = progressStorageKey("test-book", 0);
+    const staleBeat = readingBeatStorageKey("test-book", 0);
     window.localStorage.setItem(stale, "p0002");
+    window.localStorage.setItem(staleBeat, "4");
     window.localStorage.setItem(PROGRESS_KEY, "p0004");
 
     await openBook();
 
     expect(window.localStorage.getItem(stale)).toBeNull();
+    expect(window.localStorage.getItem(staleBeat)).toBeNull();
     expect(window.localStorage.getItem(PROGRESS_KEY)).toBe("p0004");
   });
 
@@ -121,7 +157,7 @@ describe("App", () => {
     window.localStorage.setItem(PROGRESS_KEY, "p0020");
     const user = await openBook();
     await user.click(screen.getByRole("button", { name: /继续阅读/ }));
-    await screen.findByRole("button", { name: "下一段" });
+    await screen.findByRole("button", { name: "下一页" });
 
     await user.click(screen.getByRole("button", { name: "章节目录" }));
     const chapterEntry = await screen.findByRole("button", { name: /第 1 章/ });

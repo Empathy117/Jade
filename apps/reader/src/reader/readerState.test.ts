@@ -7,6 +7,7 @@ import {
   preferredStartIndex,
   progressIndex,
   progressStorageKey,
+  readingBeatStorageKey,
   resolvePlaybackAt,
   sceneAt,
   sourceProgressStorageKey,
@@ -174,5 +175,11 @@ describe("reader state", () => {
 
   it("derives the same progress key from a bundle and from a library entry", () => {
     expect(sourceProgressStorageKey(source)).toBe(progressStorageKey("fixture-book", 1));
+  });
+
+  it("keeps display-page progress separate from paragraph progress", () => {
+    expect(readingBeatStorageKey("fixture-book", 3)).toBe(
+      "immersive-reader:fixture-book:reading-beat:revision-3",
+    );
   });
 });
