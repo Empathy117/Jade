@@ -13,7 +13,7 @@ describe("swipe interpretation", () => {
     expect(resolveSwipe(55, 0)).toBeNull();
   });
 
-  it("never turns the page on a mostly vertical gesture", () => {
+  it("leaves mostly vertical gestures to native scene scrolling", () => {
     expect(resolveSwipe(-80, 120)).toBeNull();
     expect(resolveSwipe(70, -70)).toBeNull();
   });

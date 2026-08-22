@@ -24,13 +24,16 @@ import { HistoryPanel } from "./reader/HistoryPanel";
 import { safeGet, safeKeys, safeRemove, safeSet } from "./reader/localStorage";
 import { resolveSwipe } from "./reader/touch";
 import { ReadingViewport } from "./reader/ReadingViewport";
+import type { VisibleReadingBeat } from "./reader/ReadingViewport";
 import { readingBeats } from "./reader/readingBeats";
+import { keepParagraphAboveBottomFade } from "./reader/readingScroll";
 import { resolveGuideReferences } from "./reader/guideReferences";
 import { loadSettings, SETTINGS_KEY } from "./reader/readerSettings";
 import type { ReaderSettings } from "./reader/readerSettings";
 import {
   chapterNotes,
   flowPositionCounts,
+  isFlowParagraph,
   lastFlowIndex,
   nextFlowIndex,
   previousFlowIndex,
@@ -50,6 +53,7 @@ import {
   sceneAt,
   sourceProgressStorageKey,
   sourceReadingBeatStorageKey,
+  visibleStartIndex,
 } from "./reader/readerState";
 import type { ReadingCursor } from "./reader/readerState";
 import { ErrorScreen, LoadingScreen } from "./reader/screens";
@@ -102,6 +106,8 @@ export function App() {
   const [codexPanelSeen, setCodexPanelSeen] = useState(-1);
   const [readingFloorIndex, setReadingFloorIndex] = useState(1);
   const [settings, setSettings] = useState<ReaderSettings>(loadSettings);
+  const readingViewportRef = useRef<HTMLElement | null>(null);
+  const latestParagraphRef = useRef<HTMLDivElement | null>(null);
   const touchOrigin = useRef<{ x: number; y: number } | null>(null);
   const { currentIndex, furthestReadIndex } = cursor;
 
@@ -296,13 +302,39 @@ export function App() {
     [bundle, currentIndex],
   );
   const activeBeatIndex = Math.min(beatIndex, Math.max(0, currentBeats.length - 1));
-  const currentBeat = currentBeats[activeBeatIndex];
-  const visibleParagraphs = useMemo(
+  const visibleStart = useMemo(
     () =>
-      bundle && currentBeat
-        ? [{ ...bundle.source.paragraphs[currentIndex], text: currentBeat.text }]
-        : [],
-    [bundle, currentBeat, currentIndex],
+      bundle
+        ? visibleStartIndex(sourcePositions, bundle.playback, currentIndex, firstIndex)
+        : firstIndex,
+    [bundle, currentIndex, firstIndex, sourcePositions],
+  );
+  const visibleBeats = useMemo<VisibleReadingBeat[]>(
+    () => {
+      if (!bundle) return [];
+      const result: VisibleReadingBeat[] = [];
+      for (let index = visibleStart; index <= currentIndex; index += 1) {
+        const sourceParagraph = bundle.source.paragraphs[index];
+        if (!isFlowParagraph(sourceParagraph)) continue;
+        const beats = readingBeats(sourceParagraph);
+        const lastVisibleBeat =
+          index === currentIndex ? activeBeatIndex : beats.length - 1;
+        for (let beat = 0; beat <= lastVisibleBeat; beat += 1) {
+          result.push({
+            key: `${sourceParagraph.id}-${beat}`,
+            paragraph: { ...sourceParagraph, text: beats[beat].text },
+            beatIndex: beat,
+            beatCount: beats.length,
+            current: index === currentIndex && beat === activeBeatIndex,
+            showIllustrations:
+              beat === beats.length - 1 &&
+              (index < currentIndex || activeBeatIndex === beats.length - 1),
+          });
+        }
+      }
+      return result;
+    },
+    [activeBeatIndex, bundle, currentIndex, visibleStart],
   );
   // Progress counts only flow paragraphs: a scholarly edition can carry as many
   // annotation paragraphs as prose, and those never enter the tap-through path.
@@ -399,6 +431,20 @@ export function App() {
     if (!started || !bundle || currentIndex !== furthestReadIndex) return;
     safeSet(sourceReadingBeatStorageKey(bundle.source), String(activeBeatIndex));
   }, [activeBeatIndex, bundle, currentIndex, furthestReadIndex, started]);
+
+  useEffect(() => {
+    if (!started || historyOpen) return;
+    const animationFrame = window.requestAnimationFrame(() => {
+      if (readingViewportRef.current && latestParagraphRef.current) {
+        keepParagraphAboveBottomFade(
+          readingViewportRef.current,
+          latestParagraphRef.current,
+          settings.reducedMotion,
+        );
+      }
+    });
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [activeBeatIndex, currentIndex, historyOpen, settings.reducedMotion, started]);
 
   useEffect(() => {
     if (!started) return;
@@ -737,15 +783,13 @@ export function App() {
 
           <ReadingViewport
             bookPath={selectedBook.path}
-            paragraphs={visibleParagraphs}
-            pageKey={`${currentIndex}-${activeBeatIndex}`}
-            beatIndex={activeBeatIndex}
-            beatCount={currentBeats.length}
-            showIllustrations={activeBeatIndex === currentBeats.length - 1}
+            beats={visibleBeats}
             illustrationsByAnchor={illustrationsByAnchor}
             referenceIllustrationIds={referenceIllustrationIds}
             noteMarkers={currentChapterNotes}
             atEnd={currentIndex === lastIndex && activeBeatIndex === currentBeats.length - 1}
+            viewportRef={readingViewportRef}
+            latestParagraphRef={latestParagraphRef}
             onOpenReference={openReferenceForIllustration}
             onOpenNote={openNoteMarker}
           />

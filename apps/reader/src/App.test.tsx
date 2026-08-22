@@ -53,13 +53,13 @@ describe("App", () => {
     expect(screen.queryByText("第 2 段正文。")).toBeNull();
   });
 
-  it("advances on Space and keeps only the current reading page on screen", async () => {
+  it("advances on Space and keeps earlier text from the same scene on screen", async () => {
     const user = await startReading();
 
     await user.keyboard(" ");
 
     expect(await screen.findByText("第 2 段正文。")).toBeDefined();
-    expect(screen.queryByText("第 1 段正文。")).toBeNull();
+    expect(screen.getByText("第 1 段正文。")).toBeDefined();
   });
 
   it("turns through a long source paragraph before advancing its paragraph id", async () => {
@@ -76,8 +76,23 @@ describe("App", () => {
     await user.keyboard(" ");
 
     expect(await screen.findByLabelText(/本段第 2 页/)).toBeDefined();
-    expect(document.querySelector(".reading-block")?.getAttribute("data-paragraph-id")).toBe("p0002");
+    const visibleBeats = document.querySelectorAll(".reading-block[data-paragraph-id='p0002']");
+    expect(visibleBeats).toHaveLength(2);
     expect(window.localStorage.getItem(READING_BEAT_KEY)).toBe("1");
+  });
+
+  it("clears retained text only when a new scene asks for a clear", async () => {
+    const user = await startReading();
+    await user.keyboard(" ");
+
+    expect(screen.getByText("第 1 段正文。")).toBeDefined();
+    expect(screen.getByText("第 2 段正文。")).toBeDefined();
+
+    await user.keyboard(" ");
+
+    expect(await screen.findByText("第 3 段正文。")).toBeDefined();
+    expect(screen.queryByText("第 1 段正文。")).toBeNull();
+    expect(screen.queryByText("第 2 段正文。")).toBeNull();
   });
 
   it("stores the furthest read paragraph so the book can resume", async () => {

@@ -3,8 +3,8 @@
  *
  * Swiping left (finger moves toward smaller x) reads as flipping forward, the
  * way a physical page turns; swiping right goes back. A gesture that is mostly
- * vertical is scrolling and must never turn the page, so the horizontal
- * component has to clearly dominate.
+ * vertical belongs to the native reading scroll and must never turn the page,
+ * so the horizontal component has to clearly dominate.
  */
 
 export const SWIPE_MIN_DISTANCE = 56;
