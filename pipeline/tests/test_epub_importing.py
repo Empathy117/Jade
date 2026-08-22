@@ -453,6 +453,23 @@ def test_document_cannot_be_both_noted_and_skipped() -> None:
         )
 
 
+def test_explicit_chapter_map_inserts_missing_source_heading() -> None:
+    document = build_epub_source_document(
+        make_epub(),
+        book_id="mapped-chapter-epub",
+        chapter_titles={"EPUB/Text/chapter one.xhtml": "第一章"},
+    )
+
+    assert document["paragraphs"][1:3] == [
+        {"id": "p0002", "kind": "chapter_heading", "text": "第一章"},
+        {
+            "id": "p0003",
+            "kind": "prose",
+            "text": "第一章正文\n仍在同一段，强调文字保留。",
+        },
+    ]
+
+
 GLYPH_CHAPTER = """<?xml version="1.0" encoding="UTF-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml">
   <body>

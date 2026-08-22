@@ -52,6 +52,13 @@ original document remains byte-for-byte present in the frozen `source.epub`;
 never use this option for copyright pages, dedications, tables of contents,
 author or translator notes, illustrations, or genuine book appendices.
 
+Some EPUBs expose chapter labels only through their navigation document while
+the corresponding spine files begin directly with prose. Supply an explicit
+JSON object through `--epub-chapter-map` to insert those source navigation
+labels as `chapter_heading` paragraphs. Keys are normalized archive spine paths
+and values are the verbatim navigation labels; this keeps chapter navigation
+deterministic without guessing from prose.
+
 Phase 2 provides the first tool, a bundle validator:
 
 ```sh

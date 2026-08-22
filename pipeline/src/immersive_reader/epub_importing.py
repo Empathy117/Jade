@@ -100,6 +100,7 @@ def build_epub_source_document(
     note_documents: set[str] | None = None,
     note_class_tokens: set[str] | None = None,
     skip_documents: set[str] | None = None,
+    chapter_titles: dict[str, str] | None = None,
 ) -> dict[str, object]:
     """Compile EPUB package metadata and spine text into source.json data."""
 
@@ -113,6 +114,7 @@ def build_epub_source_document(
         note_documents=note_documents,
         note_class_tokens=note_class_tokens,
         skip_documents=skip_documents,
+        chapter_titles=chapter_titles,
     ).document
 
 
@@ -127,6 +129,7 @@ def _compile_epub_source(
     note_documents: set[str] | None = None,
     note_class_tokens: set[str] | None = None,
     skip_documents: set[str] | None = None,
+    chapter_titles: dict[str, str] | None = None,
 ) -> EpubCompilation:
     """Compile EPUB text and supported source illustrations deterministically."""
 
@@ -146,6 +149,10 @@ def _compile_epub_source(
         if (note_documents or set()) & (skip_documents or set()):
             raise EpubImportError(
                 "an EPUB document cannot be both preserved as notes and skipped"
+            )
+        if set(chapter_titles or {}) & (skip_documents or set()):
+            raise EpubImportError(
+                "a skipped EPUB document cannot also receive a chapter title"
             )
         members = _validate_archive(archive)
         if "mimetype" not in members:
@@ -177,6 +184,7 @@ def _compile_epub_source(
             note_documents or set(),
             note_class_tokens or set(),
             skip_documents or set(),
+            chapter_titles or {},
         )
 
     if not blocks:
@@ -245,6 +253,7 @@ def import_epub(
     note_documents: set[str] | None = None,
     note_class_tokens: set[str] | None = None,
     skip_documents: set[str] | None = None,
+    chapter_titles: dict[str, str] | None = None,
 ) -> ImportResult:
     """Freeze an EPUB and atomically write its unified source manifest."""
 
@@ -262,6 +271,7 @@ def import_epub(
         note_documents=note_documents,
         note_class_tokens=note_class_tokens,
         skip_documents=skip_documents,
+        chapter_titles=chapter_titles,
     )
     return write_source_bundle(
         input_path,
@@ -416,6 +426,7 @@ def _spine_content(
     note_documents: set[str],
     note_class_tokens: set[str],
     skip_documents: set[str],
+    chapter_titles: dict[str, str],
 ) -> tuple[list[EpubTextBlock], list[EpubRawIllustration]]:
     package_dir = str(PurePosixPath(package_path).parent)
     if package_dir == ".":
@@ -461,11 +472,18 @@ def _spine_content(
             note_class_tokens,
         )
         removed_leading_blocks = 0
+        inserted_leading_blocks = 0
         if not blocks and document_blocks:
             first = document_blocks[0]
             if first.kind == "chapter_heading" and _same_text(first.text, title):
                 document_blocks = document_blocks[1:]
                 removed_leading_blocks = 1
+        if chapter_title := chapter_titles.get(member_path):
+            document_blocks = [
+                EpubTextBlock("chapter_heading", chapter_title),
+                *document_blocks,
+            ]
+            inserted_leading_blocks = 1
         if member_path in note_documents:
             document_blocks = [
                 EpubTextBlock("note", block.text, block.is_caption)
@@ -477,7 +495,11 @@ def _spine_content(
         if document_dir == ".":
             document_dir = ""
         for image in document_images:
-            local_anchor = image.before_block_index - removed_leading_blocks
+            local_anchor = (
+                image.before_block_index
+                - removed_leading_blocks
+                + inserted_leading_blocks
+            )
             next_block = (
                 document_blocks[local_anchor]
                 if 0 <= local_anchor < len(document_blocks)

@@ -85,6 +85,15 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--epub-chapter-map",
+        type=Path,
+        default=None,
+        help=(
+            "EPUB only: JSON object mapping archive spine paths to chapter "
+            "titles that should be inserted when the source document has no heading"
+        ),
+    )
+    parser.add_argument(
         "--first-block-is-title",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -116,6 +125,27 @@ def load_glyph_map(path: Path | None) -> dict[str, str] | None:
     return glyph_map
 
 
+def load_chapter_map(path: Path | None) -> dict[str, str] | None:
+    """Read an EPUB chapter map: archive spine path -> source navigation label."""
+
+    if path is None:
+        return None
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise BookImportError(f"cannot read EPUB chapter map {path}: {error}") from error
+    if not isinstance(raw, dict) or not raw:
+        raise BookImportError("EPUB chapter map must be a non-empty JSON object")
+    chapter_map: dict[str, str] = {}
+    for href, title in raw.items():
+        if not isinstance(href, str) or not href.strip():
+            raise BookImportError("EPUB chapter map keys must be archive spine paths")
+        if not isinstance(title, str) or not title.strip():
+            raise BookImportError(f"chapter title for {href!r} must be non-empty text")
+        chapter_map[href] = title.strip()
+    return chapter_map
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
@@ -129,6 +159,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 raise BookImportError("--epub-note-class only applies to EPUB input")
             if args.epub_skip_document:
                 raise BookImportError("--epub-skip-document only applies to EPUB input")
+            if args.epub_chapter_map is not None:
+                raise BookImportError("--epub-chapter-map only applies to EPUB input")
             result = import_txt(
                 args.input,
                 args.output,
@@ -153,6 +185,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 note_documents=set(args.epub_note_document),
                 note_class_tokens=set(args.epub_note_class),
                 skip_documents=set(args.epub_skip_document),
+                chapter_titles=load_chapter_map(args.epub_chapter_map),
             )
         else:
             raise BookImportError(
