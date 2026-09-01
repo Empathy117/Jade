@@ -20,6 +20,19 @@ export function calculateReadingScrollDelta(
 }
 
 /**
+ * Smooth only for short advances. A resume or jump can put the reading
+ * position a whole scene below the fold, and Chrome silently drops smooth
+ * scrolls over such distances — those land instantly instead.
+ */
+export function readingScrollBehavior(
+  delta: number,
+  viewportHeight: number,
+  reducedMotion: boolean,
+): ScrollBehavior {
+  return reducedMotion || delta > viewportHeight ? "auto" : "smooth";
+}
+
+/**
  * Keep the newly revealed beat readable while leaving all earlier beats in the
  * same scene above it for native upward scrolling.
  */
@@ -40,6 +53,6 @@ export function keepParagraphAboveBottomFade(
 
   viewport.scrollBy({
     top,
-    behavior: reducedMotion ? "auto" : "smooth",
+    behavior: readingScrollBehavior(top, viewportRect.height, reducedMotion),
   });
 }
