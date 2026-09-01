@@ -407,6 +407,33 @@ def test_selected_epub_document_can_be_preserved_as_notes() -> None:
     ]
 
 
+def test_selected_epub_document_can_be_preserved_as_navigation() -> None:
+    document = build_epub_source_document(
+        make_epub(),
+        book_id="print-toc-epub",
+        nav_documents={"EPUB/Text/chapter-two.xhtml"},
+    )
+
+    assert document["paragraphs"][-3:] == [
+        {"id": "p0005", "kind": "nav", "text": "第二章"},
+        {"id": "p0006", "kind": "nav", "text": "一段题记。"},
+        {"id": "p0007", "kind": "nav", "text": "第二章正文。"},
+    ]
+    schema = json.loads(SOURCE_SCHEMA.read_text(encoding="utf-8"))
+    Draft202012Validator(schema).validate(document)
+
+
+def test_document_cannot_be_both_navigation_and_notes() -> None:
+    path = "EPUB/Text/chapter-two.xhtml"
+    with pytest.raises(EpubImportError, match="both navigation and notes"):
+        build_epub_source_document(
+            make_epub(),
+            book_id="ambiguous-nav-policy-epub",
+            note_documents={path},
+            nav_documents={path},
+        )
+
+
 def test_custom_epub_class_can_be_classified_as_notes() -> None:
     chapter = CHAPTER_ONE.replace(
         '<ul><li>列表内容</li></ul>',

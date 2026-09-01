@@ -64,6 +64,18 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--epub-nav-document",
+        action="append",
+        default=[],
+        metavar="ARCHIVE_PATH",
+        help=(
+            "EPUB only: classify every readable block in this spine document "
+            "as print navigation (a table of contents kept for provenance); "
+            "like notes it never enters the linear reading flow, but the "
+            "Reader also never offers it as an annotation"
+        ),
+    )
+    parser.add_argument(
         "--epub-note-class",
         action="append",
         default=[],
@@ -155,6 +167,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 raise BookImportError("--glyph-map only applies to EPUB input")
             if args.epub_note_document:
                 raise BookImportError("--epub-note-document only applies to EPUB input")
+            if args.epub_nav_document:
+                raise BookImportError("--epub-nav-document only applies to EPUB input")
             if args.epub_note_class:
                 raise BookImportError("--epub-note-class only applies to EPUB input")
             if args.epub_skip_document:
@@ -183,6 +197,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 language=args.language,
                 glyph_map=load_glyph_map(args.glyph_map),
                 note_documents=set(args.epub_note_document),
+                nav_documents=set(args.epub_nav_document),
                 note_class_tokens=set(args.epub_note_class),
                 skip_documents=set(args.epub_skip_document),
                 chapter_titles=load_chapter_map(args.epub_chapter_map),

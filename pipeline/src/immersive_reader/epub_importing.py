@@ -98,6 +98,7 @@ def build_epub_source_document(
     language: str | None = None,
     glyph_map: dict[str, str] | None = None,
     note_documents: set[str] | None = None,
+    nav_documents: set[str] | None = None,
     note_class_tokens: set[str] | None = None,
     skip_documents: set[str] | None = None,
     chapter_titles: dict[str, str] | None = None,
@@ -112,6 +113,7 @@ def build_epub_source_document(
         language=language,
         glyph_map=glyph_map,
         note_documents=note_documents,
+        nav_documents=nav_documents,
         note_class_tokens=note_class_tokens,
         skip_documents=skip_documents,
         chapter_titles=chapter_titles,
@@ -127,6 +129,7 @@ def _compile_epub_source(
     language: str | None,
     glyph_map: dict[str, str] | None = None,
     note_documents: set[str] | None = None,
+    nav_documents: set[str] | None = None,
     note_class_tokens: set[str] | None = None,
     skip_documents: set[str] | None = None,
     chapter_titles: dict[str, str] | None = None,
@@ -149,6 +152,14 @@ def _compile_epub_source(
         if (note_documents or set()) & (skip_documents or set()):
             raise EpubImportError(
                 "an EPUB document cannot be both preserved as notes and skipped"
+            )
+        if (nav_documents or set()) & (skip_documents or set()):
+            raise EpubImportError(
+                "an EPUB document cannot be both preserved as navigation and skipped"
+            )
+        if (nav_documents or set()) & (note_documents or set()):
+            raise EpubImportError(
+                "an EPUB document cannot be preserved as both navigation and notes"
             )
         if set(chapter_titles or {}) & (skip_documents or set()):
             raise EpubImportError(
@@ -182,6 +193,7 @@ def _compile_epub_source(
             metadata.title,
             glyph_map or {},
             note_documents or set(),
+            nav_documents or set(),
             note_class_tokens or set(),
             skip_documents or set(),
             chapter_titles or {},
@@ -251,6 +263,7 @@ def import_epub(
     language: str | None = None,
     glyph_map: dict[str, str] | None = None,
     note_documents: set[str] | None = None,
+    nav_documents: set[str] | None = None,
     note_class_tokens: set[str] | None = None,
     skip_documents: set[str] | None = None,
     chapter_titles: dict[str, str] | None = None,
@@ -269,6 +282,7 @@ def import_epub(
         language=language,
         glyph_map=glyph_map,
         note_documents=note_documents,
+        nav_documents=nav_documents,
         note_class_tokens=note_class_tokens,
         skip_documents=skip_documents,
         chapter_titles=chapter_titles,
@@ -424,6 +438,7 @@ def _spine_content(
     title: str,
     glyph_map: dict[str, str],
     note_documents: set[str],
+    nav_documents: set[str],
     note_class_tokens: set[str],
     skip_documents: set[str],
     chapter_titles: dict[str, str],
@@ -487,6 +502,11 @@ def _spine_content(
         if member_path in note_documents:
             document_blocks = [
                 EpubTextBlock("note", block.text, block.is_caption)
+                for block in document_blocks
+            ]
+        if member_path in nav_documents:
+            document_blocks = [
+                EpubTextBlock("nav", block.text, block.is_caption)
                 for block in document_blocks
             ]
 
