@@ -20,7 +20,16 @@ export function unlockedChapters(
 ): ChapterEntry[] {
   const chapters: ChapterEntry[] = [];
   const end = Math.min(furthestReadIndex, paragraphs.length - 1);
-  for (let index = Math.max(0, floorIndex); index <= end; index += 1) {
+  // The chapter the floor sits inside has been reached even when a preferred
+  // start skipped past its heading, so its heading is not a reveal.
+  let start = Math.max(0, Math.min(floorIndex, paragraphs.length - 1));
+  for (let index = start; index >= 0; index -= 1) {
+    if (paragraphs[index].kind === "chapter_heading") {
+      start = index;
+      break;
+    }
+  }
+  for (let index = start; index <= end; index += 1) {
     if (paragraphs[index].kind === "chapter_heading") {
       chapters.push({ index, text: paragraphs[index].text });
     }

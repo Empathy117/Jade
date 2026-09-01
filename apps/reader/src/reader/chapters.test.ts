@@ -29,6 +29,15 @@ describe("chapters", () => {
     ]);
   });
 
+  it("includes the chapter a preferred start landed inside of", () => {
+    // The floor sits on prose after 第二章's heading: that chapter is where
+    // the reader stands, so its heading is not a reveal.
+    expect(unlockedChapters(paragraphs, 5, 7)).toEqual([
+      { index: 4, text: "第二章 抵达" },
+      { index: 6, text: "第三章 归来" },
+    ]);
+  });
+
   it("is empty for a book with no chapter headings", () => {
     const flat = paragraphs.map((paragraph) => ({
       ...paragraph,
