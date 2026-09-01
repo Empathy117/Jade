@@ -23,11 +23,14 @@ interface ReadingViewportProps {
   markerNotes: Map<string, number[][]>;
   /** Notes without an in-text anchor; they surface from a paragraph chip. */
   trailingNotes: Map<string, number[]>;
+  /** Paragraphs the reader has annotated. */
+  annotatedIds: Set<string>;
   atEnd: boolean;
   viewportRef: React.RefObject<HTMLElement | null>;
   latestParagraphRef: React.RefObject<HTMLDivElement | null>;
   onOpenReference: (illustrationId: string) => void;
   onOpenNotes: (noteIndices: number[]) => void;
+  onOpenAnnotation: (paragraphId: string) => void;
 }
 
 export function ReadingViewport({
@@ -37,11 +40,13 @@ export function ReadingViewport({
   referenceIllustrationIds,
   markerNotes,
   trailingNotes,
+  annotatedIds,
   atEnd,
   viewportRef,
   latestParagraphRef,
   onOpenReference,
   onOpenNotes,
+  onOpenAnnotation,
 }: ReadingViewportProps) {
   const hasSourceIllustration =
     beats.some(
@@ -59,9 +64,13 @@ export function ReadingViewport({
       <div className="paragraph-stack" aria-live="polite">
         {beats.map((beat) => {
           const { paragraph } = beat;
+          // The paragraph's closing beat carries its marginalia; while the
+          // reader is inside the paragraph, the current beat stands in.
+          const isClosingBeat = beat.current || beat.showIllustrations;
           const trailing = beat.showIllustrations
             ? trailingNotes.get(paragraph.id) ?? []
             : [];
+          const hasAnnotation = annotatedIds.has(paragraph.id);
           return (
             <div
               className="reading-block"
@@ -84,6 +93,30 @@ export function ReadingViewport({
                     onClick={() => onOpenNotes(trailing)}
                   >
                     注
+                  </button>
+                ) : null}
+                {isClosingBeat && hasAnnotation ? (
+                  <button
+                    className="paragraph-chip paragraph-chip--annotation is-filled"
+                    type="button"
+                    data-interactive="true"
+                    aria-label="查看我的批注"
+                    title="查看我的批注"
+                    onClick={() => onOpenAnnotation(paragraph.id)}
+                  >
+                    批
+                  </button>
+                ) : null}
+                {beat.current && !hasAnnotation ? (
+                  <button
+                    className="paragraph-chip paragraph-chip--annotation"
+                    type="button"
+                    data-interactive="true"
+                    aria-label="为本段写批注"
+                    title="为本段写批注"
+                    onClick={() => onOpenAnnotation(paragraph.id)}
+                  >
+                    批
                   </button>
                 ) : null}
               </div>

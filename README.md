@@ -5,8 +5,10 @@ director layer controls only how it is presented.
 
 The project has completed its single-user experience review and entered Phase
 5. It now provides a multi-book private library, immutable source text,
-scene-aware backgrounds, real BGM and ambience, progress restoration, and
-accessible reading controls. Books are currently produced by an Agent through
+scene-aware backgrounds, real BGM and ambience, progress restoration,
+accessible reading controls, scholarly annotations across marker styles
+(`[1]`, `〔一〕`, `①`), spoiler-safe full-text search over what has been
+read, bookmarks, and the reader's own margin notes. Books are currently produced by an Agent through
 stable data contracts; unattended Director, Matcher, and Compiler components
 can replace the Agent later without changing the Reader Runtime.
 

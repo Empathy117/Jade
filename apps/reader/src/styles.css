@@ -397,8 +397,8 @@ button { color: inherit; }
   border-top: 1px dashed rgba(214,194,143,.22);
 }
 
-/* Inline marginalia chips at a paragraph's end, for source notes that lost
-   their in-text marker. */
+/* Inline marginalia chips at a paragraph's end: source notes that lost their
+   in-text marker, and the reader's own margin notes. */
 .paragraph-chip {
   margin: 0 0 0 8px;
   padding: 1px 7px 2px;
@@ -417,6 +417,148 @@ button { color: inherit; }
   border-color: rgba(214,194,143,.7);
   background: rgba(214,194,143,.12);
   outline: none;
+}
+.paragraph-chip--annotation { opacity: .38; }
+.paragraph-chip--annotation:hover, .paragraph-chip--annotation:focus-visible { opacity: 1; }
+.paragraph-chip--annotation.is-filled {
+  opacity: .92;
+  border-color: rgba(214,194,143,.6);
+  background: rgba(214,194,143,.14);
+  color: #ecd9a6;
+}
+
+/* The reader's own margin-note editor rides the note popover frame. */
+.annotation-editor__source {
+  margin: 0 0 10px;
+  padding-left: 10px;
+  border-left: 2px solid rgba(214,194,143,.4);
+  color: rgba(242,237,228,.5) !important;
+  font-size: calc(12.5px * var(--font-scale, 1)) !important;
+}
+.annotation-editor__input {
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 10px 12px;
+  border: 1px solid rgba(242,237,228,.18);
+  border-radius: 10px;
+  background: rgba(14,13,12,.5);
+  color: #f5efe3;
+  font: 400 calc(14.5px * var(--font-scale, 1))/1.8 "Noto Serif SC", "Hiragino Sans GB", serif;
+  letter-spacing: .02em;
+  resize: vertical;
+}
+.annotation-editor__input:focus { border-color: rgba(214,194,143,.55); outline: none; }
+.annotation-editor__input::placeholder { color: rgba(242,237,228,.32); }
+.annotation-editor__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.annotation-editor__save, .annotation-editor__remove {
+  padding: 7px 16px;
+  border: 1px solid rgba(214,194,143,.42);
+  border-radius: 999px;
+  background: rgba(214,194,143,.08);
+  color: #eee4ce;
+  font-size: 12px;
+  letter-spacing: .1em;
+  cursor: pointer;
+}
+.annotation-editor__save:hover { background: rgba(214,194,143,.2); }
+.annotation-editor__save:disabled { opacity: .3; cursor: default; }
+.annotation-editor__remove {
+  border-color: rgba(242,237,228,.16);
+  background: none;
+  color: rgba(242,237,228,.5);
+}
+.annotation-editor__remove:hover { color: #f2b8a0; border-color: rgba(242,166,138,.4); }
+
+/* Search over what has been read. */
+.search-panel { grid-template-rows: auto minmax(0, 1fr) auto; }
+.search-body { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.search-input-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid rgba(242,237,228,.08);
+}
+.search-input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid rgba(242,237,228,.18);
+  border-radius: 999px;
+  background: rgba(14,13,12,.5);
+  color: #f5efe3;
+  font: 400 14px "Noto Serif SC", "Hiragino Sans GB", serif;
+  letter-spacing: .03em;
+}
+.search-input:focus { border-color: rgba(214,194,143,.55); outline: none; }
+.search-input::placeholder { color: rgba(242,237,228,.32); }
+.search-count { color: rgba(214,194,143,.75); font-size: 11px; letter-spacing: .08em; white-space: nowrap; }
+.search-hit mark {
+  padding: 0 1px;
+  border-radius: 3px;
+  background: rgba(214,194,143,.28);
+  color: #f7ecce;
+}
+.panel-empty {
+  margin: 26px 18px;
+  color: rgba(242,237,228,.4);
+  font: 400 13px/1.9 "Noto Serif SC", serif;
+  letter-spacing: .04em;
+  text-align: center;
+}
+
+/* Contents panel rows that pair a jump area with a remove control. */
+.contents-panel { grid-template-rows: auto auto minmax(0, 1fr) auto; }
+.history-entry.contents-row { grid-template-columns: minmax(0, 1fr) auto; padding: 0; }
+.contents-row__jump {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: start;
+  gap: 13px;
+  padding: 14px 4px 14px 12px;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.contents-row__jump:focus-visible { outline: 1px solid rgba(214,194,143,.8); outline-offset: -2px; }
+.contents-row__stack { display: grid; gap: 5px; }
+.contents-row__source {
+  color: rgba(242,237,228,.38);
+  font: 400 calc(12px * var(--font-scale))/1.7 "Noto Serif SC", serif;
+  letter-spacing: .03em;
+}
+.contents-row__remove {
+  align-self: start;
+  margin: 10px 8px 0 0;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: rgba(242,237,228,.35);
+  font-size: 16px;
+  cursor: pointer;
+  transition: color 160ms ease, background 160ms ease;
+}
+.contents-row__remove:hover { color: #f2b8a0; background: rgba(242,166,138,.1); }
+.codex-tabs button[role="tab"] small {
+  margin-left: 6px;
+  color: rgba(214,194,143,.55);
+  font-size: 10px;
+  letter-spacing: .04em;
+}
+
+.icon-button--bookmark, .icon-button--search { font: 500 13px "Noto Serif SC", serif; }
+.icon-button--bookmark.is-active {
+  border-color: rgba(214,194,143,.8);
+  background: rgba(214,194,143,.16);
+  color: #f0dfae;
 }
 
 .source-illustration {
@@ -1046,8 +1188,18 @@ button { color: inherit; }
   .advance-hint { display: none; }
   .cover-screen { left: 28px; bottom: 70px; }
   .cover-screen h1 { font-size: 48px; }
-  .header-actions { gap: 7px; }
-  .icon-button { width: 38px; height: 38px; }
+  .header-actions { gap: 5px; }
+  .icon-button { width: 34px; height: 34px; }
+  .icon-button--bookmark, .icon-button--search, .icon-button--codex, .icon-button--chapters { font-size: 12px; }
+  .book-mark__title {
+    display: block;
+    max-width: 34vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .search-input-row { padding: 10px 12px; }
+  .contents-row__jump { grid-template-columns: 34px minmax(0, 1fr); gap: 8px; padding: 13px 2px 13px 8px; }
   .history-backdrop { padding: 76px 12px 72px; }
   .history-panel { height: 76vh; min-height: 320px; }
   .history-heading, .history-footer { padding: 14px 16px; }

@@ -10,8 +10,8 @@ import {
   loadBookBundle,
   loadLibrary,
 } from "./reader/data";
-import { ChapterPanel } from "./reader/ChapterPanel";
 import { unlockedChapters } from "./reader/chapters";
+import { ContentsPanel } from "./reader/ContentsPanel";
 import {
   codexSeenStorageKey,
   EMPTY_CODEX_VIEW,
@@ -42,6 +42,23 @@ import {
   snapToFlow,
 } from "./reader/notes";
 import { NotePopover } from "./reader/NotePopover";
+import { AnnotationEditor } from "./reader/AnnotationEditor";
+import {
+  annotationFor,
+  annotationsStorageKey,
+  parseAnnotations,
+  upsertAnnotation,
+} from "./reader/annotations";
+import type { Annotation } from "./reader/annotations";
+import {
+  bookmarksStorageKey,
+  isBookmarked,
+  parseBookmarks,
+  removeBookmark,
+  toggleBookmark,
+} from "./reader/bookmarks";
+import type { Bookmark } from "./reader/bookmarks";
+import { SearchPanel } from "./reader/SearchPanel";
 import {
   firstReadableIndex,
   moveReadingCursor,
@@ -93,9 +110,13 @@ export function App() {
   const [beatIndex, setBeatIndex] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [chaptersOpen, setChaptersOpen] = useState(false);
+  const [contentsOpen, setContentsOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [codexOpen, setCodexOpen] = useState(false);
   const [openNotes, setOpenNotes] = useState<number[] | null>(null);
+  const [annotationDraftId, setAnnotationDraftId] = useState<string | null>(null);
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
+  const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [codexIntent, setCodexIntent] = useState<{
     tab: CodexTab | null;
     referenceId: string | null;
@@ -151,10 +172,14 @@ export function App() {
     setStarted(false);
     setSettingsOpen(false);
     setHistoryOpen(false);
-    setChaptersOpen(false);
+    setContentsOpen(false);
+    setSearchOpen(false);
     setCodexOpen(false);
     setCodexIntent({ tab: null, referenceId: null });
     setOpenNotes(null);
+    setAnnotationDraftId(null);
+    setBookmarks([]);
+    setAnnotations([]);
     setBeatIndex(0);
     setBundle(null);
     setLoadError(null);
@@ -174,6 +199,16 @@ export function App() {
         );
         setBundle(loaded);
         setHasSavedProgress(Boolean(savedId));
+        setBookmarks(
+          parseBookmarks(
+            safeGet(bookmarksStorageKey(loaded.source.book_id, loaded.source.revision)),
+          ),
+        );
+        setAnnotations(
+          parseAnnotations(
+            safeGet(annotationsStorageKey(loaded.source.book_id, loaded.source.revision)),
+          ),
+        );
         removeStaleProgress(loaded.source.book_id, loaded.source.revision);
         const savedSeen = safeGet(
           codexSeenStorageKey(loaded.source.book_id, loaded.source.revision),
@@ -197,6 +232,22 @@ export function App() {
   }, [selectedBook]);
 
   useEffect(() => safeSet(SETTINGS_KEY, JSON.stringify(settings)), [settings]);
+
+  useEffect(() => {
+    if (!bundle) return;
+    safeSet(
+      bookmarksStorageKey(bundle.source.book_id, bundle.source.revision),
+      JSON.stringify(bookmarks),
+    );
+  }, [bookmarks, bundle]);
+
+  useEffect(() => {
+    if (!bundle) return;
+    safeSet(
+      annotationsStorageKey(bundle.source.book_id, bundle.source.revision),
+      JSON.stringify(annotations),
+    );
+  }, [annotations, bundle]);
 
   useEffect(() => {
     document.title = selectedBook
@@ -299,6 +350,10 @@ export function App() {
     () => (bundle ? resolveNoteAnchors(bundle.source.paragraphs) : EMPTY_NOTE_ANCHORS),
     [bundle],
   );
+  const annotatedIds = useMemo(
+    () => new Set(annotations.map((annotation) => annotation.id)),
+    [annotations],
+  );
   const currentBeats = useMemo(
     () => (bundle ? readingBeats(bundle.source.paragraphs[currentIndex]) : []),
     [bundle, currentIndex],
@@ -358,6 +413,9 @@ export function App() {
         : 1,
     [activeScene, bundle],
   );
+  const currentBookmarked = bundle
+    ? isBookmarked(bookmarks, bundle.source.paragraphs[currentIndex].id)
+    : false;
   const backgroundAsset = playbackState.background
     ? assets.get(playbackState.background.asset_id)
     : undefined;
@@ -451,29 +509,41 @@ export function App() {
     return () => window.cancelAnimationFrame(animationFrame);
   }, [activeBeatIndex, currentIndex, historyOpen, settings.reducedMotion, started]);
 
+  const toggleBookmarkAt = useCallback(
+    (paragraphId: string) => {
+      setBookmarks((current) => toggleBookmark(current, paragraphId, Date.now()));
+    },
+    [],
+  );
+
   useEffect(() => {
     if (!started) return;
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target instanceof HTMLElement ? event.target : null;
       const isFormControl = target?.matches("input, select, textarea");
-      if (event.key === "ArrowUp" && !isFormControl) {
+      if (event.key === "ArrowUp" && !isFormControl && annotationDraftId === null) {
         event.preventDefault();
         setSettingsOpen(false);
         setCodexOpen(false);
-        setChaptersOpen(false);
+        setContentsOpen(false);
+        setSearchOpen(false);
         setHistoryOpen((open) => !open);
         return;
       }
       if (event.key === "Escape") {
         setSettingsOpen(false);
         setHistoryOpen(false);
-        setChaptersOpen(false);
+        setContentsOpen(false);
+        setSearchOpen(false);
         setCodexOpen(false);
         setOpenNotes(null);
+        setAnnotationDraftId(null);
         return;
       }
       if (target?.matches("input, button, select, textarea")) return;
-      if (historyOpen || chaptersOpen || codexOpen) return;
+      if (historyOpen || contentsOpen || searchOpen || codexOpen || annotationDraftId !== null) {
+        return;
+      }
       if (openNotes !== null) {
         // Any advance key first puts the annotation away.
         if (event.key === " " || event.key === "ArrowRight" || event.key === "ArrowLeft") {
@@ -482,17 +552,41 @@ export function App() {
         }
         return;
       }
+      const plainKey = !event.metaKey && !event.ctrlKey && !event.altKey;
       if (event.key === " " || event.key === "ArrowRight") {
         event.preventDefault();
         next();
       } else if (event.key === "ArrowLeft") {
         event.preventDefault();
         previous();
+      } else if ((event.key === "b" || event.key === "B") && plainKey && bundle) {
+        event.preventDefault();
+        toggleBookmarkAt(bundle.source.paragraphs[currentIndex].id);
+      } else if (event.key === "/" && plainKey) {
+        event.preventDefault();
+        setSettingsOpen(false);
+        setHistoryOpen(false);
+        setContentsOpen(false);
+        setCodexOpen(false);
+        setSearchOpen(true);
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [chaptersOpen, codexOpen, historyOpen, next, openNotes, previous, started]);
+  }, [
+    annotationDraftId,
+    bundle,
+    contentsOpen,
+    codexOpen,
+    currentIndex,
+    historyOpen,
+    next,
+    openNotes,
+    previous,
+    searchOpen,
+    started,
+    toggleBookmarkAt,
+  ]);
 
   function beginReading(mode: "resume" | "preferred" | "beginning") {
     if (!bundle) return;
@@ -512,31 +606,49 @@ export function App() {
     setStarted(true);
   }
 
-  function toggleHistory() {
+  function closePanels() {
     setSettingsOpen(false);
     setCodexOpen(false);
-    setChaptersOpen(false);
-    setHistoryOpen((open) => !open);
-  }
-
-  function toggleChapters() {
-    setSettingsOpen(false);
-    setCodexOpen(false);
+    setContentsOpen(false);
+    setSearchOpen(false);
     setHistoryOpen(false);
-    setChaptersOpen((open) => !open);
+    setOpenNotes(null);
+    setAnnotationDraftId(null);
   }
 
-  function jumpToChapter(targetIndex: number) {
+  function toggleHistory() {
+    const open = historyOpen;
+    closePanels();
+    setHistoryOpen(!open);
+  }
+
+  function toggleContents() {
+    const open = contentsOpen;
+    closePanels();
+    setContentsOpen(!open);
+  }
+
+  function toggleSearch() {
+    const open = searchOpen;
+    closePanels();
+    setSearchOpen(!open);
+  }
+
+  /**
+   * Land on any read paragraph. A target in skipped front matter lowers the
+   * reading floor just to it — visiting one early paragraph reveals no more.
+   */
+  function jumpToParagraph(targetIndex: number) {
     if (!bundle) return;
-    setCursor((current) => moveReadingCursor(bundle.source, current, targetIndex));
+    const landing = snapToFlow(bundle.source.paragraphs, targetIndex);
+    if (landing < readingFloorIndex) setReadingFloorIndex(landing);
+    setCursor((current) => moveReadingCursor(bundle.source, current, landing));
     setBeatIndex(0);
-    setChaptersOpen(false);
+    closePanels();
   }
 
   function openCodex(tab: CodexTab | null, referenceId: string | null) {
-    setSettingsOpen(false);
-    setHistoryOpen(false);
-    setChaptersOpen(false);
+    closePanels();
     setCodexIntent({ tab, referenceId });
     if (!codexOpen && bundle) {
       // The panel keeps the previous watermark for its 「新」 marks; the live
@@ -569,19 +681,9 @@ export function App() {
   }
 
   function jumpFromCodex(paragraphId: string) {
-    if (!bundle) return;
     const targetIndex = sourcePositions.get(paragraphId);
     if (targetIndex === undefined) return;
-    if (targetIndex < readingFloorIndex) setReadingFloorIndex(sourceFirstIndex);
-    setCursor((current) =>
-      moveReadingCursor(
-        bundle.source,
-        current,
-        snapToFlow(bundle.source.paragraphs, targetIndex),
-      ),
-    );
-    setBeatIndex(0);
-    setCodexOpen(false);
+    jumpToParagraph(targetIndex);
   }
 
   function openNotesFor(noteIndices: number[]) {
@@ -589,11 +691,24 @@ export function App() {
     // Drop focus from the tapped marker so Space returns to page-turning
     // once the annotation is dismissed.
     (document.activeElement as HTMLElement | null)?.blur();
-    setSettingsOpen(false);
-    setHistoryOpen(false);
-    setChaptersOpen(false);
-    setCodexOpen(false);
+    closePanels();
     setOpenNotes(noteIndices);
+  }
+
+  function openAnnotationEditor(paragraphId: string) {
+    (document.activeElement as HTMLElement | null)?.blur();
+    closePanels();
+    setAnnotationDraftId(paragraphId);
+  }
+
+  function saveAnnotation(paragraphId: string, text: string) {
+    setAnnotations((current) => upsertAnnotation(current, paragraphId, text, Date.now()));
+    setAnnotationDraftId(null);
+  }
+
+  function removeAnnotationFor(paragraphId: string) {
+    setAnnotations((current) => upsertAnnotation(current, paragraphId, "", Date.now()));
+    setAnnotationDraftId(null);
   }
 
   function jumpToHistory(targetIndex: number) {
@@ -629,7 +744,17 @@ export function App() {
   function handleTouchEnd(event: React.TouchEvent<HTMLElement>) {
     const origin = touchOrigin.current;
     touchOrigin.current = null;
-    if (!origin || historyOpen || chaptersOpen || codexOpen || settingsOpen) return;
+    if (
+      !origin ||
+      historyOpen ||
+      contentsOpen ||
+      searchOpen ||
+      codexOpen ||
+      settingsOpen ||
+      annotationDraftId !== null
+    ) {
+      return;
+    }
     if (openNotes !== null) {
       setOpenNotes(null);
       return;
@@ -740,19 +865,39 @@ export function App() {
                   <span aria-hidden="true">档</span>
                 </button>
               ) : null}
-              {chapters.length > 0 ? (
-                <button
-                  className="icon-button icon-button--chapters"
-                  type="button"
-                  data-interactive="true"
-                  aria-label="章节目录"
-                  aria-expanded={chaptersOpen}
-                  title={`章节目录（已解锁 ${chapters.length} 章）`}
-                  onClick={toggleChapters}
-                >
-                  <span aria-hidden="true">目</span>
-                </button>
-              ) : null}
+              <button
+                className={`icon-button icon-button--bookmark${currentBookmarked ? " is-active" : ""}`}
+                type="button"
+                data-interactive="true"
+                aria-label={currentBookmarked ? "移除本段书签" : "为本段添加书签"}
+                aria-pressed={currentBookmarked}
+                title={currentBookmarked ? "移除本段书签（B）" : "为本段添加书签（B）"}
+                onClick={() => toggleBookmarkAt(bundle.source.paragraphs[currentIndex].id)}
+              >
+                <span aria-hidden="true">签</span>
+              </button>
+              <button
+                className="icon-button icon-button--search"
+                type="button"
+                data-interactive="true"
+                aria-label="检索已读内容"
+                aria-expanded={searchOpen}
+                title="检索已读内容（/）"
+                onClick={toggleSearch}
+              >
+                <span aria-hidden="true">搜</span>
+              </button>
+              <button
+                className="icon-button icon-button--chapters"
+                type="button"
+                data-interactive="true"
+                aria-label="目录"
+                aria-expanded={contentsOpen}
+                title="目录：章节、书签与批注"
+                onClick={toggleContents}
+              >
+                <span aria-hidden="true">目</span>
+              </button>
               <button
                 className="icon-button icon-button--history"
                 type="button"
@@ -771,9 +916,9 @@ export function App() {
                 aria-label="阅读设置"
                 aria-expanded={settingsOpen}
                 onClick={() => {
-                  setHistoryOpen(false);
-                  setCodexOpen(false);
-                  setSettingsOpen((open) => !open);
+                  const open = settingsOpen;
+                  closePanels();
+                  setSettingsOpen(!open);
                 }}
               >
                 <span aria-hidden="true">Aa</span>
@@ -792,11 +937,13 @@ export function App() {
             referenceIllustrationIds={referenceIllustrationIds}
             markerNotes={noteAnchors.markers}
             trailingNotes={noteAnchors.trailing}
+            annotatedIds={annotatedIds}
             atEnd={currentIndex === lastIndex && activeBeatIndex === currentBeats.length - 1}
             viewportRef={readingViewportRef}
             latestParagraphRef={latestParagraphRef}
             onOpenReference={openReferenceForIllustration}
             onOpenNotes={openNotesFor}
+            onOpenAnnotation={openAnnotationEditor}
           />
 
           <footer className="reader-footer" data-interactive="true">
@@ -831,12 +978,32 @@ export function App() {
           {settingsOpen ? (
             <SettingsPanel settings={settings} onChange={setSettings} onClose={() => setSettingsOpen(false)} />
           ) : null}
-          {chaptersOpen ? (
-            <ChapterPanel
+          {contentsOpen ? (
+            <ContentsPanel
               chapters={chapters}
+              bookmarks={bookmarks}
+              annotations={annotations}
+              paragraphs={bundle.source.paragraphs}
+              positions={sourcePositions}
               currentIndex={currentIndex}
-              onClose={() => setChaptersOpen(false)}
-              onJump={jumpToChapter}
+              initialTab={null}
+              onClose={() => setContentsOpen(false)}
+              onJump={jumpToParagraph}
+              onRemoveBookmark={(paragraphId) =>
+                setBookmarks((current) => removeBookmark(current, paragraphId))
+              }
+              onRemoveAnnotation={(paragraphId) =>
+                setAnnotations((current) => upsertAnnotation(current, paragraphId, "", Date.now()))
+              }
+            />
+          ) : null}
+          {searchOpen ? (
+            <SearchPanel
+              paragraphs={bundle.source.paragraphs}
+              firstIndex={firstIndex}
+              furthestReadIndex={furthestReadIndex}
+              onClose={() => setSearchOpen(false)}
+              onJump={jumpToParagraph}
             />
           ) : null}
           {historyOpen ? (
@@ -872,6 +1039,17 @@ export function App() {
               onClose={() => setOpenNotes(null)}
             />
           ) : null}
+          {annotationDraftId !== null ? (
+            <AnnotationEditor
+              paragraph={
+                bundle.source.paragraphs[sourcePositions.get(annotationDraftId) ?? currentIndex]
+              }
+              initialText={annotationFor(annotations, annotationDraftId)?.text ?? ""}
+              onSave={(text) => saveAnnotation(annotationDraftId, text)}
+              onRemove={() => removeAnnotationFor(annotationDraftId)}
+              onClose={() => setAnnotationDraftId(null)}
+            />
+          ) : null}
           {audioError ? <div className="audio-notice">{audioError}，已继续纯文本阅读。</div> : null}
           <div className="advance-hint" aria-hidden="true">空格继续 · ↑ 回顾</div>
         </>
@@ -892,11 +1070,15 @@ function removeStaleProgress(bookId: string, revision: number): void {
     progressStorageKey(bookId, revision),
     readingBeatStorageKey(bookId, revision),
     codexSeenStorageKey(bookId, revision),
+    bookmarksStorageKey(bookId, revision),
+    annotationsStorageKey(bookId, revision),
   ]);
   const prefixes = [
     `immersive-reader:${bookId}:revision-`,
     `immersive-reader:${bookId}:reading-beat:revision-`,
     `immersive-reader:${bookId}:codex-seen:revision-`,
+    `immersive-reader:${bookId}:bookmarks:revision-`,
+    `immersive-reader:${bookId}:annotations:revision-`,
   ];
   for (const key of safeKeys()) {
     if (prefixes.some((prefix) => key.startsWith(prefix)) && !keep.has(key)) {

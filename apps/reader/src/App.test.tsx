@@ -1,8 +1,10 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
+import { annotationsStorageKey } from "./reader/annotations";
+import { bookmarksStorageKey } from "./reader/bookmarks";
 import { progressStorageKey, readingBeatStorageKey } from "./reader/readerState";
 import type { Paragraph } from "./reader/types";
 import { stubBookFetch } from "./test/bookFixture";
@@ -175,11 +177,11 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: /继续阅读/ }));
     await screen.findByRole("button", { name: "下一页" });
 
-    await user.click(screen.getByRole("button", { name: "章节目录" }));
+    await user.click(screen.getByRole("button", { name: "目录" }));
     const chapterEntry = await screen.findByRole("button", { name: /第 1 章/ });
     await user.click(chapterEntry);
 
-    expect(screen.queryByRole("dialog", { name: "章节目录" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "目录" })).toBeNull();
     const paragraphs = document.querySelectorAll(".reading-block");
     expect(paragraphs[paragraphs.length - 1]?.getAttribute("data-paragraph-id")).toBe("p0012");
   });
@@ -217,6 +219,63 @@ describe("App", () => {
     await user.click(screen.getAllByRole("button", { name: "查看注释 ①" })[1]);
     expect(await screen.findByText("① 诺查丹玛斯，法国预言家。")).toBeDefined();
     expect(screen.queryByText("① 多卜隆，西班牙古金币名。")).toBeNull();
+  });
+
+  it("bookmarks the current paragraph and lists it in the contents panel", async () => {
+    const user = await startReading();
+
+    await user.click(screen.getByRole("button", { name: "为本段添加书签" }));
+    expect(screen.getByRole("button", { name: "移除本段书签" })).toBeDefined();
+
+    await user.click(screen.getByRole("button", { name: "目录" }));
+    await user.click(screen.getByRole("tab", { name: /书签/ }));
+    const dialog = screen.getByRole("dialog", { name: "目录" });
+    expect(within(dialog).getByText(/第 1 段正文。/)).toBeDefined();
+
+    const saved = window.localStorage.getItem(bookmarksStorageKey("test-book", 1));
+    expect(saved).toContain("p0002");
+  });
+
+  it("searches only what has been read and jumps to a hit", async () => {
+    const user = await startReading();
+    await user.keyboard(" ");
+    await user.keyboard(" ");
+    await screen.findByText("第 3 段正文。");
+
+    await user.click(screen.getByRole("button", { name: "检索已读内容" }));
+    const input = await screen.findByLabelText("检索已读正文");
+    await user.type(input, "第 1 段");
+
+    // Paragraph 5 is beyond the furthest-read position and must stay hidden.
+    await user.clear(input);
+    await user.type(input, "第 5 段");
+    expect(await screen.findByText(/没有「第 5 段」/)).toBeDefined();
+
+    await user.clear(input);
+    await user.type(input, "第 1 段");
+    const hit = await screen.findByRole("button", { name: /第 1 段正文/ });
+    await user.click(hit);
+
+    expect(screen.queryByRole("dialog", { name: "检索" })).toBeNull();
+    const blocks = document.querySelectorAll(".reading-block");
+    expect(blocks[blocks.length - 1]?.getAttribute("data-paragraph-id")).toBe("p0002");
+  });
+
+  it("writes, shows, and stores a margin annotation for the current paragraph", async () => {
+    const user = await startReading();
+
+    await user.click(screen.getByRole("button", { name: "为本段写批注" }));
+    const editor = await screen.findByLabelText("批注内容");
+    await user.type(editor, "开篇便有宿命感。");
+    await user.click(screen.getByRole("button", { name: "保存" }));
+
+    expect(await screen.findByRole("button", { name: "查看我的批注" })).toBeDefined();
+    const saved = window.localStorage.getItem(annotationsStorageKey("test-book", 1));
+    expect(saved).toContain("开篇便有宿命感。");
+
+    await user.click(screen.getByRole("button", { name: "目录" }));
+    await user.click(screen.getByRole("tab", { name: /批注/ }));
+    expect(screen.getByText("开篇便有宿命感。")).toBeDefined();
   });
 
   it("unlocks the dossier with reading progress and opens it from the header", async () => {
