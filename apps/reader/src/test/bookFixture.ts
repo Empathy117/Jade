@@ -149,11 +149,14 @@ export function stubBookFetch(
     guide?: GuideDocument;
     codex?: CodexDocument;
     firstProseText?: string;
+    /** Replace the generated paragraphs entirely (keep ids `p0002`-based). */
+    paragraphs?: Paragraph[];
   } = {},
 ): typeof fetch {
   const library = makeLibrary(paragraphCount);
   const documents = makeBundleDocuments(paragraphCount);
   if (extras.firstProseText) documents.source.paragraphs[1].text = extras.firstProseText;
+  if (extras.paragraphs) documents.source.paragraphs = extras.paragraphs;
   const byUrl = new Map<string, unknown>([
     ["/library.json", library],
     ["/test-book/source.json", documents.source],

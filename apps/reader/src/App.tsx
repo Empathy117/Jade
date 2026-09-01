@@ -31,12 +31,14 @@ import { resolveGuideReferences } from "./reader/guideReferences";
 import { loadSettings, SETTINGS_KEY } from "./reader/readerSettings";
 import type { ReaderSettings } from "./reader/readerSettings";
 import {
-  chapterNotes,
+  countMarkers,
+  EMPTY_NOTE_ANCHORS,
   flowPositionCounts,
   isFlowParagraph,
   lastFlowIndex,
   nextFlowIndex,
   previousFlowIndex,
+  resolveNoteAnchors,
   snapToFlow,
 } from "./reader/notes";
 import { NotePopover } from "./reader/NotePopover";
@@ -93,7 +95,7 @@ export function App() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [chaptersOpen, setChaptersOpen] = useState(false);
   const [codexOpen, setCodexOpen] = useState(false);
-  const [openNoteIndex, setOpenNoteIndex] = useState<number | null>(null);
+  const [openNotes, setOpenNotes] = useState<number[] | null>(null);
   const [codexIntent, setCodexIntent] = useState<{
     tab: CodexTab | null;
     referenceId: string | null;
@@ -152,7 +154,7 @@ export function App() {
     setChaptersOpen(false);
     setCodexOpen(false);
     setCodexIntent({ tab: null, referenceId: null });
-    setOpenNoteIndex(null);
+    setOpenNotes(null);
     setBeatIndex(0);
     setBundle(null);
     setLoadError(null);
@@ -293,9 +295,9 @@ export function App() {
     () => (bundle ? flowPositionCounts(bundle.source.paragraphs) : []),
     [bundle],
   );
-  const currentChapterNotes = useMemo(
-    () => (bundle ? chapterNotes(bundle.source.paragraphs, currentIndex) : new Map<string, number>()),
-    [bundle, currentIndex],
+  const noteAnchors = useMemo(
+    () => (bundle ? resolveNoteAnchors(bundle.source.paragraphs) : EMPTY_NOTE_ANCHORS),
+    [bundle],
   );
   const currentBeats = useMemo(
     () => (bundle ? readingBeats(bundle.source.paragraphs[currentIndex]) : []),
@@ -319,17 +321,20 @@ export function App() {
         const beats = readingBeats(sourceParagraph);
         const lastVisibleBeat =
           index === currentIndex ? activeBeatIndex : beats.length - 1;
+        let markerOffset = 0;
         for (let beat = 0; beat <= lastVisibleBeat; beat += 1) {
           result.push({
             key: `${sourceParagraph.id}-${beat}`,
             paragraph: { ...sourceParagraph, text: beats[beat].text },
             beatIndex: beat,
             beatCount: beats.length,
+            markerOffset,
             current: index === currentIndex && beat === activeBeatIndex,
             showIllustrations:
               beat === beats.length - 1 &&
               (index < currentIndex || activeBeatIndex === beats.length - 1),
           });
+          markerOffset += countMarkers(beats[beat].text);
         }
       }
       return result;
@@ -464,16 +469,16 @@ export function App() {
         setHistoryOpen(false);
         setChaptersOpen(false);
         setCodexOpen(false);
-        setOpenNoteIndex(null);
+        setOpenNotes(null);
         return;
       }
       if (target?.matches("input, button, select, textarea")) return;
       if (historyOpen || chaptersOpen || codexOpen) return;
-      if (openNoteIndex !== null) {
+      if (openNotes !== null) {
         // Any advance key first puts the annotation away.
         if (event.key === " " || event.key === "ArrowRight" || event.key === "ArrowLeft") {
           event.preventDefault();
-          setOpenNoteIndex(null);
+          setOpenNotes(null);
         }
         return;
       }
@@ -487,7 +492,7 @@ export function App() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [chaptersOpen, codexOpen, historyOpen, next, openNoteIndex, previous, started]);
+  }, [chaptersOpen, codexOpen, historyOpen, next, openNotes, previous, started]);
 
   function beginReading(mode: "resume" | "preferred" | "beginning") {
     if (!bundle) return;
@@ -579,9 +584,8 @@ export function App() {
     setCodexOpen(false);
   }
 
-  function openNoteMarker(marker: string) {
-    const noteIndex = currentChapterNotes.get(marker);
-    if (noteIndex === undefined) return;
+  function openNotesFor(noteIndices: number[]) {
+    if (noteIndices.length === 0) return;
     // Drop focus from the tapped marker so Space returns to page-turning
     // once the annotation is dismissed.
     (document.activeElement as HTMLElement | null)?.blur();
@@ -589,7 +593,7 @@ export function App() {
     setHistoryOpen(false);
     setChaptersOpen(false);
     setCodexOpen(false);
-    setOpenNoteIndex(noteIndex);
+    setOpenNotes(noteIndices);
   }
 
   function jumpToHistory(targetIndex: number) {
@@ -626,8 +630,8 @@ export function App() {
     const origin = touchOrigin.current;
     touchOrigin.current = null;
     if (!origin || historyOpen || chaptersOpen || codexOpen || settingsOpen) return;
-    if (openNoteIndex !== null) {
-      setOpenNoteIndex(null);
+    if (openNotes !== null) {
+      setOpenNotes(null);
       return;
     }
     const touch = event.changedTouches[0];
@@ -786,12 +790,13 @@ export function App() {
             beats={visibleBeats}
             illustrationsByAnchor={illustrationsByAnchor}
             referenceIllustrationIds={referenceIllustrationIds}
-            noteMarkers={currentChapterNotes}
+            markerNotes={noteAnchors.markers}
+            trailingNotes={noteAnchors.trailing}
             atEnd={currentIndex === lastIndex && activeBeatIndex === currentBeats.length - 1}
             viewportRef={readingViewportRef}
             latestParagraphRef={latestParagraphRef}
             onOpenReference={openReferenceForIllustration}
-            onOpenNote={openNoteMarker}
+            onOpenNotes={openNotesFor}
           />
 
           <footer className="reader-footer" data-interactive="true">
@@ -859,14 +864,12 @@ export function App() {
               onClose={() => setCodexOpen(false)}
             />
           ) : null}
-          {openNoteIndex !== null ? (
+          {openNotes !== null ? (
             <NotePopover
-              paragraph={bundle.source.paragraphs[openNoteIndex]}
-              illustrations={
-                illustrationsByAnchor.get(bundle.source.paragraphs[openNoteIndex].id) ?? []
-              }
+              notes={openNotes.map((noteIndex) => bundle.source.paragraphs[noteIndex])}
+              illustrationsByAnchor={illustrationsByAnchor}
               bookPath={selectedBook.path}
-              onClose={() => setOpenNoteIndex(null)}
+              onClose={() => setOpenNotes(null)}
             />
           ) : null}
           {audioError ? <div className="audio-notice">{audioError}，已继续纯文本阅读。</div> : null}

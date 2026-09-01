@@ -1,3 +1,4 @@
+import { normalizeMarkerBreaks } from "./notes";
 import type { Paragraph } from "./types";
 
 const TARGET_BEAT_LENGTH = 120;
@@ -16,14 +17,17 @@ export interface ReadingBeat {
 /**
  * Split one immutable source paragraph into short presentation-only pages.
  *
- * The returned text always concatenates back to the exact source text. Source
- * paragraph ids remain the only progress, Director, note, and dossier anchors.
+ * The returned text always concatenates back to the exact source text, except
+ * that line breaks around circled note markers are folded away first — print
+ * typography, not content. Source paragraph ids remain the only progress,
+ * Director, note, and dossier anchors.
  */
 export function readingBeats(paragraph: Paragraph): ReadingBeat[] {
+  const text = normalizeMarkerBreaks(paragraph.text);
   const chunks =
     paragraph.kind === "title" || paragraph.kind === "chapter_heading"
-      ? [paragraph.text]
-      : splitAtNaturalBreaks(paragraph.text);
+      ? [text]
+      : splitAtNaturalBreaks(text);
   const total = chunks.length;
   return chunks.map((text, index) => ({ text, index, total }));
 }

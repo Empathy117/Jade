@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
 import { progressStorageKey, readingBeatStorageKey } from "./reader/readerState";
+import type { Paragraph } from "./reader/types";
 import { stubBookFetch } from "./test/bookFixture";
 
 const PROGRESS_KEY = progressStorageKey("test-book", 1);
@@ -181,6 +182,41 @@ describe("App", () => {
     expect(screen.queryByRole("dialog", { name: "章节目录" })).toBeNull();
     const paragraphs = document.querySelectorAll(".reading-block");
     expect(paragraphs[paragraphs.length - 1]?.getAttribute("data-paragraph-id")).toBe("p0012");
+  });
+
+  it("opens circled-marker notes in occurrence order, not by printed value", async () => {
+    // The popular-translation layout: ① restarts per print page, so the same
+    // value appears twice and each occurrence must open its own note.
+    // Both annotated paragraphs sit after the fixture's clear_text cue at
+    // p0004, so they stay on screen together.
+    const paragraphs: Paragraph[] = [
+      { id: "p0001", kind: "title", text: "测试之书" },
+      { id: "p0002", kind: "prose", text: "开场一段。" },
+      { id: "p0003", kind: "prose", text: "过渡一段。" },
+      { id: "p0004", kind: "prose", text: "先看多卜隆\n①\n的下落。" },
+      { id: "p0005", kind: "note", text: "① 多卜隆，西班牙古金币名。" },
+      { id: "p0006", kind: "prose", text: "又见诺查丹玛斯\n①\n的预言。" },
+      { id: "p0007", kind: "note", text: "① 诺查丹玛斯，法国预言家。" },
+    ];
+    vi.stubGlobal("fetch", stubBookFetch(6, { paragraphs }));
+    const user = await openBook();
+    await user.click(screen.getByRole("button", { name: /^开始阅读/ }));
+    await screen.findByRole("button", { name: "下一页" });
+    await user.keyboard(" ");
+    await user.keyboard(" ");
+    await user.keyboard(" ");
+    await screen.findByText(/诺查丹玛斯/);
+
+    const markers = screen.getAllByRole("button", { name: "查看注释 ①" });
+    expect(markers).toHaveLength(2);
+
+    await user.click(markers[0]);
+    expect(await screen.findByText("① 多卜隆，西班牙古金币名。")).toBeDefined();
+    await user.keyboard("{Escape}");
+
+    await user.click(screen.getAllByRole("button", { name: "查看注释 ①" })[1]);
+    expect(await screen.findByText("① 诺查丹玛斯，法国预言家。")).toBeDefined();
+    expect(screen.queryByText("① 多卜隆，西班牙古金币名。")).toBeNull();
   });
 
   it("unlocks the dossier with reading progress and opens it from the header", async () => {

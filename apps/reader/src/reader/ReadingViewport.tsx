@@ -7,6 +7,8 @@ export interface VisibleReadingBeat {
   paragraph: Paragraph;
   beatIndex: number;
   beatCount: number;
+  /** Markers in this paragraph's earlier beats; keys marker occurrences. */
+  markerOffset: number;
   current: boolean;
   showIllustrations: boolean;
 }
@@ -17,13 +19,15 @@ interface ReadingViewportProps {
   illustrationsByAnchor: Map<string, SourceIllustration[]>;
   /** Illustrations the reader has unlocked in the guide gallery. */
   referenceIllustrationIds: Set<string>;
-  /** Markers of the current chapter that resolve to an annotation. */
-  noteMarkers: Map<string, number>;
+  /** Note paragraphs behind each marker occurrence, per paragraph id. */
+  markerNotes: Map<string, number[][]>;
+  /** Notes without an in-text anchor; they surface from a paragraph chip. */
+  trailingNotes: Map<string, number[]>;
   atEnd: boolean;
   viewportRef: React.RefObject<HTMLElement | null>;
   latestParagraphRef: React.RefObject<HTMLDivElement | null>;
   onOpenReference: (illustrationId: string) => void;
-  onOpenNote: (marker: string) => void;
+  onOpenNotes: (noteIndices: number[]) => void;
 }
 
 export function ReadingViewport({
@@ -31,12 +35,13 @@ export function ReadingViewport({
   beats,
   illustrationsByAnchor,
   referenceIllustrationIds,
-  noteMarkers,
+  markerNotes,
+  trailingNotes,
   atEnd,
   viewportRef,
   latestParagraphRef,
   onOpenReference,
-  onOpenNote,
+  onOpenNotes,
 }: ReadingViewportProps) {
   const hasSourceIllustration =
     beats.some(
@@ -54,6 +59,9 @@ export function ReadingViewport({
       <div className="paragraph-stack" aria-live="polite">
         {beats.map((beat) => {
           const { paragraph } = beat;
+          const trailing = beat.showIllustrations
+            ? trailingNotes.get(paragraph.id) ?? []
+            : [];
           return (
             <div
               className="reading-block"
@@ -65,7 +73,19 @@ export function ReadingViewport({
               <div
                 className={`paragraph paragraph--${paragraph.kind}${beat.current ? " is-current" : ""}`}
               >
-                {renderLines(paragraph, noteMarkers, onOpenNote)}
+                {renderLines(paragraph, beat.markerOffset, markerNotes, onOpenNotes)}
+                {trailing.length > 0 ? (
+                  <button
+                    className="paragraph-chip paragraph-chip--note"
+                    type="button"
+                    data-interactive="true"
+                    aria-label="查看本段注释"
+                    title="本段另有注释"
+                    onClick={() => onOpenNotes(trailing)}
+                  >
+                    注
+                  </button>
+                ) : null}
               </div>
               {beat.current && beat.beatCount > 1 ? (
                 <div
@@ -96,46 +116,53 @@ export function ReadingViewport({
 /** Source line breaks are content, so they survive as `<br>` rather than wrapping. */
 function renderLines(
   paragraph: Paragraph,
-  noteMarkers: Map<string, number>,
-  onOpenNote: (marker: string) => void,
+  markerOffset: number,
+  markerNotes: Map<string, number[][]>,
+  onOpenNotes: (noteIndices: number[]) => void,
 ) {
+  const occurrences = markerNotes.get(paragraph.id);
   const lines = paragraph.text.split("\n");
+  // Marker occurrences continue across the beat's lines, offset by the
+  // markers that earlier beats of the same paragraph already showed.
+  const counter = { next: markerOffset };
   return lines.map((line, lineIndex) => (
     <span key={`${paragraph.id}-${lineIndex}`}>
-      {renderMarkers(line, `${paragraph.id}-${lineIndex}`, noteMarkers, onOpenNote)}
+      {renderMarkers(line, `${paragraph.id}-${lineIndex}`, occurrences, counter, onOpenNotes)}
       {lineIndex < lines.length - 1 ? <br /> : null}
     </span>
   ));
 }
 
 /**
- * Scholarly markers like `[3]` or `〔一〕` become tappable superscripts when
- * the current chapter carries a matching annotation; everything else is text.
+ * Scholarly markers like `[3]`, `〔一〕`, or `①` become tappable superscripts
+ * when a note paragraph resolved to that occurrence; everything else is text.
  */
 function renderMarkers(
   line: string,
   keyPrefix: string,
-  noteMarkers: Map<string, number>,
-  onOpenNote: (marker: string) => void,
+  occurrences: number[][] | undefined,
+  counter: { next: number },
+  onOpenNotes: (noteIndices: number[]) => void,
 ) {
-  if (noteMarkers.size === 0) return line;
+  if (!occurrences) return line;
   return segmentMarkers(line).map((segment, segmentIndex) => {
     const key = `${keyPrefix}-${segmentIndex}`;
-    if (segment.kind === "marker" && noteMarkers.has(segment.value)) {
-      return (
-        <button
-          className="note-marker"
-          type="button"
-          data-interactive="true"
-          key={key}
-          aria-label={`查看注释 ${segment.value}`}
-          onClick={() => onOpenNote(segment.value)}
-        >
-          {segment.value}
-        </button>
-      );
-    }
-    return <span key={key}>{segment.value}</span>;
+    if (segment.kind !== "marker") return <span key={key}>{segment.value}</span>;
+    const notes = occurrences[counter.next];
+    counter.next += 1;
+    if (!notes || notes.length === 0) return <span key={key}>{segment.value}</span>;
+    return (
+      <button
+        className="note-marker"
+        type="button"
+        data-interactive="true"
+        key={key}
+        aria-label={`查看注释 ${segment.value}`}
+        onClick={() => onOpenNotes(notes)}
+      >
+        {segment.value}
+      </button>
+    );
   });
 }
 

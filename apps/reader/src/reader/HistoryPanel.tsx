@@ -5,6 +5,7 @@ import {
   historyWindowAround,
   type HistoryWindow,
 } from "./historyWindow";
+import { normalizeMarkerBreaks } from "./notes";
 import type { Paragraph } from "./types";
 
 interface HistoryPanelProps {
@@ -107,7 +108,9 @@ export function HistoryPanel({
                 <span className="history-entry__number">
                   {String(position - firstIndex + 1).padStart(3, "0")}
                 </span>
-                <span className="history-entry__text">{paragraph.text}</span>
+                <span className="history-entry__text">
+                  {normalizeMarkerBreaks(paragraph.text)}
+                </span>
                 {isLatest ? <span className="history-entry__latest">最新</span> : null}
               </button>
             );

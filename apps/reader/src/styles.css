@@ -391,6 +391,33 @@ button { color: inherit; }
   letter-spacing: .12em;
   text-align: center;
 }
+.note-popover__entry + .note-popover__entry {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(214,194,143,.22);
+}
+
+/* Inline marginalia chips at a paragraph's end, for source notes that lost
+   their in-text marker. */
+.paragraph-chip {
+  margin: 0 0 0 8px;
+  padding: 1px 7px 2px;
+  border: 1px solid rgba(214,194,143,.34);
+  border-radius: 999px;
+  background: rgba(14,13,12,.3);
+  color: rgba(214,194,143,.8);
+  font: 500 11px/1.6 "Noto Serif SC", serif;
+  letter-spacing: .08em;
+  vertical-align: 2px;
+  cursor: pointer;
+  transition: color 160ms ease, border-color 160ms ease, background 160ms ease, opacity 160ms ease;
+}
+.paragraph-chip:hover, .paragraph-chip:focus-visible {
+  color: #f0dfae;
+  border-color: rgba(214,194,143,.7);
+  background: rgba(214,194,143,.12);
+  outline: none;
+}
 
 .source-illustration {
   /* Shrink-to-fit keeps publisher glyph bitmaps (single rare characters) at

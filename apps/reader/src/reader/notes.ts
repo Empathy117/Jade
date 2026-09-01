@@ -68,10 +68,27 @@ export function flowPositionCounts(paragraphs: Paragraph[]): number[] {
 }
 
 /**
- * Note markers as the 红研所-style editions print them: sequential arabic
- * annotations `[1]` and 校记 counters in CJK brackets `〔一〕`.
+ * Note markers as the source editions print them: sequential arabic
+ * annotations `[1]`, 校记 counters in CJK brackets `〔一〕`, and the circled
+ * numerals `①` that popular translated editions restart on every print page.
  */
-const MARKER_PATTERN = /\[\d+\]|〔[一二三四五六七八九十〇○百]+〕/g;
+const CIRCLED_CLASS = "\\u2460-\\u2473\\u3251-\\u325f\\u32b1-\\u32bf";
+const MARKER_PATTERN = new RegExp(
+  `\\[\\d+\\]|〔[一二三四五六七八九十〇○百]+〕|[${CIRCLED_CLASS}]`,
+  "g",
+);
+
+/**
+ * A circled marker often reaches us as its own source line (`…拟黄鹂\n①\n、…`)
+ * because the print superscript was a separate EPUB element. The line breaks
+ * are typography, not content: fold them so the marker sits inline where the
+ * print edition had it. Bracket markers never carry such breaks.
+ */
+const CIRCLED_BREAK_PATTERN = new RegExp(`\\n?([${CIRCLED_CLASS}])\\n?`, "g");
+
+export function normalizeMarkerBreaks(text: string): string {
+  return text.replace(CIRCLED_BREAK_PATTERN, "$1");
+}
 
 export interface TextSegment {
   kind: "text" | "marker";
@@ -92,29 +109,167 @@ export function segmentMarkers(text: string): TextSegment[] {
   return segments;
 }
 
+/** How many markers `text` contains; positions beats inside a paragraph. */
+export function countMarkers(text: string): number {
+  return [...text.matchAll(MARKER_PATTERN)].length;
+}
+
 /**
- * The notes belonging to the chapter that contains `index`.
+ * Where every annotation of the book surfaces.
  *
- * A chapter's annotations are the `note` paragraphs printed between its
- * heading and the next heading, each opening with its own marker.
+ * `markers` maps a paragraph id to one entry per marker occurrence in its
+ * text, each holding the note paragraphs that occurrence opens (empty when the
+ * occurrence resolved to nothing — front-matter noise stays plain text).
+ * `trailing` collects notes that lost their in-text anchor; they surface from
+ * a chip at the end of the paragraph they follow.
  */
-export function chapterNotes(paragraphs: Paragraph[], index: number): Map<string, number> {
-  let start = 0;
-  for (let cursor = Math.min(index, paragraphs.length - 1); cursor >= 0; cursor -= 1) {
-    if (paragraphs[cursor].kind === "chapter_heading") {
-      start = cursor;
-      break;
+export interface NoteAnchors {
+  markers: Map<string, number[][]>;
+  trailing: Map<string, number[]>;
+}
+
+export const EMPTY_NOTE_ANCHORS: NoteAnchors = {
+  markers: new Map(),
+  trailing: new Map(),
+};
+
+type MarkerFamily = "arabic" | "cjk" | "circled";
+
+function markerFamily(marker: string): MarkerFamily {
+  if (marker.startsWith("[")) return "arabic";
+  if (marker.startsWith("〔")) return "cjk";
+  return "circled";
+}
+
+function leadingMarker(text: string): string | null {
+  MARKER_PATTERN.lastIndex = 0;
+  const match = MARKER_PATTERN.exec(text);
+  return match && match.index === 0 ? match[0] : null;
+}
+
+interface MarkerOccurrence {
+  family: MarkerFamily;
+  value: string;
+  claimed: boolean;
+  /** The occurrence's note list inside `markers`; claiming fills it. */
+  notes: number[];
+}
+
+/**
+ * Pair every note paragraph with the in-text marker it belongs to.
+ *
+ * Editions differ: 红研所-style books number `[1]`…`[n]` uniquely per chapter
+ * and print the notes after it, while popular translations restart `①` on
+ * every print page and interleave the notes directly after their paragraph —
+ * so a chapter sees many identical `①` and marker values alone cannot pair.
+ * Occurrences are therefore claimed per run of consecutive notes: when a run
+ * carries exactly as many notes of a marker family as that family has open
+ * occurrences, they pair in order (which also absorbs the odd misprinted
+ * number); otherwise each note claims its printed value. A note that opens
+ * without a marker continues the note above it, and one nothing claims falls
+ * back to the paragraph it follows. Chapter headings reset the open set, so a
+ * stray `①` on a copyright page can never steal a chapter's first note.
+ */
+export function resolveNoteAnchors(paragraphs: Paragraph[]): NoteAnchors {
+  const markers = new Map<string, number[][]>();
+  const trailing = new Map<string, number[]>();
+  let open: MarkerOccurrence[] = [];
+  let run: number[] = [];
+  let runAnchor = -1;
+
+  const trailingListFor = (anchorIndex: number): number[] => {
+    if (anchorIndex < 0) return [];
+    const id = paragraphs[anchorIndex].id;
+    const existing = trailing.get(id);
+    if (existing) return existing;
+    const created: number[] = [];
+    trailing.set(id, created);
+    return created;
+  };
+
+  const resolveRun = () => {
+    if (run.length === 0) return;
+    const targets = new Array<number[] | null>(run.length).fill(null);
+    const leads = run.map((noteIndex) => leadingMarker(paragraphs[noteIndex].text));
+
+    for (const family of ["arabic", "cjk", "circled"] as const) {
+      const notePositions = run
+        .map((_, position) => position)
+        .filter((position) => leads[position] !== null && markerFamily(leads[position]!) === family);
+      const occurrences = open.filter(
+        (occurrence) => !occurrence.claimed && occurrence.family === family,
+      );
+      if (notePositions.length === 0) continue;
+      if (notePositions.length === occurrences.length) {
+        // Counts agree: this run annotates exactly the open markers, so pair
+        // them in order even where the printed numbers disagree.
+        notePositions.forEach((position, pairIndex) => {
+          occurrences[pairIndex].claimed = true;
+          targets[position] = occurrences[pairIndex].notes;
+        });
+        continue;
+      }
+      for (const position of notePositions) {
+        const match = occurrences.find(
+          (occurrence) => !occurrence.claimed && occurrence.value === leads[position],
+        );
+        if (match) {
+          match.claimed = true;
+          targets[position] = match.notes;
+        } else {
+          targets[position] = trailingListFor(runAnchor);
+        }
+      }
+    }
+
+    for (let position = 0; position < run.length; position += 1) {
+      if (leads[position] === null) {
+        if (position > 0) {
+          targets[position] = targets[position - 1];
+        } else {
+          const first = open.find((occurrence) => !occurrence.claimed);
+          if (first) {
+            first.claimed = true;
+            targets[position] = first.notes;
+          } else {
+            targets[position] = trailingListFor(runAnchor);
+          }
+        }
+      }
+      targets[position]?.push(run[position]);
+    }
+    run = [];
+  };
+
+  for (let index = 0; index < paragraphs.length; index += 1) {
+    const paragraph = paragraphs[index];
+    if (paragraph.kind === "note") {
+      run.push(index);
+      continue;
+    }
+    resolveRun();
+    if (paragraph.kind === "chapter_heading") open = [];
+    if (isFlowParagraph(paragraph)) {
+      runAnchor = index;
+      const occurrences: number[][] = [];
+      MARKER_PATTERN.lastIndex = 0;
+      for (const match of paragraph.text.matchAll(MARKER_PATTERN)) {
+        const notes: number[] = [];
+        occurrences.push(notes);
+        open.push({
+          family: markerFamily(match[0]),
+          value: match[0],
+          claimed: false,
+          notes,
+        });
+      }
+      if (occurrences.length > 0) markers.set(paragraph.id, occurrences);
     }
   }
-  const notes = new Map<string, number>();
-  for (let cursor = start + 1; cursor < paragraphs.length; cursor += 1) {
-    const paragraph = paragraphs[cursor];
-    if (paragraph.kind === "chapter_heading") break;
-    if (paragraph.kind !== "note") continue;
-    const marker = paragraph.text.match(MARKER_PATTERN);
-    if (marker && paragraph.text.startsWith(marker[0])) {
-      notes.set(marker[0], cursor);
-    }
+  resolveRun();
+
+  for (const [id, list] of trailing) {
+    if (list.length === 0) trailing.delete(id);
   }
-  return notes;
+  return { markers, trailing };
 }
