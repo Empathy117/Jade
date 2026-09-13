@@ -153,6 +153,38 @@ def test_epub_uses_package_metadata_and_spine_order() -> None:
     ]
 
 
+
+DRAWN_CHAPTER_HEADING = """<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <body>
+    <p class="x2">\u7b2c\u4e8c\u7ae0 \u6d77\u5185\u5b58\u77e5\u5df1</p>
+    <p>\u6d77\u5185\u5b58\u77e5\u5df1\u3002</p>
+  </body>
+</html>
+"""
+
+
+def test_epub_classifies_text_drawn_chapter_heading() -> None:
+    document = build_epub_source_document(
+        make_epub(
+            chapter_one=DRAWN_CHAPTER_HEADING,
+            opf=package_document(spine='<itemref idref="chapter-one"/>'),
+        ),
+        book_id="drawn-heading-epub",
+    )
+
+    assert document["paragraphs"][1] == {
+        "id": "p0002",
+        "kind": "chapter_heading",
+        "text": "\u7b2c\u4e8c\u7ae0 \u6d77\u5185\u5b58\u77e5\u5df1",
+    }
+    assert document["paragraphs"][2] == {
+        "id": "p0003",
+        "kind": "prose",
+        "text": "\u6d77\u5185\u5b58\u77e5\u5df1\u3002",
+    }
+
+
 def test_epub_output_matches_source_schema() -> None:
     document = build_epub_source_document(make_epub(), book_id="schema-epub")
     schema = json.loads(SOURCE_SCHEMA.read_text(encoding="utf-8"))

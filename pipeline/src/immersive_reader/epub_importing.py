@@ -13,6 +13,7 @@ from urllib.parse import unquote, urlsplit
 from xml.etree import ElementTree
 
 from immersive_reader.importing import (
+    _CHAPTER_HEADING,
     BookImportError,
     ImportResult,
     validate_source_metadata,
@@ -737,6 +738,13 @@ def _append_block(
     is_caption: bool = False,
 ) -> None:
     if text:
+        if (
+            kind == "prose"
+            and "\n" not in text
+            and len(text) <= 80
+            and _CHAPTER_HEADING.match(text)
+        ):
+            kind = "chapter_heading"
         blocks.append(EpubTextBlock(kind, text, is_caption))
 
 
