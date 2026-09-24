@@ -33,6 +33,10 @@ Non-negotiable rules:
 - Never copy or rewrite source prose in `direction.json`, `assets.json`, or
   `playback.json`; reference paragraph IDs only.
 - Treat background, music, and ambience as independent channels.
+- For private books, consult the user's music-library index
+  ([`docs/music-library.md`](docs/music-library.md)) as a reference when choosing
+  BGM; the best-fitting track wins, and a gap is recorded for the user to fill
+  rather than papered over. Library recordings never enter tracked bundles.
 - Prefer stable, restrained presentation over frequent asset changes.
 - Record a license, source, and attribution decision for every asset, and pin
   the finished catalog's bytes with `just hash-assets` before validating.
