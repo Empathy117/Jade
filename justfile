@@ -55,6 +55,18 @@ validate bundle="tests/fixtures/valid":
 validate-library library="books/library.json":
     uv run --project pipeline --frozen immersive-reader-validate-library "{{library}}"
 
+# Rescan the private music library (docs/music-library.md), keeping curation.
+index-music:
+    uv run --no-project python scripts/index_music_library.py
+
+# Report music-index entries whose curation is pending or off-vocabulary.
+check-music:
+    uv run --no-project python scripts/index_music_library.py --check
+
+# List music-index tracks matching every KEY=VALUE filter, e.g. mood=serene.
+find-music +filters:
+    uv run --no-project python scripts/index_music_library.py --find {{filters}}
+
 # Validate the private local shelf when one exists (books/library.local.json is
 # never tracked, so CI has nothing to validate here).
 validate-local:
