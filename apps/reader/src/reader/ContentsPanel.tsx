@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { clipText, displayedText, listAnnotations } from "./annotations";
 import type { Annotation } from "./annotations";
 import type { Bookmark } from "./bookmarks";
 import { currentChapterIndex, type ChapterEntry } from "./chapters";
-import { normalizeMarkerBreaks } from "./notes";
 import type { ParagraphPositions } from "./readerState";
 import type { Paragraph } from "./types";
 
@@ -20,7 +20,7 @@ interface ContentsPanelProps {
   onClose: () => void;
   onJump: (index: number) => void;
   onRemoveBookmark: (paragraphId: string) => void;
-  onRemoveAnnotation: (paragraphId: string) => void;
+  onRemoveAnnotation: (annotationId: string) => void;
 }
 
 /**
@@ -59,11 +59,11 @@ export function ContentsPanel({
   }, [tab]);
 
   const bookmarkRows = useMemo(
-    () => resolveRows(bookmarks, positions, paragraphs, (entry) => entry.createdAt),
+    () => resolveBookmarkRows(bookmarks, positions, paragraphs),
     [bookmarks, paragraphs, positions],
   );
   const annotationRows = useMemo(
-    () => resolveRows(annotations, positions, paragraphs, (entry) => entry.updatedAt),
+    () => listAnnotations(annotations, paragraphs, positions),
     [annotations, paragraphs, positions],
   );
 
@@ -178,7 +178,7 @@ export function ContentsPanel({
                     onClick={() => onJump(row.index)}
                   >
                     <span className="history-entry__number">
-                      {formatDay(row.timestamp)}
+                      {formatDay(row.updatedAt)}
                     </span>
                     <span className="contents-row__stack">
                       <span className="history-entry__text">{row.note}</span>
@@ -198,7 +198,7 @@ export function ContentsPanel({
               ))
             ) : (
               <p className="panel-empty">
-                还没有批注。点击当前段落末尾淡淡的「批」，写下此刻的想法。
+                还没有批注。选中任意文字写下想法，或点当前段落末尾淡淡的「批」。
               </p>
             )
           ) : null}
@@ -212,39 +212,31 @@ export function ContentsPanel({
   );
 }
 
-interface ContentsRow {
+interface BookmarkRow {
   id: string;
   index: number;
   excerpt: string;
-  note: string;
   timestamp: number;
 }
 
-function resolveRows<T extends { id: string; text?: string }>(
-  entries: T[],
+function resolveBookmarkRows(
+  bookmarks: Bookmark[],
   positions: ParagraphPositions,
   paragraphs: Paragraph[],
-  timestampOf: (entry: T) => number,
-): ContentsRow[] {
-  const rows: ContentsRow[] = [];
-  for (const entry of entries) {
-    const index = positions.get(entry.id);
+): BookmarkRow[] {
+  const rows: BookmarkRow[] = [];
+  for (const bookmark of bookmarks) {
+    const index = positions.get(bookmark.id);
     if (index === undefined) continue;
     rows.push({
-      id: entry.id,
+      id: bookmark.id,
       index,
-      excerpt: excerptOf(paragraphs[index]),
-      note: entry.text ?? "",
-      timestamp: timestampOf(entry),
+      excerpt: clipText(displayedText(paragraphs[index]), 52),
+      timestamp: bookmark.createdAt,
     });
   }
   rows.sort((a, b) => a.index - b.index);
   return rows;
-}
-
-function excerptOf(paragraph: Paragraph): string {
-  const text = normalizeMarkerBreaks(paragraph.text).replace(/\n/g, " ");
-  return text.length > 52 ? `${text.slice(0, 52)}…` : text;
 }
 
 function formatDay(timestamp: number): string {

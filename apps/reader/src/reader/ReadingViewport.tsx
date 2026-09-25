@@ -1,3 +1,6 @@
+import type { ReactNode } from "react";
+
+import type { PassageMark } from "./annotations";
 import { sourceIllustrationUrl } from "./data";
 import { segmentMarkers } from "./notes";
 import type { Paragraph, SourceIllustration } from "./types";
@@ -7,6 +10,8 @@ export interface VisibleReadingBeat {
   paragraph: Paragraph;
   beatIndex: number;
   beatCount: number;
+  /** Where this beat's text starts in the paragraph's displayed text. */
+  textOffset: number;
   /** Markers in this paragraph's earlier beats; keys marker occurrences. */
   markerOffset: number;
   current: boolean;
@@ -23,15 +28,20 @@ interface ReadingViewportProps {
   markerNotes: Map<string, number[][]>;
   /** Notes without an in-text anchor; they surface from a paragraph chip. */
   trailingNotes: Map<string, number[]>;
-  /** Paragraphs the reader has annotated. */
+  /** Paragraphs the reader has annotated as a whole. */
   annotatedIds: Set<string>;
+  /** Passages the reader has annotated, per paragraph each piece falls in. */
+  passageMarks: Map<string, PassageMark[]>;
   atEnd: boolean;
   viewportRef: React.RefObject<HTMLElement | null>;
   latestParagraphRef: React.RefObject<HTMLDivElement | null>;
   onOpenReference: (illustrationId: string) => void;
   onOpenNotes: (noteIndices: number[]) => void;
   onOpenAnnotation: (paragraphId: string) => void;
+  onOpenPassageNote: (annotationId: string) => void;
 }
+
+const NO_MARKS: PassageMark[] = [];
 
 export function ReadingViewport({
   bookPath,
@@ -41,12 +51,14 @@ export function ReadingViewport({
   markerNotes,
   trailingNotes,
   annotatedIds,
+  passageMarks,
   atEnd,
   viewportRef,
   latestParagraphRef,
   onOpenReference,
   onOpenNotes,
   onOpenAnnotation,
+  onOpenPassageNote,
 }: ReadingViewportProps) {
   const hasSourceIllustration =
     beats.some(
@@ -82,7 +94,13 @@ export function ReadingViewport({
               <div
                 className={`paragraph paragraph--${paragraph.kind}${beat.current ? " is-current" : ""}`}
               >
-                {renderLines(paragraph, beat.markerOffset, markerNotes, onOpenNotes)}
+                {renderBeatText(
+                  beat,
+                  markerNotes,
+                  passageMarks.get(paragraph.id) ?? NO_MARKS,
+                  onOpenNotes,
+                  onOpenPassageNote,
+                )}
                 {trailing.length > 0 ? (
                   <button
                     className="paragraph-chip paragraph-chip--note"
@@ -146,57 +164,123 @@ export function ReadingViewport({
   );
 }
 
-/** Source line breaks are content, so they survive as `<br>` rather than wrapping. */
-function renderLines(
-  paragraph: Paragraph,
-  markerOffset: number,
+/**
+ * The beat's text as selectable runs, each stamped with its offset in the
+ * paragraph's displayed text so a selection can be mapped back onto the
+ * source. Source line breaks are content, so they survive as `<br>`;
+ * scholarly markers become tappable superscripts; the reader's passage notes
+ * underline their words and end in a chip.
+ */
+function renderBeatText(
+  beat: VisibleReadingBeat,
   markerNotes: Map<string, number[][]>,
+  marks: PassageMark[],
   onOpenNotes: (noteIndices: number[]) => void,
+  onOpenPassageNote: (annotationId: string) => void,
 ) {
+  const { paragraph } = beat;
   const occurrences = markerNotes.get(paragraph.id);
-  const lines = paragraph.text.split("\n");
+  const beatEnd = beat.textOffset + paragraph.text.length;
+  const covering = marks.filter((mark) => mark.from < beatEnd && mark.to > beat.textOffset);
+  const chips = covering
+    .filter((mark) => mark.closes && mark.to <= beatEnd)
+    .sort((a, b) => a.to - b.to);
   // Marker occurrences continue across the beat's lines, offset by the
   // markers that earlier beats of the same paragraph already showed.
-  const counter = { next: markerOffset };
-  return lines.map((line, lineIndex) => (
-    <span key={`${paragraph.id}-${lineIndex}`}>
-      {renderMarkers(line, `${paragraph.id}-${lineIndex}`, occurrences, counter, onOpenNotes)}
-      {lineIndex < lines.length - 1 ? <br /> : null}
-    </span>
-  ));
+  let nextMarker = beat.markerOffset;
+  let lineStart = beat.textOffset;
+  const lines = paragraph.text.split("\n");
+  const rendered: ReactNode[] = [];
+
+  lines.forEach((line, lineIndex) => {
+    const pieces: ReactNode[] = [];
+    const placeChips = (through: number) => {
+      while (chips.length > 0 && chips[0].to <= through) {
+        const mark = chips.shift()!;
+        pieces.push(
+          <button
+            className="passage-chip"
+            type="button"
+            data-interactive="true"
+            key={`chip-${mark.annotationId}`}
+            aria-label="查看这段文字的批注"
+            title="查看批注"
+            onClick={() => onOpenPassageNote(mark.annotationId)}
+          >
+            批
+          </button>,
+        );
+      }
+    };
+
+    let cursor = lineStart;
+    const segments = occurrences
+      ? segmentMarkers(line)
+      : [{ kind: "text" as const, value: line }];
+    for (const segment of segments) {
+      const from = cursor;
+      cursor += segment.value.length;
+      if (segment.kind === "marker") {
+        const notes = occurrences?.[nextMarker];
+        nextMarker += 1;
+        if (notes && notes.length > 0) {
+          pieces.push(
+            <button
+              className="note-marker"
+              type="button"
+              data-interactive="true"
+              data-text-start={from}
+              key={`marker-${from}`}
+              aria-label={`查看注释 ${segment.value}`}
+              onClick={() => onOpenNotes(notes)}
+            >
+              {segment.value}
+            </button>,
+          );
+          placeChips(cursor);
+          continue;
+        }
+      }
+      for (const [start, end] of cutAtMarks(from, cursor, covering)) {
+        const text = segment.value.slice(start - from, end - from);
+        const marked = covering.some((mark) => mark.from <= start && mark.to >= end);
+        pieces.push(
+          marked ? (
+            <mark className="passage-mark" data-text-start={start} key={`text-${start}`}>
+              {text}
+            </mark>
+          ) : (
+            <span data-text-start={start} key={`text-${start}`}>
+              {text}
+            </span>
+          ),
+        );
+        placeChips(end);
+      }
+    }
+    // A passage that ends on this line's break still closes on this line.
+    const isLastLine = lineIndex === lines.length - 1;
+    placeChips(isLastLine ? beatEnd : cursor + 1);
+    rendered.push(
+      <span key={`${paragraph.id}-${lineIndex}`}>
+        {pieces}
+        {isLastLine ? null : <br />}
+      </span>,
+    );
+    lineStart = cursor + 1;
+  });
+  return rendered;
 }
 
-/**
- * Scholarly markers like `[3]`, `〔一〕`, or `①` become tappable superscripts
- * when a note paragraph resolved to that occurrence; everything else is text.
- */
-function renderMarkers(
-  line: string,
-  keyPrefix: string,
-  occurrences: number[][] | undefined,
-  counter: { next: number },
-  onOpenNotes: (noteIndices: number[]) => void,
-) {
-  if (!occurrences) return line;
-  return segmentMarkers(line).map((segment, segmentIndex) => {
-    const key = `${keyPrefix}-${segmentIndex}`;
-    if (segment.kind !== "marker") return <span key={key}>{segment.value}</span>;
-    const notes = occurrences[counter.next];
-    counter.next += 1;
-    if (!notes || notes.length === 0) return <span key={key}>{segment.value}</span>;
-    return (
-      <button
-        className="note-marker"
-        type="button"
-        data-interactive="true"
-        key={key}
-        aria-label={`查看注释 ${segment.value}`}
-        onClick={() => onOpenNotes(notes)}
-      >
-        {segment.value}
-      </button>
-    );
-  });
+/** Split `[from, to)` wherever a passage mark begins or ends inside it. */
+function cutAtMarks(from: number, to: number, marks: PassageMark[]): Array<[number, number]> {
+  const cuts = new Set([from, to]);
+  for (const mark of marks) {
+    if (mark.from > from && mark.from < to) cuts.add(mark.from);
+    if (mark.to > from && mark.to < to) cuts.add(mark.to);
+  }
+  const sorted = [...cuts].sort((a, b) => a - b);
+  return sorted.slice(1).map((end, index): [number, number] => [sorted[index], end]);
 }
 
 function SourceIllustrationFigure({

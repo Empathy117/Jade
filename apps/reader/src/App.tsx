@@ -44,13 +44,23 @@ import {
 import { NotePopover } from "./reader/NotePopover";
 import { AnnotationEditor } from "./reader/AnnotationEditor";
 import {
+  annotationExcerpt,
   annotationFor,
   annotationsStorageKey,
   parseAnnotations,
+  passageAnnotationId,
+  passageMarks,
+  passageQuote,
   upsertAnnotation,
 } from "./reader/annotations";
-import type { Annotation } from "./reader/annotations";
+import type {
+  Annotation,
+  AnnotationTarget,
+  PassageMark,
+  PassageRange,
+} from "./reader/annotations";
 import { hasTextSelection } from "./reader/passageSelection";
+import { PassageSelectionToolbar } from "./reader/SelectionToolbar";
 import {
   bookmarksStorageKey,
   isBookmarked,
@@ -97,6 +107,8 @@ const SILENT_PLAYBACK: ResolvedPlaybackState = {
   cue: null,
 };
 
+const NO_PASSAGE_MARKS = new Map<string, PassageMark[]>();
+
 /** A press on the reading area, remembered until its click arrives. */
 interface ReaderPress {
   x: number;
@@ -125,7 +137,7 @@ export function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [codexOpen, setCodexOpen] = useState(false);
   const [openNotes, setOpenNotes] = useState<number[] | null>(null);
-  const [annotationDraftId, setAnnotationDraftId] = useState<string | null>(null);
+  const [annotationDraft, setAnnotationDraft] = useState<AnnotationTarget | null>(null);
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [codexIntent, setCodexIntent] = useState<{
@@ -189,7 +201,7 @@ export function App() {
     setCodexOpen(false);
     setCodexIntent({ tab: null, referenceId: null });
     setOpenNotes(null);
-    setAnnotationDraftId(null);
+    setAnnotationDraft(null);
     setBookmarks([]);
     setAnnotations([]);
     setBeatIndex(0);
@@ -363,8 +375,18 @@ export function App() {
     [bundle],
   );
   const annotatedIds = useMemo(
-    () => new Set(annotations.map((annotation) => annotation.id)),
+    () =>
+      new Set(
+        annotations.filter((annotation) => !annotation.range).map((annotation) => annotation.id),
+      ),
     [annotations],
+  );
+  const passageMarksByParagraph = useMemo(
+    () =>
+      bundle
+        ? passageMarks(annotations, bundle.source.paragraphs, sourcePositions)
+        : NO_PASSAGE_MARKS,
+    [annotations, bundle, sourcePositions],
   );
   const currentBeats = useMemo(
     () => (bundle ? readingBeats(bundle.source.paragraphs[currentIndex]) : []),
@@ -389,12 +411,14 @@ export function App() {
         const lastVisibleBeat =
           index === currentIndex ? activeBeatIndex : beats.length - 1;
         let markerOffset = 0;
+        let textOffset = 0;
         for (let beat = 0; beat <= lastVisibleBeat; beat += 1) {
           result.push({
             key: `${sourceParagraph.id}-${beat}`,
             paragraph: { ...sourceParagraph, text: beats[beat].text },
             beatIndex: beat,
             beatCount: beats.length,
+            textOffset,
             markerOffset,
             current: index === currentIndex && beat === activeBeatIndex,
             showIllustrations:
@@ -402,6 +426,7 @@ export function App() {
               (index < currentIndex || activeBeatIndex === beats.length - 1),
           });
           markerOffset += countMarkers(beats[beat].text);
+          textOffset += beats[beat].text.length;
         }
       }
       return result;
@@ -528,12 +553,22 @@ export function App() {
     [],
   );
 
+  // Selecting text belongs to reading, not to any panel laid over it.
+  const selectionEnabled =
+    started &&
+    !historyOpen &&
+    !contentsOpen &&
+    !searchOpen &&
+    !codexOpen &&
+    openNotes === null &&
+    annotationDraft === null;
+
   useEffect(() => {
     if (!started) return;
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target instanceof HTMLElement ? event.target : null;
       const isFormControl = target?.matches("input, select, textarea");
-      if (event.key === "ArrowUp" && !isFormControl && annotationDraftId === null) {
+      if (event.key === "ArrowUp" && !isFormControl && annotationDraft === null) {
         event.preventDefault();
         setSettingsOpen(false);
         setCodexOpen(false);
@@ -549,12 +584,12 @@ export function App() {
         setSearchOpen(false);
         setCodexOpen(false);
         setOpenNotes(null);
-        setAnnotationDraftId(null);
+        setAnnotationDraft(null);
         window.getSelection()?.removeAllRanges();
         return;
       }
       if (target?.matches("input, button, select, textarea")) return;
-      if (historyOpen || contentsOpen || searchOpen || codexOpen || annotationDraftId !== null) {
+      if (historyOpen || contentsOpen || searchOpen || codexOpen || annotationDraft !== null) {
         return;
       }
       if (openNotes !== null) {
@@ -587,7 +622,7 @@ export function App() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [
-    annotationDraftId,
+    annotationDraft,
     bundle,
     contentsOpen,
     codexOpen,
@@ -626,7 +661,7 @@ export function App() {
     setSearchOpen(false);
     setHistoryOpen(false);
     setOpenNotes(null);
-    setAnnotationDraftId(null);
+    setAnnotationDraft(null);
   }
 
   function toggleHistory() {
@@ -708,20 +743,40 @@ export function App() {
     setOpenNotes(noteIndices);
   }
 
-  function openAnnotationEditor(paragraphId: string) {
+  function openAnnotationEditor(target: AnnotationTarget) {
     (document.activeElement as HTMLElement | null)?.blur();
     closePanels();
-    setAnnotationDraftId(paragraphId);
+    setAnnotationDraft(target);
   }
 
-  function saveAnnotation(paragraphId: string, text: string) {
-    setAnnotations((current) => upsertAnnotation(current, paragraphId, text, Date.now()));
-    setAnnotationDraftId(null);
+  function openPassageNote(annotationId: string) {
+    const annotation = annotationFor(annotations, annotationId);
+    if (annotation?.range) openAnnotationEditor({ id: annotation.id, range: annotation.range });
   }
 
-  function removeAnnotationFor(paragraphId: string) {
-    setAnnotations((current) => upsertAnnotation(current, paragraphId, "", Date.now()));
-    setAnnotationDraftId(null);
+  /** Copy the passage as the source has it, free of chips and page counters. */
+  async function copyPassage(range: PassageRange): Promise<boolean> {
+    if (!bundle) return false;
+    const quote = passageQuote(range, bundle.source.paragraphs, sourcePositions);
+    try {
+      await navigator.clipboard.writeText(quote);
+      return true;
+    } catch {
+      // No async clipboard (an insecure origin, say): copy the live selection.
+      return document.execCommand("copy");
+    }
+  }
+
+  function saveAnnotation(target: AnnotationTarget, text: string) {
+    setAnnotations((current) =>
+      upsertAnnotation(current, target.id, text, Date.now(), target.range),
+    );
+    setAnnotationDraft(null);
+  }
+
+  function removeAnnotationFor(annotationId: string) {
+    setAnnotations((current) => upsertAnnotation(current, annotationId, "", Date.now()));
+    setAnnotationDraft(null);
   }
 
   function jumpToHistory(targetIndex: number) {
@@ -797,7 +852,7 @@ export function App() {
       searchOpen ||
       codexOpen ||
       settingsOpen ||
-      annotationDraftId !== null
+      annotationDraft !== null
     ) {
       return;
     }
@@ -986,12 +1041,14 @@ export function App() {
             markerNotes={noteAnchors.markers}
             trailingNotes={noteAnchors.trailing}
             annotatedIds={annotatedIds}
+            passageMarks={passageMarksByParagraph}
             atEnd={currentIndex === lastIndex && activeBeatIndex === currentBeats.length - 1}
             viewportRef={readingViewportRef}
             latestParagraphRef={latestParagraphRef}
             onOpenReference={openReferenceForIllustration}
             onOpenNotes={openNotesFor}
-            onOpenAnnotation={openAnnotationEditor}
+            onOpenAnnotation={(paragraphId) => openAnnotationEditor({ id: paragraphId })}
+            onOpenPassageNote={openPassageNote}
           />
 
           <footer className="reader-footer" data-interactive="true">
@@ -1040,8 +1097,8 @@ export function App() {
               onRemoveBookmark={(paragraphId) =>
                 setBookmarks((current) => removeBookmark(current, paragraphId))
               }
-              onRemoveAnnotation={(paragraphId) =>
-                setAnnotations((current) => upsertAnnotation(current, paragraphId, "", Date.now()))
+              onRemoveAnnotation={(annotationId) =>
+                setAnnotations((current) => upsertAnnotation(current, annotationId, "", Date.now()))
               }
             />
           ) : null}
@@ -1087,15 +1144,26 @@ export function App() {
               onClose={() => setOpenNotes(null)}
             />
           ) : null}
-          {annotationDraftId !== null ? (
+          <PassageSelectionToolbar
+            viewportRef={readingViewportRef}
+            enabled={selectionEnabled}
+            paragraphs={bundle.source.paragraphs}
+            positions={sourcePositions}
+            onAnnotate={(range) => openAnnotationEditor({ id: passageAnnotationId(range), range })}
+            onCopy={copyPassage}
+          />
+          {annotationDraft !== null ? (
             <AnnotationEditor
-              paragraph={
-                bundle.source.paragraphs[sourcePositions.get(annotationDraftId) ?? currentIndex]
-              }
-              initialText={annotationFor(annotations, annotationDraftId)?.text ?? ""}
-              onSave={(text) => saveAnnotation(annotationDraftId, text)}
-              onRemove={() => removeAnnotationFor(annotationDraftId)}
-              onClose={() => setAnnotationDraftId(null)}
+              excerpt={annotationExcerpt(
+                annotationDraft,
+                bundle.source.paragraphs,
+                sourcePositions,
+                annotationDraft.range ? 120 : 64,
+              )}
+              initialText={annotationFor(annotations, annotationDraft.id)?.text ?? ""}
+              onSave={(text) => saveAnnotation(annotationDraft, text)}
+              onRemove={() => removeAnnotationFor(annotationDraft.id)}
+              onClose={() => setAnnotationDraft(null)}
             />
           ) : null}
           {audioError ? <div className="audio-notice">{audioError}，已继续纯文本阅读。</div> : null}

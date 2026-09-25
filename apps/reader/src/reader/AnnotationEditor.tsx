@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
-import { normalizeMarkerBreaks } from "./notes";
-import type { Paragraph } from "./types";
-
 interface AnnotationEditorProps {
-  paragraph: Paragraph;
+  /** One line naming what the note is about: a quoted passage or a paragraph's opening. */
+  excerpt: string | null;
   /** The saved annotation text, or empty when writing a fresh one. */
   initialText: string;
   onSave: (text: string) => void;
@@ -13,13 +11,13 @@ interface AnnotationEditorProps {
 }
 
 /**
- * Write or revise the margin note of one paragraph.
+ * Write or revise the margin note of one paragraph or selected passage.
  *
  * Save keeps it, an emptied text (or 删除) removes it, and Esc or the
  * backdrop leaves the saved note untouched.
  */
 export function AnnotationEditor({
-  paragraph,
+  excerpt,
   initialText,
   onSave,
   onRemove,
@@ -38,8 +36,6 @@ export function AnnotationEditor({
     });
     return () => window.cancelAnimationFrame(animationFrame);
   }, []);
-
-  const excerpt = normalizeMarkerBreaks(paragraph.text).replace(/\n/g, " ");
 
   return (
     <div
@@ -60,9 +56,7 @@ export function AnnotationEditor({
           <button type="button" aria-label="关闭批注" onClick={onClose}>×</button>
         </header>
         <div className="note-popover__body">
-          <p className="annotation-editor__source">
-            {excerpt.length > 64 ? `${excerpt.slice(0, 64)}…` : excerpt}
-          </p>
+          {excerpt ? <p className="annotation-editor__source">{excerpt}</p> : null}
           <textarea
             ref={textareaRef}
             className="annotation-editor__input"

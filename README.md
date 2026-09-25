@@ -116,7 +116,10 @@ Current Reader controls:
 - when a book defines recurring reference images, use `图` to reopen every
   diagram unlocked by the current reading position;
 - use `Aa` for font size, audio, reduced motion, and pure reading mode;
-- progress and settings are stored locally in the browser.
+- select any passage to write a note on it or copy it; the passage keeps a
+  dashed underline and a `批` chip that reopens the note. Selecting text, or
+  tapping to clear a selection, never turns the page;
+- progress, settings, bookmarks, and notes are stored locally in the browser.
 
 The opening screen lists every entry in `books/library.json`; each book keeps
 its own progress. A book can also be opened directly with

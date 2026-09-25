@@ -323,6 +323,107 @@ describe("App", () => {
     expect(screen.queryByText("第 2 段正文。")).toBeNull();
   });
 
+  it("annotates a selected passage and reopens the note from its chip", async () => {
+    const user = await startReading();
+    selectText(screen.getByText("第 1 段正文。"), 4, 7);
+
+    const toolbar = await screen.findByRole("toolbar", { name: "选中的文字" });
+    await user.click(within(toolbar).getByRole("button", { name: "批注" }));
+    const editor = await screen.findByRole("dialog", { name: "批注" });
+    expect(within(editor).getByText("「段正文」")).toBeDefined();
+    await user.type(within(editor).getByLabelText("批注内容"), "饿意渐起。");
+    await user.click(within(editor).getByRole("button", { name: "保存" }));
+
+    const mark = await screen.findByText("段正文");
+    expect(mark.tagName).toBe("MARK");
+    expect(screen.queryByRole("toolbar", { name: "选中的文字" })).toBeNull();
+    // The passage note keeps the paragraph's own note slot free.
+    expect(screen.getByRole("button", { name: "为本段写批注" })).toBeDefined();
+    const saved = window.localStorage.getItem(annotationsStorageKey("test-book", 1));
+    expect(JSON.parse(saved ?? "[]")).toEqual([
+      {
+        id: "p0002:4-p0002:7",
+        text: "饿意渐起。",
+        updatedAt: expect.any(Number) as number,
+        range: {
+          start: { paragraphId: "p0002", offset: 4 },
+          end: { paragraphId: "p0002", offset: 7 },
+        },
+      },
+    ]);
+
+    await user.click(screen.getByRole("button", { name: "查看这段文字的批注" }));
+    expect(await screen.findByDisplayValue("饿意渐起。")).toBeDefined();
+    await user.keyboard("{Escape}");
+
+    await user.click(screen.getByRole("button", { name: "目录" }));
+    await user.click(screen.getByRole("tab", { name: /批注/ }));
+    const contents = screen.getByRole("dialog", { name: "目录" });
+    expect(within(contents).getByText("饿意渐起。")).toBeDefined();
+    expect(within(contents).getByText("「段正文」")).toBeDefined();
+  });
+
+  it("anchors a passage on a later page of a long paragraph by its paragraph offset", async () => {
+    vi.stubGlobal(
+      "fetch",
+      stubBookFetch(6, { firstProseText: "第一句。".repeat(90) }),
+    );
+    const user = await openBook();
+    await user.click(screen.getByRole("button", { name: /^开始阅读/ }));
+    await user.keyboard(" ");
+    await screen.findByLabelText(/本段第 2 页/);
+    const pages = document.querySelectorAll<HTMLElement>(
+      ".reading-block[data-paragraph-id='p0002']",
+    );
+    const firstPageLength = [...pages[0].querySelectorAll("[data-text-start]")]
+      .map((run) => run.textContent ?? "")
+      .join("").length;
+    const secondPage = pages[1].querySelector<HTMLElement>("[data-text-start]")!;
+    expect(Number(secondPage.dataset.textStart)).toBe(firstPageLength);
+
+    selectText(secondPage, 0, 4);
+    const toolbar = await screen.findByRole("toolbar", { name: "选中的文字" });
+    await user.click(within(toolbar).getByRole("button", { name: "批注" }));
+    await user.type(await screen.findByLabelText("批注内容"), "复沓。");
+    await user.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() => {
+      expect(pages[1].querySelector("mark")?.textContent).toBe("第一句。");
+    });
+    expect(pages[0].querySelector("mark")).toBeNull();
+    const saved = JSON.parse(
+      window.localStorage.getItem(annotationsStorageKey("test-book", 1)) ?? "[]",
+    ) as Array<{ range: unknown }>;
+    expect(saved[0].range).toEqual({
+      start: { paragraphId: "p0002", offset: firstPageLength },
+      end: { paragraphId: "p0002", offset: firstPageLength + 4 },
+    });
+  });
+
+  it("offers a sweep that overshoots onto the footer for the words it covers", async () => {
+    const user = await startReading();
+    const run = screen.getByText("第 1 段正文。");
+    const footerText = document.querySelector(".now-playing small")!.firstChild!;
+    window.getSelection()!.setBaseAndExtent(run.firstChild!, 2, footerText, 0);
+    document.dispatchEvent(new Event("selectionchange"));
+
+    const toolbar = await screen.findByRole("toolbar", { name: "选中的文字" });
+    await user.click(within(toolbar).getByRole("button", { name: "复制" }));
+
+    expect(await navigator.clipboard.readText()).toBe("1 段正文。");
+  });
+
+  it("copies a selected passage as the source has it", async () => {
+    const user = await startReading();
+    selectText(screen.getByText("第 1 段正文。"), 0, 6);
+
+    const toolbar = await screen.findByRole("toolbar", { name: "选中的文字" });
+    await user.click(within(toolbar).getByRole("button", { name: "复制" }));
+
+    expect(await within(toolbar).findByRole("button", { name: "已复制" })).toBeDefined();
+    expect(await navigator.clipboard.readText()).toBe("第 1 段正");
+  });
+
   it("unlocks the dossier with reading progress and opens it from the header", async () => {
     vi.stubGlobal(
       "fetch",

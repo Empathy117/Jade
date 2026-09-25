@@ -103,6 +103,9 @@ button { color: inherit; }
 
 .reader-app {
   --font-scale: 1;
+  /* The reading viewport's edges, for anything that sits against them. */
+  --viewport-top: clamp(100px, 15vh, 145px);
+  --viewport-bottom: clamp(88px, 14vh, 126px);
   position: relative;
   width: 100vw;
   height: 100dvh;
@@ -260,7 +263,7 @@ button { color: inherit; }
 
 .reading-viewport {
   position: absolute;
-  inset: clamp(100px, 15vh, 145px) 0 clamp(88px, 14vh, 126px);
+  inset: var(--viewport-top) 0 var(--viewport-bottom);
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
@@ -268,6 +271,7 @@ button { color: inherit; }
   mask-image: linear-gradient(transparent, #000 6%, #000 88%, transparent);
 }
 .reading-viewport::-webkit-scrollbar { display: none; }
+.reading-viewport ::selection { background: rgba(214,194,143,.36); color: #fffaf0; text-shadow: none; }
 .reading-viewport.has-source-illustration .paragraph-stack { justify-content: flex-start; }
 .paragraph-stack {
   width: min(690px, calc(100vw - 56px));
@@ -282,6 +286,7 @@ button { color: inherit; }
 .reading-block { display: grid; gap: 1.1em; }
 .reading-beat-mark {
   justify-self: center;
+  user-select: none;
   color: rgba(242,237,228,.34);
   font: 500 10px/1 "Source Sans 3", sans-serif;
   letter-spacing: .18em;
@@ -410,6 +415,7 @@ button { color: inherit; }
   letter-spacing: .08em;
   vertical-align: 2px;
   cursor: pointer;
+  user-select: none;
   transition: color 160ms ease, border-color 160ms ease, background 160ms ease, opacity 160ms ease;
 }
 .paragraph-chip:hover, .paragraph-chip:focus-visible {
@@ -426,6 +432,81 @@ button { color: inherit; }
   background: rgba(214,194,143,.14);
   color: #ecd9a6;
 }
+
+/* A passage the reader wrote a note on: a quiet dashed underline, ended by a
+   chip that opens the note. Tapping the words themselves still turns the page. */
+.passage-mark {
+  padding: 0;
+  background: none;
+  color: inherit;
+  text-decoration: underline dashed rgba(214,194,143,.55);
+  text-decoration-thickness: 1px;
+  text-underline-offset: .38em;
+  text-decoration-skip-ink: none;
+}
+.paragraph.is-current .passage-mark { text-decoration-color: rgba(236,217,166,.85); }
+.passage-chip {
+  margin: 0 2px 0 3px;
+  padding: 0 .42em;
+  border: 1px solid rgba(214,194,143,.5);
+  border-radius: 999px;
+  background: rgba(214,194,143,.12);
+  color: #ecd9a6;
+  font: 500 .56em/1.55 "Noto Serif SC", serif;
+  letter-spacing: 0;
+  vertical-align: super;
+  text-shadow: none;
+  cursor: pointer;
+  user-select: none;
+  transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+.passage-chip:hover, .passage-chip:focus-visible {
+  color: #f7ecce;
+  border-color: rgba(214,194,143,.8);
+  background: rgba(214,194,143,.24);
+  outline: none;
+}
+
+/* Actions for a selected passage, floated beside the selection. */
+.selection-toolbar {
+  position: fixed;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  border: 1px solid rgba(214,194,143,.42);
+  border-radius: 999px;
+  background: rgba(24,22,19,.96);
+  box-shadow: 0 14px 40px rgba(0,0,0,.5);
+  transform: translate(-50%, -100%);
+  user-select: none;
+  animation: selection-toolbar-arrive 150ms ease both;
+}
+.selection-toolbar.is-below { transform: translate(-50%, 0); }
+/* Docked above the footer when the selection has scrolled out of sight. */
+.selection-toolbar.is-docked {
+  left: 50%;
+  bottom: calc(var(--viewport-bottom) + 12px);
+  transform: translate(-50%, 0);
+}
+.selection-toolbar button {
+  padding: 7px 15px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: #eee4ce;
+  font: 500 12.5px "Noto Serif SC", serif;
+  letter-spacing: .14em;
+  cursor: pointer;
+  transition: color 140ms ease, background 140ms ease;
+}
+.selection-toolbar button:hover, .selection-toolbar button:focus-visible {
+  background: rgba(214,194,143,.16);
+  color: #fffaf0;
+  outline: none;
+}
+.selection-toolbar__divider { width: 1px; height: 14px; background: rgba(242,237,228,.16); }
+@keyframes selection-toolbar-arrive { from { opacity: 0; translate: 0 4px; } }
 
 /* The reader's own margin-note editor rides the note popover frame. */
 .annotation-editor__source {
