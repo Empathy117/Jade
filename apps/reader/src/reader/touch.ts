@@ -9,8 +9,15 @@
 
 export const SWIPE_MIN_DISTANCE = 56;
 export const SWIPE_DOMINANCE = 1.5;
+/** Travel past which a press is a drag (a selection sweep), never a tap. */
+export const TAP_SLOP = 8;
 
 export type SwipeAction = "next" | "previous";
+
+/** Whether a press that travelled this far still reads as a tap. */
+export function isTap(deltaX: number, deltaY: number, slop: number = TAP_SLOP): boolean {
+  return Math.hypot(deltaX, deltaY) <= slop;
+}
 
 export function resolveSwipe(
   deltaX: number,

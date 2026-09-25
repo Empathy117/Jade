@@ -22,7 +22,7 @@ import { CodexPanel } from "./reader/CodexPanel";
 import type { CodexTab } from "./reader/CodexPanel";
 import { HistoryPanel } from "./reader/HistoryPanel";
 import { safeGet, safeKeys, safeRemove, safeSet } from "./reader/localStorage";
-import { resolveSwipe } from "./reader/touch";
+import { isTap, resolveSwipe } from "./reader/touch";
 import { ReadingViewport } from "./reader/ReadingViewport";
 import type { VisibleReadingBeat } from "./reader/ReadingViewport";
 import { readingBeats } from "./reader/readingBeats";
@@ -50,6 +50,7 @@ import {
   upsertAnnotation,
 } from "./reader/annotations";
 import type { Annotation } from "./reader/annotations";
+import { hasTextSelection } from "./reader/passageSelection";
 import {
   bookmarksStorageKey,
   isBookmarked,
@@ -96,6 +97,16 @@ const SILENT_PLAYBACK: ResolvedPlaybackState = {
   cue: null,
 };
 
+/** A press on the reading area, remembered until its click arrives. */
+interface ReaderPress {
+  x: number;
+  y: number;
+  /** A selection was showing, so the press can only have been meant to clear it. */
+  hadSelection: boolean;
+  /** The pointer travelled far enough to make this a sweep, not a tap. */
+  moved: boolean;
+}
+
 export function App() {
   const [library, setLibrary] = useState<LibraryDocument | null>(null);
   const [selectedBook, setSelectedBook] = useState<LibraryBook | null>(null);
@@ -132,6 +143,7 @@ export function App() {
   const readingViewportRef = useRef<HTMLElement | null>(null);
   const latestParagraphRef = useRef<HTMLDivElement | null>(null);
   const touchOrigin = useRef<{ x: number; y: number } | null>(null);
+  const readerPress = useRef<ReaderPress | null>(null);
   const { currentIndex, furthestReadIndex } = cursor;
 
   useEffect(() => {
@@ -538,6 +550,7 @@ export function App() {
         setCodexOpen(false);
         setOpenNotes(null);
         setAnnotationDraftId(null);
+        window.getSelection()?.removeAllRanges();
         return;
       }
       if (target?.matches("input, button, select, textarea")) return;
@@ -727,13 +740,46 @@ export function App() {
     setHistoryOpen(false);
   }
 
+  function handleReaderPointerDown(event: React.PointerEvent<HTMLElement>) {
+    if (!event.isPrimary) return;
+    readerPress.current = {
+      x: event.clientX,
+      y: event.clientY,
+      hadSelection: hasTextSelection(),
+      moved: false,
+    };
+  }
+
+  function handleReaderPointerMove(event: React.PointerEvent<HTMLElement>) {
+    const press = readerPress.current;
+    if (!press || press.moved || !event.isPrimary) return;
+    if (!isTap(event.clientX - press.x, event.clientY - press.y)) press.moved = true;
+  }
+
+  /**
+   * Only a tap turns the page. A click that ends a selection sweep, or one that
+   * merely clears the selection showing when it began, leaves the page alone.
+   */
   function handleReaderClick(event: React.MouseEvent<HTMLElement>) {
+    const press = readerPress.current;
+    readerPress.current = null;
     if ((event.target as HTMLElement).closest("[data-interactive='true']")) return;
+    if (hasTextSelection()) return;
+    if (
+      press &&
+      (press.hadSelection || press.moved || !isTap(event.clientX - press.x, event.clientY - press.y))
+    ) {
+      return;
+    }
     next();
   }
 
   function handleTouchStart(event: React.TouchEvent<HTMLElement>) {
-    if ((event.target as HTMLElement).closest("[data-interactive='true']")) {
+    // Dragging a selection handle sideways must not read as a page swipe.
+    if (
+      (event.target as HTMLElement).closest("[data-interactive='true']") ||
+      hasTextSelection()
+    ) {
       touchOrigin.current = null;
       return;
     }
@@ -760,7 +806,7 @@ export function App() {
       return;
     }
     const touch = event.changedTouches[0];
-    if (!touch) return;
+    if (!touch || hasTextSelection()) return;
     const action = resolveSwipe(touch.clientX - origin.x, touch.clientY - origin.y);
     if (action === "next") next();
     if (action === "previous") previous();
@@ -810,6 +856,8 @@ export function App() {
     <main
       className={`reader-app${started ? " is-reading" : " is-cover"}${settings.pureMode ? " is-pure" : ""}${settings.reducedMotion ? " is-reduced-motion" : ""}${settings.sansFont ? " is-font-sans" : ""}`}
       style={{ "--font-scale": settings.fontScale } as React.CSSProperties}
+      onPointerDown={started ? handleReaderPointerDown : undefined}
+      onPointerMove={started ? handleReaderPointerMove : undefined}
       onClick={started ? handleReaderClick : undefined}
       onTouchStart={started ? handleTouchStart : undefined}
       onTouchEnd={started ? handleTouchEnd : undefined}

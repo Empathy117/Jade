@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -28,6 +28,13 @@ async function startReading() {
   await user.click(screen.getByRole("button", { name: /^开始阅读/ }));
   await screen.findByRole("button", { name: "下一页" });
   return user;
+}
+
+/** Select characters `[from, to)` of a rendered text run, as a sweep would. */
+function selectText(run: HTMLElement, from: number, to: number) {
+  const text = run.firstChild!;
+  window.getSelection()!.setBaseAndExtent(text, from, text, to);
+  document.dispatchEvent(new Event("selectionchange"));
 }
 
 describe("App", () => {
@@ -276,6 +283,44 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "目录" }));
     await user.click(screen.getByRole("tab", { name: /批注/ }));
     expect(screen.getByText("开篇便有宿命感。")).toBeDefined();
+  });
+
+  it("keeps the page when a click ends a text selection", async () => {
+    await startReading();
+    const run = screen.getByText("第 1 段正文。");
+
+    fireEvent.pointerDown(run, { clientX: 10, clientY: 10, isPrimary: true });
+    selectText(run, 0, 3);
+    fireEvent.click(run, { clientX: 10, clientY: 10 });
+
+    expect(screen.queryByText("第 2 段正文。")).toBeNull();
+  });
+
+  it("keeps the page when a tap only clears a selection, and turns it on the next", async () => {
+    await startReading();
+    const run = screen.getByText("第 1 段正文。");
+    selectText(run, 0, 3);
+
+    fireEvent.pointerDown(run, { isPrimary: true });
+    // The browser collapses the selection on press, before the click arrives.
+    window.getSelection()!.removeAllRanges();
+    fireEvent.click(run);
+    expect(screen.queryByText("第 2 段正文。")).toBeNull();
+
+    fireEvent.pointerDown(run, { isPrimary: true });
+    fireEvent.click(run);
+    expect(await screen.findByText("第 2 段正文。")).toBeDefined();
+  });
+
+  it("keeps the page when a press sweeps across the text", async () => {
+    await startReading();
+    const run = screen.getByText("第 1 段正文。");
+
+    fireEvent.pointerDown(run, { clientX: 10, clientY: 10, isPrimary: true });
+    fireEvent.pointerMove(run, { clientX: 80, clientY: 12, buttons: 1, isPrimary: true });
+    fireEvent.click(run, { clientX: 80, clientY: 12 });
+
+    expect(screen.queryByText("第 2 段正文。")).toBeNull();
   });
 
   it("unlocks the dossier with reading progress and opens it from the header", async () => {
