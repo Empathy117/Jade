@@ -119,6 +119,8 @@ Current Reader controls:
 - select any passage to write a note on it or copy it; the passage keeps a
   dashed underline and a `批` chip that reopens the note. Selecting text, or
   tapping to clear a selection, never turns the page;
+- while sweeping a selection with the mouse, push into the lit band at the top
+  or bottom edge of the text to scroll further through the scene;
 - progress, settings, bookmarks, and notes are stored locally in the browser.
 
 The opening screen lists every entry in `books/library.json`; each book keeps

@@ -1042,6 +1042,7 @@ export function App() {
             trailingNotes={noteAnchors.trailing}
             annotatedIds={annotatedIds}
             passageMarks={passageMarksByParagraph}
+            selectionEnabled={selectionEnabled}
             atEnd={currentIndex === lastIndex && activeBeatIndex === currentBeats.length - 1}
             viewportRef={readingViewportRef}
             latestParagraphRef={latestParagraphRef}

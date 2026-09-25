@@ -114,3 +114,15 @@ function trimPassage(
   };
 }
 
+/** The caret position under a viewport point, where the browser can tell. */
+export function caretAt(x: number, y: number): { node: Node; offset: number } | null {
+  if (typeof document.caretPositionFromPoint === "function") {
+    const position = document.caretPositionFromPoint(x, y);
+    return position ? { node: position.offsetNode, offset: position.offset } : null;
+  }
+  if (typeof document.caretRangeFromPoint === "function") {
+    const caret = document.caretRangeFromPoint(x, y);
+    return caret ? { node: caret.startContainer, offset: caret.startOffset } : null;
+  }
+  return null;
+}

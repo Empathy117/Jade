@@ -261,16 +261,24 @@ button { color: inherit; }
 .progress-rail { position: absolute; z-index: 4; top: 0; left: 0; width: 100%; height: 2px; background: rgba(255,255,255,.08); }
 .progress-rail__fill { height: 100%; background: #d6c28f; transition: width 400ms ease; }
 
+/* Registered so the fade can ease open while a selection sweeps the edges. */
+@property --fade-top { syntax: "<percentage>"; inherits: false; initial-value: 6%; }
+@property --fade-bottom { syntax: "<percentage>"; inherits: false; initial-value: 88%; }
 .reading-viewport {
+  --fade-top: 6%;
+  --fade-bottom: 88%;
   position: absolute;
   inset: var(--viewport-top) 0 var(--viewport-bottom);
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  mask-image: linear-gradient(transparent, #000 6%, #000 88%, transparent);
+  mask-image: linear-gradient(transparent, #000 var(--fade-top), #000 var(--fade-bottom), transparent);
+  transition: --fade-top 220ms ease, --fade-bottom 220ms ease;
 }
 .reading-viewport::-webkit-scrollbar { display: none; }
+/* While a selection sweeps, words at the edges stay legible. */
+.reading-viewport.is-sweeping { --fade-top: 1.5%; --fade-bottom: 98.5%; }
 .reading-viewport ::selection { background: rgba(214,194,143,.36); color: #fffaf0; text-shadow: none; }
 .reading-viewport.has-source-illustration .paragraph-stack { justify-content: flex-start; }
 .paragraph-stack {
@@ -507,6 +515,51 @@ button { color: inherit; }
 }
 .selection-toolbar__divider { width: 1px; height: 14px; background: rgba(242,237,228,.16); }
 @keyframes selection-toolbar-arrive { from { opacity: 0; translate: 0 4px; } }
+
+/* While a pointer sweeps a selection, each edge with text beyond it lights up;
+   pushing into the band scrolls that way. It never takes the pointer itself. */
+.sweep-edge {
+  position: absolute;
+  z-index: 2;
+  left: 0;
+  right: 0;
+  height: 64px;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  opacity: .7;
+  transition: opacity 160ms ease;
+  animation: history-backdrop-arrive 160ms ease both;
+}
+.sweep-edge--up {
+  top: var(--viewport-top);
+  align-items: flex-start;
+  background: linear-gradient(rgba(214,194,143,.1), transparent);
+}
+.sweep-edge--down {
+  bottom: var(--viewport-bottom);
+  align-items: flex-end;
+  background: linear-gradient(transparent, rgba(214,194,143,.1));
+}
+.sweep-edge--down .sweep-edge__cue { transform: translateY(50%); }
+.sweep-edge.is-pulling { opacity: 1; }
+/* The cue straddles the viewport edge, in the gap beside the text, not over it. */
+.sweep-edge__cue {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 11px 3px 9px;
+  transform: translateY(-50%);
+  border: 1px solid rgba(214,194,143,.3);
+  border-radius: 999px;
+  background: rgba(20,19,17,.82);
+  color: rgba(214,194,143,.85);
+  font: 500 10.5px "Noto Serif SC", serif;
+  letter-spacing: .2em;
+  transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+.sweep-edge__cue svg { width: 11px; height: 8px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.sweep-edge.is-pulling .sweep-edge__cue { border-color: rgba(214,194,143,.75); background: rgba(58,50,33,.92); color: #f7ecce; }
 
 /* The reader's own margin-note editor rides the note popover frame. */
 .annotation-editor__source {

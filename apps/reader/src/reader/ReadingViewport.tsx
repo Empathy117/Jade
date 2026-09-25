@@ -4,6 +4,8 @@ import type { PassageMark } from "./annotations";
 import { sourceIllustrationUrl } from "./data";
 import { segmentMarkers } from "./notes";
 import type { Paragraph, SourceIllustration } from "./types";
+import { useSelectionAutoscroll } from "./useSelectionAutoscroll";
+import type { ScrollEdge } from "./useSelectionAutoscroll";
 
 export interface VisibleReadingBeat {
   key: string;
@@ -32,6 +34,8 @@ interface ReadingViewportProps {
   annotatedIds: Set<string>;
   /** Passages the reader has annotated, per paragraph each piece falls in. */
   passageMarks: Map<string, PassageMark[]>;
+  /** Whether a selection sweep may scroll the text: reading, nothing modal open. */
+  selectionEnabled: boolean;
   atEnd: boolean;
   viewportRef: React.RefObject<HTMLElement | null>;
   latestParagraphRef: React.RefObject<HTMLDivElement | null>;
@@ -52,6 +56,7 @@ export function ReadingViewport({
   trailingNotes,
   annotatedIds,
   passageMarks,
+  selectionEnabled,
   atEnd,
   viewportRef,
   latestParagraphRef,
@@ -60,6 +65,7 @@ export function ReadingViewport({
   onOpenAnnotation,
   onOpenPassageNote,
 }: ReadingViewportProps) {
+  const sweep = useSelectionAutoscroll(viewportRef, selectionEnabled);
   const hasSourceIllustration =
     beats.some(
       (beat) =>
@@ -68,99 +74,124 @@ export function ReadingViewport({
     );
 
   return (
-    <section
-      className={`reading-viewport${hasSourceIllustration ? " has-source-illustration" : ""}`}
-      aria-label="小说正文"
-      ref={viewportRef}
-    >
-      <div className="paragraph-stack" aria-live="polite">
-        {beats.map((beat) => {
-          const { paragraph } = beat;
-          // The paragraph's closing beat carries its marginalia; while the
-          // reader is inside the paragraph, the current beat stands in.
-          const isClosingBeat = beat.current || beat.showIllustrations;
-          const trailing = beat.showIllustrations
-            ? trailingNotes.get(paragraph.id) ?? []
-            : [];
-          const hasAnnotation = annotatedIds.has(paragraph.id);
-          return (
-            <div
-              className="reading-block"
-              key={beat.key}
-              ref={beat.current ? latestParagraphRef : undefined}
-              data-paragraph-id={paragraph.id}
-              data-reading-beat={`${beat.beatIndex + 1}/${beat.beatCount}`}
-            >
+    <>
+      <section
+        className={`reading-viewport${hasSourceIllustration ? " has-source-illustration" : ""}${sweep.sweeping ? " is-sweeping" : ""}`}
+        aria-label="小说正文"
+        ref={viewportRef}
+      >
+        <div className="paragraph-stack" aria-live="polite">
+          {beats.map((beat) => {
+            const { paragraph } = beat;
+            // The paragraph's closing beat carries its marginalia; while the
+            // reader is inside the paragraph, the current beat stands in.
+            const isClosingBeat = beat.current || beat.showIllustrations;
+            const trailing = beat.showIllustrations
+              ? trailingNotes.get(paragraph.id) ?? []
+              : [];
+            const hasAnnotation = annotatedIds.has(paragraph.id);
+            return (
               <div
-                className={`paragraph paragraph--${paragraph.kind}${beat.current ? " is-current" : ""}`}
+                className="reading-block"
+                key={beat.key}
+                ref={beat.current ? latestParagraphRef : undefined}
+                data-paragraph-id={paragraph.id}
+                data-reading-beat={`${beat.beatIndex + 1}/${beat.beatCount}`}
               >
-                {renderBeatText(
-                  beat,
-                  markerNotes,
-                  passageMarks.get(paragraph.id) ?? NO_MARKS,
-                  onOpenNotes,
-                  onOpenPassageNote,
-                )}
-                {trailing.length > 0 ? (
-                  <button
-                    className="paragraph-chip paragraph-chip--note"
-                    type="button"
-                    data-interactive="true"
-                    aria-label="查看本段注释"
-                    title="本段另有注释"
-                    onClick={() => onOpenNotes(trailing)}
-                  >
-                    注
-                  </button>
-                ) : null}
-                {isClosingBeat && hasAnnotation ? (
-                  <button
-                    className="paragraph-chip paragraph-chip--annotation is-filled"
-                    type="button"
-                    data-interactive="true"
-                    aria-label="查看我的批注"
-                    title="查看我的批注"
-                    onClick={() => onOpenAnnotation(paragraph.id)}
-                  >
-                    批
-                  </button>
-                ) : null}
-                {beat.current && !hasAnnotation ? (
-                  <button
-                    className="paragraph-chip paragraph-chip--annotation"
-                    type="button"
-                    data-interactive="true"
-                    aria-label="为本段写批注"
-                    title="为本段写批注"
-                    onClick={() => onOpenAnnotation(paragraph.id)}
-                  >
-                    批
-                  </button>
-                ) : null}
-              </div>
-              {beat.current && beat.beatCount > 1 ? (
                 <div
-                  className="reading-beat-mark"
-                  aria-label={`本段第 ${beat.beatIndex + 1} 页，共 ${beat.beatCount} 页`}
+                  className={`paragraph paragraph--${paragraph.kind}${beat.current ? " is-current" : ""}`}
                 >
-                  {beat.beatIndex + 1} / {beat.beatCount}
+                  {renderBeatText(
+                    beat,
+                    markerNotes,
+                    passageMarks.get(paragraph.id) ?? NO_MARKS,
+                    onOpenNotes,
+                    onOpenPassageNote,
+                  )}
+                  {trailing.length > 0 ? (
+                    <button
+                      className="paragraph-chip paragraph-chip--note"
+                      type="button"
+                      data-interactive="true"
+                      aria-label="查看本段注释"
+                      title="本段另有注释"
+                      onClick={() => onOpenNotes(trailing)}
+                    >
+                      注
+                    </button>
+                  ) : null}
+                  {isClosingBeat && hasAnnotation ? (
+                    <button
+                      className="paragraph-chip paragraph-chip--annotation is-filled"
+                      type="button"
+                      data-interactive="true"
+                      aria-label="查看我的批注"
+                      title="查看我的批注"
+                      onClick={() => onOpenAnnotation(paragraph.id)}
+                    >
+                      批
+                    </button>
+                  ) : null}
+                  {beat.current && !hasAnnotation ? (
+                    <button
+                      className="paragraph-chip paragraph-chip--annotation"
+                      type="button"
+                      data-interactive="true"
+                      aria-label="为本段写批注"
+                      title="为本段写批注"
+                      onClick={() => onOpenAnnotation(paragraph.id)}
+                    >
+                      批
+                    </button>
+                  ) : null}
                 </div>
-              ) : null}
-              {(beat.showIllustrations ? illustrationsByAnchor.get(paragraph.id) ?? [] : []).map((illustration) => (
-                <SourceIllustrationFigure
-                  key={illustration.id}
-                  bookPath={bookPath}
-                  illustration={illustration}
-                  isReference={referenceIllustrationIds.has(illustration.id)}
-                  onOpenReference={onOpenReference}
-                />
-              ))}
-            </div>
-          );
-        })}
-        {atEnd ? <p className="end-mark">— 完 —</p> : null}
-      </div>
-    </section>
+                {beat.current && beat.beatCount > 1 ? (
+                  <div
+                    className="reading-beat-mark"
+                    aria-label={`本段第 ${beat.beatIndex + 1} 页，共 ${beat.beatCount} 页`}
+                  >
+                    {beat.beatIndex + 1} / {beat.beatCount}
+                  </div>
+                ) : null}
+                {(beat.showIllustrations ? illustrationsByAnchor.get(paragraph.id) ?? [] : []).map((illustration) => (
+                  <SourceIllustrationFigure
+                    key={illustration.id}
+                    bookPath={bookPath}
+                    illustration={illustration}
+                    isReference={referenceIllustrationIds.has(illustration.id)}
+                    onOpenReference={onOpenReference}
+                  />
+                ))}
+              </div>
+            );
+          })}
+          {atEnd ? <p className="end-mark">— 完 —</p> : null}
+        </div>
+      </section>
+      {sweep.sweeping && sweep.room.up ? (
+        <SweepEdge edge="up" pulling={sweep.pulling === "up"} />
+      ) : null}
+      {sweep.sweeping && sweep.room.down ? (
+        <SweepEdge edge="down" pulling={sweep.pulling === "down"} />
+      ) : null}
+    </>
+  );
+}
+
+/** The band a selection sweep pushes into to scroll the text past the fold. */
+function SweepEdge({ edge, pulling }: { edge: ScrollEdge; pulling: boolean }) {
+  return (
+    <div
+      className={`sweep-edge sweep-edge--${edge}${pulling ? " is-pulling" : ""}`}
+      aria-hidden="true"
+    >
+      <span className="sweep-edge__cue">
+        <svg viewBox="0 0 12 8">
+          <path d={edge === "up" ? "M1 6.5 6 1.5l5 5" : "M1 1.5l5 5 5-5"} />
+        </svg>
+        {edge === "up" ? "上翻" : "下翻"}
+      </span>
+    </div>
   );
 }
 
