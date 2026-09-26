@@ -8,6 +8,7 @@ import re
 import zipfile
 from collections.abc import Callable
 from dataclasses import dataclass
+from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote, urlsplit
 from xml.etree import ElementTree
@@ -103,6 +104,7 @@ def build_epub_source_document(
     note_class_tokens: set[str] | None = None,
     skip_documents: set[str] | None = None,
     chapter_titles: dict[str, str] | None = None,
+    tolerant_xml: bool = False,
 ) -> dict[str, object]:
     """Compile EPUB package metadata and spine text into source.json data."""
 
@@ -118,6 +120,7 @@ def build_epub_source_document(
         note_class_tokens=note_class_tokens,
         skip_documents=skip_documents,
         chapter_titles=chapter_titles,
+        tolerant_xml=tolerant_xml,
     ).document
 
 
@@ -134,6 +137,7 @@ def _compile_epub_source(
     note_class_tokens: set[str] | None = None,
     skip_documents: set[str] | None = None,
     chapter_titles: dict[str, str] | None = None,
+    tolerant_xml: bool = False,
 ) -> EpubCompilation:
     """Compile EPUB text and supported source illustrations deterministically."""
 
@@ -198,6 +202,7 @@ def _compile_epub_source(
             note_class_tokens or set(),
             skip_documents or set(),
             chapter_titles or {},
+            tolerant_xml=tolerant_xml,
         )
 
     if not blocks:
@@ -268,6 +273,7 @@ def import_epub(
     note_class_tokens: set[str] | None = None,
     skip_documents: set[str] | None = None,
     chapter_titles: dict[str, str] | None = None,
+    tolerant_xml: bool = False,
 ) -> ImportResult:
     """Freeze an EPUB and atomically write its unified source manifest."""
 
@@ -287,6 +293,7 @@ def import_epub(
         note_class_tokens=note_class_tokens,
         skip_documents=skip_documents,
         chapter_titles=chapter_titles,
+        tolerant_xml=tolerant_xml,
     )
     return write_source_bundle(
         input_path,
@@ -341,10 +348,69 @@ def _read_required_member(
     return _read_member(archive, info)
 
 
-def _parse_xml(content: bytes, path: str) -> ElementTree.Element:
+_VOID_ELEMENTS = {
+    "area",
+    "base",
+    "br",
+    "col",
+    "embed",
+    "hr",
+    "img",
+    "input",
+    "link",
+    "meta",
+    "param",
+    "source",
+    "track",
+    "wbr",
+}
+
+
+class _HTMLToET(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.root: ElementTree.Element | None = None
+        self.stack: list[ElementTree.Element] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        tag_lower = tag.lower()
+        elem = ElementTree.Element(tag_lower, {k: v or "" for k, v in attrs})
+        if self.stack:
+            self.stack[-1].append(elem)
+        else:
+            self.root = elem
+        if tag_lower not in _VOID_ELEMENTS:
+            self.stack.append(elem)
+
+    def handle_endtag(self, tag: str) -> None:
+        tag_lower = tag.lower()
+        if tag_lower in _VOID_ELEMENTS:
+            return
+        for i in range(len(self.stack) - 1, -1, -1):
+            if self.stack[i].tag == tag_lower:
+                self.stack = self.stack[:i]
+                break
+
+    def handle_data(self, data: str) -> None:
+        if self.stack:
+            elem = self.stack[-1]
+            if len(elem):
+                elem[-1].tail = (elem[-1].tail or "") + data
+            else:
+                elem.text = (elem.text or "") + data
+
+
+def _parse_xml(
+    content: bytes, path: str, *, tolerant: bool = False
+) -> ElementTree.Element:
     try:
         return ElementTree.fromstring(content)
     except ElementTree.ParseError as error:
+        if tolerant and path.lower().endswith((".xhtml", ".html", ".htm")):
+            parser = _HTMLToET()
+            parser.feed(content.decode("utf-8", errors="replace"))
+            if parser.root is not None:
+                return parser.root
         raise EpubImportError(f"invalid XML in {path}: {error}") from error
 
 
@@ -443,6 +509,7 @@ def _spine_content(
     note_class_tokens: set[str],
     skip_documents: set[str],
     chapter_titles: dict[str, str],
+    tolerant_xml: bool = False,
 ) -> tuple[list[EpubTextBlock], list[EpubRawIllustration]]:
     package_dir = str(PurePosixPath(package_path).parent)
     if package_dir == ".":
@@ -469,6 +536,7 @@ def _spine_content(
         root = _parse_xml(
             _read_required_member(archive, members, member_path),
             member_path,
+            tolerant=tolerant_xml,
         )
         item_dir = str(PurePosixPath(member_path).parent)
         if item_dir == ".":

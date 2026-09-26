@@ -319,6 +319,19 @@ def test_malformed_spine_xhtml_is_rejected() -> None:
         )
 
 
+def test_tolerant_xml_recovers_malformed_spine_xhtml() -> None:
+    document = build_epub_source_document(
+        make_epub(
+            chapter_one="<html><body><h1>章节</h1><p>第一段</p></div><p>第二段</p></body></html>"
+        ),
+        book_id="recovered-epub",
+        tolerant_xml=True,
+    )
+    texts = [p["text"] for p in document["paragraphs"]]
+    assert "第一段" in texts
+    assert "第二段" in texts
+
+
 def test_import_preserves_original_epub_and_is_idempotent(tmp_path: Path) -> None:
     input_path = tmp_path / "book.epub"
     output_dir = tmp_path / "bundle"

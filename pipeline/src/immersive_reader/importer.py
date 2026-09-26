@@ -106,6 +106,15 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--epub-tolerant-xml",
+        action="store_true",
+        default=False,
+        help=(
+            "EPUB only: attempt tolerant HTML parsing to recover malformed XHTML "
+            "in spine documents instead of failing immediately"
+        ),
+    )
+    parser.add_argument(
         "--first-block-is-title",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -175,6 +184,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 raise BookImportError("--epub-skip-document only applies to EPUB input")
             if args.epub_chapter_map is not None:
                 raise BookImportError("--epub-chapter-map only applies to EPUB input")
+            if args.epub_tolerant_xml:
+                raise BookImportError("--epub-tolerant-xml only applies to EPUB input")
             result = import_txt(
                 args.input,
                 args.output,
@@ -201,6 +212,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 note_class_tokens=set(args.epub_note_class),
                 skip_documents=set(args.epub_skip_document),
                 chapter_titles=load_chapter_map(args.epub_chapter_map),
+                tolerant_xml=args.epub_tolerant_xml,
             )
         else:
             raise BookImportError(
