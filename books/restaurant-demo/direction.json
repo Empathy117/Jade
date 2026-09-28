@@ -203,7 +203,12 @@
           "framing": "wide",
           "move": "pull_out"
         }
-      ]
+      ],
+      "layout": "adv",
+      "atmosphere": {
+        "particles": "dust",
+        "flicker": "unsteady"
+      }
     },
     {
       "id": "scene_007",
@@ -274,9 +279,119 @@
     {
       "id": "moment_002",
       "at": "p0118",
-      "template": "isolate_line",
+      "template": "letterbox_hold",
       "intent": "threat",
       "hold_ms": 1800
+    }
+  ],
+  "profile": "visual_novel",
+  "sounds": [
+    {
+      "id": "sound_001",
+      "at": "p0118",
+      "tags": ["heartbeat"],
+      "intent": "dread"
+    },
+    {
+      "id": "sound_002",
+      "at": "p0122",
+      "tags": ["whisper", "behind_door"],
+      "intent": "unseen_presence"
+    },
+    {
+      "id": "sound_003",
+      "at": "p0130",
+      "tags": ["giggle", "behind_door"],
+      "intent": "mockery"
+    },
+    {
+      "id": "sound_004",
+      "at": "p0134",
+      "tags": ["door", "crash"],
+      "intent": "rescue"
+    },
+    {
+      "id": "sound_005",
+      "at": "p0134",
+      "tags": ["dog", "bark"],
+      "intent": "rescue"
+    },
+    {
+      "id": "sound_006",
+      "at": "p0135",
+      "tags": ["dog", "growl"],
+      "intent": "confrontation"
+    },
+    {
+      "id": "sound_007",
+      "at": "p0135",
+      "tags": ["door", "bang"],
+      "intent": "confrontation"
+    },
+    {
+      "id": "sound_008",
+      "at": "p0136",
+      "tags": ["cat", "yowl"],
+      "intent": "unseen_struggle"
+    },
+    {
+      "id": "sound_009",
+      "at": "p0136",
+      "tags": ["rustle"],
+      "intent": "unseen_struggle"
+    }
+  ],
+  "effects": [
+    {
+      "at": "p0118",
+      "type": "pulse",
+      "strength": "strong"
+    },
+    {
+      "at": "p0119",
+      "type": "shake",
+      "strength": "medium"
+    },
+    {
+      "at": "p0119",
+      "type": "tremble",
+      "strength": "strong"
+    },
+    {
+      "at": "p0120",
+      "type": "tremble",
+      "strength": "strong"
+    },
+    {
+      "at": "p0129",
+      "type": "tremble",
+      "strength": "light"
+    },
+    {
+      "at": "p0134",
+      "type": "shake",
+      "strength": "strong"
+    },
+    {
+      "at": "p0135",
+      "type": "shake",
+      "strength": "light"
+    }
+  ],
+  "cgs": [
+    {
+      "id": "cg_001",
+      "at": "p0118",
+      "until": "p0120",
+      "tags": ["keyhole", "eyes"],
+      "intent": "threat"
+    },
+    {
+      "id": "cg_002",
+      "at": "p0129",
+      "until": "p0129",
+      "tags": ["crumpled_paper"],
+      "intent": "terror"
     }
   ]
 }

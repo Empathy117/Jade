@@ -247,6 +247,175 @@
       "source": "scripts/generate_demo_audio.sh",
       "attribution": null,
       "sha256": "6dd39f09ab8f54a3e5f707732c5de5d12bf3b53ce6dfd879d789145e9980c416"
+    },
+    {
+      "id": "cg_keyhole_eyes",
+      "title": "钥匙孔里的眼睛（占位）",
+      "type": "cg",
+      "path": "assets/cg/keyhole-eyes.jpg",
+      "tags": [
+        "keyhole",
+        "eyes",
+        "silver_cutlery",
+        "door"
+      ],
+      "license": "Project asset",
+      "source": "Procedural placeholder, scripts/render_restaurant_cgs.py, 2026-09-28",
+      "attribution": null,
+      "sha256": "4fd7ab34423239671ba0104d772a2f0c26ad3d1dc73633e50f1594c5cdd48789"
+    },
+    {
+      "id": "cg_crumpled_paper",
+      "title": "揉皱的面纸（占位）",
+      "type": "cg",
+      "path": "assets/cg/crumpled-paper.jpg",
+      "tags": [
+        "crumpled_paper",
+        "fear",
+        "metaphor"
+      ],
+      "license": "Project asset",
+      "source": "Procedural placeholder, scripts/render_restaurant_cgs.py, 2026-09-28",
+      "attribution": null,
+      "sha256": "d9fd031fabb408cec8163f7756b306b54f8c23feefad409da7ba866f43ad16e2"
+    },
+    {
+      "id": "sfx_heartbeat",
+      "title": "心跳（占位）",
+      "type": "sfx",
+      "path": "assets/sfx/heartbeat.mp3",
+      "tags": [
+        "heartbeat",
+        "dread"
+      ],
+      "duration_ms": 1900,
+      "license": "Project asset",
+      "source": "Procedural placeholder, scripts/generate_restaurant_sfx.sh, 2026-09-28",
+      "attribution": null,
+      "sha256": "680c547e5a6dedd90a9c8a9fa00558c103b00240f1ad07acadb06e2ba02f78ad"
+    },
+    {
+      "id": "sfx_whisper",
+      "title": "门后低语（占位）",
+      "type": "sfx",
+      "path": "assets/sfx/whisper.mp3",
+      "tags": [
+        "whisper",
+        "voices",
+        "behind_door"
+      ],
+      "duration_ms": 3600,
+      "license": "Project asset",
+      "source": "Procedural placeholder, scripts/generate_restaurant_sfx.sh, 2026-09-28",
+      "attribution": null,
+      "sha256": "d4eb8c0ab481ea15f0a200175455d3459e13e9a2731d60e910697f4ad03af5d8"
+    },
+    {
+      "id": "sfx_giggle",
+      "title": "吃吃笑声（占位）",
+      "type": "sfx",
+      "path": "assets/sfx/giggle.mp3",
+      "tags": [
+        "giggle",
+        "behind_door"
+      ],
+      "duration_ms": 1800,
+      "license": "Project asset",
+      "source": "Procedural placeholder, scripts/generate_restaurant_sfx.sh, 2026-09-28",
+      "attribution": null,
+      "sha256": "2e8470424c811274e83839df15fd8716eefd62bdfe73ba29f421d1dbd75659f7"
+    },
+    {
+      "id": "sfx_dog_bark",
+      "title": "狗吠（占位）",
+      "type": "sfx",
+      "path": "assets/sfx/dog-bark.mp3",
+      "tags": [
+        "dog",
+        "bark"
+      ],
+      "duration_ms": 900,
+      "license": "Project asset",
+      "source": "Procedural placeholder, scripts/generate_restaurant_sfx.sh, 2026-09-28",
+      "attribution": null,
+      "sha256": "6604b6a3ec39b29c15740bff9b2291875d61dfbfe496eedc458d08772af09d62"
+    },
+    {
+      "id": "sfx_door_crash",
+      "title": "破门（占位）",
+      "type": "sfx",
+      "path": "assets/sfx/door-crash.mp3",
+      "tags": [
+        "door",
+        "crash",
+        "impact"
+      ],
+      "duration_ms": 1500,
+      "license": "Project asset",
+      "source": "Procedural placeholder, scripts/generate_restaurant_sfx.sh, 2026-09-28",
+      "attribution": null,
+      "sha256": "664e10e0a4d1b51246ca8c96ee820979ba73ada654381facadcbf9d3e4f2db5c"
+    },
+    {
+      "id": "sfx_growl",
+      "title": "低吼（占位）",
+      "type": "sfx",
+      "path": "assets/sfx/growl.mp3",
+      "tags": [
+        "dog",
+        "growl"
+      ],
+      "duration_ms": 2300,
+      "license": "Project asset",
+      "source": "Procedural placeholder, scripts/generate_restaurant_sfx.sh, 2026-09-28",
+      "attribution": null,
+      "sha256": "8d871f557be595c82fe2af2d46ff2cac410eeae8983a72df6728d7d415c35b0d"
+    },
+    {
+      "id": "sfx_door_bang",
+      "title": "门被冲开（占位）",
+      "type": "sfx",
+      "path": "assets/sfx/door-bang.mp3",
+      "tags": [
+        "door",
+        "bang"
+      ],
+      "duration_ms": 1000,
+      "license": "Project asset",
+      "source": "Procedural placeholder, scripts/generate_restaurant_sfx.sh, 2026-09-28",
+      "attribution": null,
+      "sha256": "58a459244923906eb2434fbf71183203966b3a607a64c8c9794b43a15aeb21e5"
+    },
+    {
+      "id": "sfx_cat_yowl",
+      "title": "喵——嗷——（占位）",
+      "type": "sfx",
+      "path": "assets/sfx/cat-yowl.mp3",
+      "tags": [
+        "cat",
+        "yowl",
+        "darkness"
+      ],
+      "duration_ms": 2200,
+      "license": "Project asset",
+      "source": "Procedural placeholder, scripts/generate_restaurant_sfx.sh, 2026-09-28",
+      "attribution": null,
+      "sha256": "efadd33e6dca1908aab51b5fb60c2f4c757da5c459f06af2a465ab820235184f"
+    },
+    {
+      "id": "sfx_rustle",
+      "title": "沙沙声（占位）",
+      "type": "sfx",
+      "path": "assets/sfx/rustle.mp3",
+      "tags": [
+        "rustle",
+        "grass"
+      ],
+      "duration_ms": 2600,
+      "license": "Project asset",
+      "source": "Procedural placeholder, scripts/generate_restaurant_sfx.sh, 2026-09-28",
+      "attribution": null,
+      "sha256": "7066e5543a79ba24ebad2b6135c1001ede1086f1bd2032fba67d4ac206aea0cd"
     }
   ]
 }

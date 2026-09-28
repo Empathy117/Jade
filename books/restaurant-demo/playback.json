@@ -107,7 +107,7 @@
       "scene_id": "scene_006",
       "background": {
         "asset_id": "bg_final_door",
-        "transition": "crossfade",
+        "transition": "wipe",
         "duration_ms": 1400
       },
       "clear_text": true,
@@ -116,6 +116,12 @@
         "shade": 0.32,
         "saturation": 0.6,
         "duration_ms": 2400
+      },
+      "layout": "adv",
+      "atmosphere": {
+        "particles": "dust",
+        "density": 0.45,
+        "flicker": 0.7
       }
     },
     {
@@ -144,6 +150,12 @@
         "shade": 0.08,
         "saturation": 0.7,
         "duration_ms": 2400
+      },
+      "layout": "nvl",
+      "atmosphere": {
+        "particles": null,
+        "density": 0,
+        "flicker": 0
       }
     }
   ],
@@ -277,15 +289,132 @@
     {
       "id": "moment_002",
       "at": "p0118",
-      "template": "isolate_line",
+      "template": "letterbox_hold",
       "params": {
-        "dim": 0.6,
-        "blur_px": 8,
-        "in_ms": 900,
-        "out_ms": 1400,
+        "letterbox": 0.1,
+        "in_ms": 1400,
+        "out_ms": 1200,
         "hold_ms": 1800,
         "hide_chrome": true
       }
+    }
+  ],
+  "sounds": [
+    {
+      "id": "sound_001",
+      "at": "p0118",
+      "asset_id": "sfx_heartbeat",
+      "gain": 0.9
+    },
+    {
+      "id": "sound_002",
+      "at": "p0122",
+      "asset_id": "sfx_whisper",
+      "gain": 0.55
+    },
+    {
+      "id": "sound_003",
+      "at": "p0130",
+      "asset_id": "sfx_giggle",
+      "gain": 0.5
+    },
+    {
+      "id": "sound_004",
+      "at": "p0134",
+      "asset_id": "sfx_door_crash",
+      "gain": 0.9
+    },
+    {
+      "id": "sound_005",
+      "at": "p0134",
+      "asset_id": "sfx_dog_bark",
+      "gain": 0.85,
+      "delay_ms": 180
+    },
+    {
+      "id": "sound_006",
+      "at": "p0135",
+      "asset_id": "sfx_growl",
+      "gain": 0.7
+    },
+    {
+      "id": "sound_007",
+      "at": "p0135",
+      "asset_id": "sfx_door_bang",
+      "gain": 0.85,
+      "delay_ms": 1400
+    },
+    {
+      "id": "sound_008",
+      "at": "p0136",
+      "asset_id": "sfx_cat_yowl",
+      "gain": 0.75
+    },
+    {
+      "id": "sound_009",
+      "at": "p0136",
+      "asset_id": "sfx_rustle",
+      "gain": 0.6,
+      "delay_ms": 1900
+    }
+  ],
+  "effects": [
+    {
+      "at": "p0118",
+      "type": "pulse",
+      "intensity": 0.95,
+      "duration_ms": 1720
+    },
+    {
+      "at": "p0119",
+      "type": "shake",
+      "intensity": 0.6,
+      "duration_ms": 480
+    },
+    {
+      "at": "p0119",
+      "type": "tremble",
+      "intensity": 0.95
+    },
+    {
+      "at": "p0120",
+      "type": "tremble",
+      "intensity": 0.95
+    },
+    {
+      "at": "p0129",
+      "type": "tremble",
+      "intensity": 0.3
+    },
+    {
+      "at": "p0134",
+      "type": "shake",
+      "intensity": 0.95,
+      "duration_ms": 700
+    },
+    {
+      "at": "p0135",
+      "type": "shake",
+      "intensity": 0.3,
+      "duration_ms": 480
+    }
+  ],
+  "cgs": [
+    {
+      "id": "cg_001",
+      "at": "p0118",
+      "until": "p0120",
+      "asset_id": "cg_keyhole_eyes",
+      "transition": "iris",
+      "duration_ms": 1500
+    },
+    {
+      "id": "cg_002",
+      "at": "p0129",
+      "until": "p0129",
+      "asset_id": "cg_crumpled_paper",
+      "transition": "wipe",
+      "duration_ms": 1300
     }
   ]
 }
