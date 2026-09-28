@@ -15,7 +15,22 @@
       "license": "Project asset",
       "source": "OpenAI built-in image generation, 2026-08-19",
       "attribution": null,
-      "sha256": "47f8358d30df82dd6144d557c59be2924c65cd3d4b54bbc125527595a6dd224e"
+      "sha256": "47f8358d30df82dd6144d557c59be2924c65cd3d4b54bbc125527595a6dd224e",
+      "focal_points": {
+        "path": [
+          0.62,
+          0.55,
+          0.16,
+          0.4
+        ],
+        "valley": [
+          0.05,
+          0.3,
+          0.4,
+          0.25
+        ]
+      },
+      "min_scale_headroom": 1.15
     },
     {
       "id": "bg_restaurant_exterior",
@@ -30,7 +45,16 @@
       "license": "Project asset",
       "source": "OpenAI built-in image generation, 2026-08-19",
       "attribution": null,
-      "sha256": "637a64ee5ff8e591b514e03682f99153fbbf6e135bd5cb9405f5f6290468fe16"
+      "sha256": "637a64ee5ff8e591b514e03682f99153fbbf6e135bd5cb9405f5f6290468fe16",
+      "focal_points": {
+        "entrance": [
+          0.49,
+          0.46,
+          0.12,
+          0.22
+        ]
+      },
+      "min_scale_headroom": 1.15
     },
     {
       "id": "bg_blue_door_corridor",
@@ -45,7 +69,16 @@
       "license": "Project asset",
       "source": "OpenAI built-in image generation, 2026-08-19",
       "attribution": null,
-      "sha256": "d601ecb66afd3c6cd6b4946275fe7b5ad0c1ba49044f4297b7d2aef8bccc7e11"
+      "sha256": "d601ecb66afd3c6cd6b4946275fe7b5ad0c1ba49044f4297b7d2aef8bccc7e11",
+      "focal_points": {
+        "far_door": [
+          0.58,
+          0.4,
+          0.1,
+          0.22
+        ]
+      },
+      "min_scale_headroom": 1.15
     },
     {
       "id": "bg_preparation_room",
@@ -60,7 +93,22 @@
       "license": "Project asset",
       "source": "OpenAI built-in image generation, 2026-08-19",
       "attribution": null,
-      "sha256": "7281d77d696a9b15ae9ce06af361e84bfe2b8d6a779e12c61e1f8a4676fab34a"
+      "sha256": "7281d77d696a9b15ae9ce06af361e84bfe2b8d6a779e12c61e1f8a4676fab34a",
+      "focal_points": {
+        "door": [
+          0.6,
+          0.12,
+          0.16,
+          0.76
+        ],
+        "mirror": [
+          0.18,
+          0.0,
+          0.18,
+          0.7
+        ]
+      },
+      "min_scale_headroom": 1.15
     },
     {
       "id": "bg_final_door",
@@ -75,7 +123,16 @@
       "license": "Project asset",
       "source": "OpenAI built-in image generation, 2026-08-19",
       "attribution": null,
-      "sha256": "fd9b85718ad80030ee718ce026390ec2f49a53c0d0922290347a7ae74cd8deb0"
+      "sha256": "fd9b85718ad80030ee718ce026390ec2f49a53c0d0922290347a7ae74cd8deb0",
+      "focal_points": {
+        "door_gap": [
+          0.58,
+          0.18,
+          0.2,
+          0.64
+        ]
+      },
+      "min_scale_headroom": 1.15
     },
     {
       "id": "bg_forest_dawn",
@@ -90,7 +147,16 @@
       "license": "Project asset",
       "source": "OpenAI built-in image generation, 2026-08-19",
       "attribution": null,
-      "sha256": "fd1b7ffddc003ed6a0fd28d70fad424657e7558061d75ebee270f60895aa4875"
+      "sha256": "fd1b7ffddc003ed6a0fd28d70fad424657e7558061d75ebee270f60895aa4875",
+      "focal_points": {
+        "valley": [
+          0.35,
+          0.15,
+          0.35,
+          0.4
+        ]
+      },
+      "min_scale_headroom": 1.15
     },
     {
       "id": "bgm_forest_stillness",

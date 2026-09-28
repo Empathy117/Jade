@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "book_id": "restaurant-of-many-orders",
   "source_revision": 1,
   "source_sha256": "d6a87bc6b7105fb921afa0cd154d8428dfe4461773651c4a4ae803c0b093a5f1",
@@ -23,7 +23,21 @@
       },
       "ambience": {
         "tags": ["mountain_wind", "dry_leaves"]
-      }
+      },
+      "grade": "dusk",
+      "shots": [
+        {
+          "at": "p0002",
+          "framing": "wide",
+          "move": "drift"
+        },
+        {
+          "at": "p0014",
+          "framing": "medium",
+          "move": "push_in",
+          "focus": "path"
+        }
+      ]
     },
     {
       "id": "scene_002",
@@ -44,7 +58,16 @@
       },
       "ambience": {
         "tags": ["mountain_wind"]
-      }
+      },
+      "grade": "dusk",
+      "shots": [
+        {
+          "at": "p0021",
+          "framing": "wide",
+          "move": "push_in",
+          "focus": "entrance"
+        }
+      ]
     },
     {
       "id": "scene_003",
@@ -65,7 +88,16 @@
       },
       "ambience": {
         "tags": ["empty_room", "distant_wind"]
-      }
+      },
+      "grade": "lamplight",
+      "shots": [
+        {
+          "at": "p0038",
+          "framing": "medium",
+          "move": "hold",
+          "focus": "far_door"
+        }
+      ]
     },
     {
       "id": "scene_004",
@@ -86,7 +118,16 @@
       },
       "ambience": {
         "tags": ["empty_room", "door_hum"]
-      }
+      },
+      "grade": "lamplight",
+      "shots": [
+        {
+          "at": "p0051",
+          "framing": "medium",
+          "move": "push_in",
+          "focus": "far_door"
+        }
+      ]
     },
     {
       "id": "scene_005",
@@ -107,7 +148,21 @@
       },
       "ambience": {
         "tags": ["empty_room", "low_hum"]
-      }
+      },
+      "grade": "unease",
+      "shots": [
+        {
+          "at": "p0079",
+          "framing": "wide",
+          "move": "drift"
+        },
+        {
+          "at": "p0104",
+          "framing": "medium",
+          "move": "push_in",
+          "focus": "door"
+        }
+      ]
     },
     {
       "id": "scene_006",
@@ -128,7 +183,27 @@
       },
       "ambience": {
         "tags": ["empty_room", "muffled_voices"]
-      }
+      },
+      "grade": "dread",
+      "shots": [
+        {
+          "at": "p0113",
+          "framing": "medium",
+          "move": "hold",
+          "focus": "door_gap"
+        },
+        {
+          "at": "p0119",
+          "framing": "medium",
+          "move": "push_in",
+          "focus": "door_gap"
+        },
+        {
+          "at": "p0134",
+          "framing": "wide",
+          "move": "pull_out"
+        }
+      ]
     },
     {
       "id": "scene_007",
@@ -149,7 +224,59 @@
       },
       "ambience": {
         "tags": ["mountain_wind", "wet_leaves"]
-      }
+      },
+      "grade": "dawn",
+      "shots": [
+        {
+          "at": "p0137",
+          "framing": "wide",
+          "move": "pull_out",
+          "focus": "valley"
+        }
+      ]
+    }
+  ],
+  "grades": {
+    "dusk": {
+      "tint": "#d9b98a",
+      "shade": 0.12,
+      "saturation": 1.0
+    },
+    "lamplight": {
+      "tint": "#e0c49a",
+      "shade": 0.1,
+      "saturation": 0.95
+    },
+    "unease": {
+      "tint": "#9aa89a",
+      "shade": 0.18,
+      "saturation": 0.8
+    },
+    "dread": {
+      "tint": "#55627a",
+      "shade": 0.32,
+      "saturation": 0.6
+    },
+    "dawn": {
+      "tint": "#c8ccd2",
+      "shade": 0.08,
+      "saturation": 0.7
+    }
+  },
+  "moments": [
+    {
+      "id": "moment_001",
+      "at": "p0042",
+      "template": "letterbox_hold",
+      "intent": "threshold",
+      "hold_ms": 1200
+    },
+    {
+      "id": "moment_002",
+      "at": "p0118",
+      "template": "isolate_line",
+      "intent": "threat",
+      "hold_ms": 1800
     }
   ]
 }

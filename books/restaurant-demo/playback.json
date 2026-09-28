@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "book_id": "restaurant-of-many-orders",
   "source_revision": 1,
   "source_sha256": "d6a87bc6b7105fb921afa0cd154d8428dfe4461773651c4a4ae803c0b093a5f1",
@@ -25,7 +25,13 @@
           "gain": 0.28
         }
       ],
-      "clear_text": false
+      "clear_text": false,
+      "grade": {
+        "tint": "#d9b98a",
+        "shade": 0.12,
+        "saturation": 1.0,
+        "duration_ms": 2400
+      }
     },
     {
       "at": "p0021",
@@ -57,7 +63,13 @@
           "gain": 0.2
         }
       ],
-      "clear_text": true
+      "clear_text": true,
+      "grade": {
+        "tint": "#e0c49a",
+        "shade": 0.1,
+        "saturation": 0.95,
+        "duration_ms": 2400
+      }
     },
     {
       "at": "p0051",
@@ -72,7 +84,13 @@
         "transition": "crossfade",
         "duration_ms": 1600
       },
-      "clear_text": true
+      "clear_text": true,
+      "grade": {
+        "tint": "#9aa89a",
+        "shade": 0.18,
+        "saturation": 0.8,
+        "duration_ms": 2400
+      }
     },
     {
       "at": "p0104",
@@ -92,7 +110,13 @@
         "transition": "crossfade",
         "duration_ms": 1400
       },
-      "clear_text": true
+      "clear_text": true,
+      "grade": {
+        "tint": "#55627a",
+        "shade": 0.32,
+        "saturation": 0.6,
+        "duration_ms": 2400
+      }
     },
     {
       "at": "p0137",
@@ -114,7 +138,154 @@
           "gain": 0.16
         }
       ],
-      "clear_text": true
+      "clear_text": true,
+      "grade": {
+        "tint": "#c8ccd2",
+        "shade": 0.08,
+        "saturation": 0.7,
+        "duration_ms": 2400
+      }
+    }
+  ],
+  "camera": [
+    {
+      "at": "p0002",
+      "scale": 1.0,
+      "x": 0,
+      "y": 0,
+      "drift": 0.015
+    },
+    {
+      "at": "p0013",
+      "scale": 1.0,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "at": "p0020",
+      "scale": 1.08,
+      "x": 0.4,
+      "y": 0.5
+    },
+    {
+      "at": "p0021",
+      "scale": 1.0,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "at": "p0033",
+      "scale": 1.12,
+      "x": 0.1,
+      "y": 0.14
+    },
+    {
+      "at": "p0038",
+      "scale": 1.05,
+      "x": 0.26,
+      "y": 0.02,
+      "drift": 0.01
+    },
+    {
+      "at": "p0051",
+      "scale": 1.05,
+      "x": 0.26,
+      "y": 0.02
+    },
+    {
+      "at": "p0078",
+      "scale": 1.15,
+      "x": 0.26,
+      "y": 0.02
+    },
+    {
+      "at": "p0079",
+      "scale": 1.0,
+      "x": 0,
+      "y": 0,
+      "drift": 0.012
+    },
+    {
+      "at": "p0103",
+      "scale": 1.0,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "at": "p0112",
+      "scale": 1.12,
+      "x": 0.36,
+      "y": 0.0
+    },
+    {
+      "at": "p0113",
+      "scale": 1.06,
+      "x": 0.36,
+      "y": 0.0
+    },
+    {
+      "at": "p0118",
+      "scale": 1.06,
+      "x": 0.36,
+      "y": 0.0
+    },
+    {
+      "at": "p0133",
+      "scale": 1.15,
+      "x": 0.36,
+      "y": 0.0
+    },
+    {
+      "at": "p0134",
+      "scale": 1.15,
+      "x": 0.36,
+      "y": 0.0
+    },
+    {
+      "at": "p0136",
+      "scale": 1.0,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "at": "p0137",
+      "scale": 1.08,
+      "x": 0.05,
+      "y": -0.3
+    },
+    {
+      "at": "p0147",
+      "scale": 1.0,
+      "x": 0,
+      "y": 0,
+      "drift": 0.01
+    }
+  ],
+  "moments": [
+    {
+      "id": "moment_001",
+      "at": "p0042",
+      "template": "letterbox_hold",
+      "params": {
+        "letterbox": 0.1,
+        "in_ms": 1200,
+        "out_ms": 1600,
+        "hold_ms": 1200,
+        "hide_chrome": true
+      }
+    },
+    {
+      "id": "moment_002",
+      "at": "p0118",
+      "template": "isolate_line",
+      "params": {
+        "dim": 0.6,
+        "blur_px": 8,
+        "in_ms": 900,
+        "out_ms": 1400,
+        "hold_ms": 1800,
+        "hide_chrome": true
+      }
     }
   ]
 }
