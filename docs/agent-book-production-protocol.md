@@ -25,8 +25,13 @@ books/<book-path>/
 └── assets/
     ├── backgrounds/
     ├── music/
-    └── ambience/
+    ├── ambience/
+    ├── cg/                 # 可选；视觉小说档位的 CG
+    └── sfx/                # 可选；视觉小说档位的一次性音效
 ```
+
+私人书（`books/local/`）的素材处理、占位生成与 playback 编译脚本也放在书籍目录里，
+随书一起被 git 忽略。
 
 完成后，用户打开 Reader 书库即可选择该书，不需要手改代码或 JSON。
 
@@ -40,6 +45,8 @@ books/<book-path>/
 | 语言 | 从正文判断；中文默认 `zh-CN` |
 | 标题 | TXT 第一个非空文本块；EPUB package metadata |
 | 视觉 | 无人物立绘、背景偏写实文学插画、同书风格统一 |
+| 图片来源 | Agent 不自己生图：Agent 写 prompt，用户交给生图模型出图；出图前用程序占位图 |
+| 演出档位 | `immersive`（克制的沉浸阅读）；用户明确要求时才用 `visual_novel`，且先做一幕切片 |
 | 演出密度 | 克制；地点稳定优先于情绪换图 |
 | 音乐 | 悦耳、可持续循环、低音量，允许跨场景保持 |
 | 环境音 | 可选且偶发，不用环境音替代音乐 |
@@ -93,6 +100,12 @@ TXT 检查编码和空行分段；EPUB 检查 package metadata、spine 顺序、
 和题记分类。原书附图属于 source 层，必须保留哈希与正文锚点，不得当成背景素材。
 Importer 报告冲突时
 不得强制覆盖，应使用新 revision 或新目录并向用户说明。
+
+EPUB 版式不规范时，先运行 `uv run --project pipeline --frozen immersive-reader-import --help`
+查看全部选项：`--epub-note-class` / `--epub-note-document` 把脚注类块归为注释，
+`--epub-nav-document` 指定目录文档，`--epub-chapter-map` 修正章节标题，
+`--epub-tolerant-xml` 恢复格式损坏的 XHTML。用了哪些选项、为什么，都写进
+`production-notes.md`。
 
 若 EPUB 把第三方下载站广告或募捐页混入线性 spine，先逐份打开核实，再在用户
 明确授权后用 repeatable `--epub-skip-document <archive-path>` 排除。必须在
@@ -198,7 +211,9 @@ guide 的选择规则：
 
 ### Step 4 — 获取与登记素材
 
-- 图片：优先生成风格一致的新背景，或使用来源和授权明确的素材；
+- 图片：Agent 为新背景写风格一致的生图 prompt，由用户出图（Agent 不自己生图）；
+  出图前放程序占位图并在 `production-notes.md` 附 prompt 清单；也可使用来源和授权
+  明确的现成素材（如公有领域画作），下载前征得用户同意；
 - 音乐：优先旋律完整、可长期聆听、适合循环且不会压过阅读的曲目；
 - 私人书（`books/local/`）选 BGM 时先查用户音乐库索引（[`music-library.md`](music-library.md)，
   `just find-music`）；索引只是参考，最合适的曲目优先，库里没有就在
@@ -228,6 +243,8 @@ just hash-assets books/<book-path>
 
 此后 `just validate` 会把每个素材钉在这组字节上；任何替换或损坏都会以
 `asset_hash_mismatch` 报出。若之后确实要更换素材，先替换文件再重新运行本命令。
+
+### Step 6 — 编译 playback
 
 从 `direction.json` 和最终素材生成 `playback.json`：
 
@@ -268,25 +285,16 @@ just hash-assets books/<book-path>
 
 ### Step 6.6 — 可选视觉小说档位（profile: visual_novel）
 
-依据 [ADR-0005](adr/0005-visual-novel-presentation-profile.md)，仅在用户为某本书
-明确选择时使用；默认仍是克制的沉浸阅读。
+仅在用户明确要求时使用，完整做法见
+[视觉小说档位制作指南](visual-novel-staging-guide.md)，动手前必须通读。硬性规则：
 
-1. **先做一幕切片。** 挑全书最有画面感的一幕按视觉小说密度制作，让用户读过
-   再决定是否铺开，避免一次性投入全书的 CG 与音效。
-2. **版式。** 对话密集、需要让画面说话的场景用 `adv`（底部对话框逐字打出），
-   叙述绵长的场景保留 `nvl`。
-3. **逐拍演出。** 从原文出发逐段判断：文字里真的发出声音的地方才放音效；
-   震屏只给冲击（破门、撞击）；抖字只给文字本身在颤抖的句子；心跳暗角只给
-   恐惧的顶点。不要为了密度制造原文没有的事件。
-4. **CG。** 只给全书最值得停留的画面，每张 CG 必须对应原文的一个具体意象；
-   不画角色正脸时，优先画原文自己的比喻或物件。CG 属于 Director 素材，不得
-   使用原书插图。
-5. **素材来源。** CG 由 Agent 写 prompt、用户出图；音效优先 CC0 或公有领域录音，
-   下载前须征得用户同意。可以先用程序生成的占位素材把节奏跑通，但占位必须在
-   `production-notes.md` 标明并列出替换清单。
-6. **实际体验检查。** 除 Step 7 外，逐拍确认：打字时第一次点击补全整行；音效
-   只在向前翻到时响一次，快速翻页也不会吞掉延迟音效；CG 进出场与对话框不遮
-   关键画面；减少动态效果下只剩音效、CG 与版式。
+1. 先做一幕切片交用户实读，认可后再逐幕铺开；
+2. 每个音效、特效和 CG 都必须对应原文里真实发生的事，不为密度制造事件；
+3. 默认不做角色立绘、不画角色正脸；
+4. 下载任何素材前先列出文件名、来源、授权和大小并征得用户同意；
+5. 占位素材必须在 `production-notes.md` 标明，并附替换清单与 CG 生图 prompt；
+6. 视觉小说场景结束后，把 `layout` 与 `atmosphere` 写回默认值；
+7. 验证时从切片之前开始向前翻读，一次性演出不响应跳转。
 
 ### Step 7 — 校验与实际体验
 
@@ -296,8 +304,12 @@ just hash-assets books/<book-path>
 just hash-assets books/<book-path>
 just validate books/<book-path>
 just validate-library
+just validate-local        # 私人书
 just check
 ```
+
+`just` 不可用时，直接运行 `justfile` 里对应配方的命令，例如
+`uv run --project pipeline --frozen immersive-reader-validate books/<book-path>`。
 
 然后在真实 Reader 中检查封面、开始/继续阅读、场景切换、音乐循环、环境音、
 清屏、历史跳转、纯净阅读和读完状态。结构校验通过不等于审美验收通过。
@@ -334,8 +346,8 @@ just check
   `.gitignore` 排除，任何情况下都不得提交或推送。
 
 两个书库使用同一 schema；Reader 启动时自动合并。无论哪个书库，条目的标题、
-作者、摘要、封面、revision、段落数和 production mode 都必须与 `source.json`
-及实际封面文件一致。校验私有书架用 `just validate-local`。
+作者、摘要、封面、revision、段落数必须与 `source.json` 及实际封面文件一致，
+production mode 如实反映制作方式（Agent 制作一律写 `agent-assisted`）。校验私有书架用 `just validate-local`。
 
 ### Step 9 — 记录人工介入
 
@@ -349,6 +361,8 @@ just check
   以及示意地图的重构依据；
 - 需要反复试听或看图才能决定的地方；
 - 若有运镜：焦点标注、调色档位、每个关键时刻的理由与放弃的候选；
+- 若用视觉小说档位：按指南第 9 节的模板记录切片演出清单；
+- 需要现有演出词汇之外的手段时，写下需求与理由（制书时不改 Runtime）；
 - 若再做一本书，哪些动作可以安全自动化。
 
 同一种人工判断在三本或更多书中反复出现时，才进入 Matcher、Compiler 或
@@ -367,8 +381,9 @@ just check
 - EPUB 原书附图在正文位置可见，guide 选中的资料图可回看且不会提前解锁；
 - 若有 codex：每个原子的锚点经正文核实，交叉校验通过，档案面板在
   多个进度点验证过解锁顺序且无任何形式的提前暴露；
+- 若用视觉小说档位：切片经用户实读认可，占位素材与替换清单已记录；
 - `production-notes.md` 已记录人工介入；
-- 相关改动以原子 Git 提交保存。
+- 受 git 跟踪的改动以原子 Git 提交保存；私人书（`books/local/`）本身没有任何提交。
 
 ## 6. Agent 交付摘要格式
 
@@ -379,6 +394,7 @@ Agent 完成后向用户报告：
    报告人物、关系、谱系树、地点与地图数量；
 3. 素材授权和无法完全验证的风险；
 4. 实际播放与自动测试结果；若有 guide，说明默认起点和解锁顺序验收；
-5. 仍需用户试听或判断的具体位置；
+5. 仍需用户试听或判断的具体位置；若用视觉小说档位，列出切片范围、占位素材、
+   待用户出图的 CG 与待确认下载的音效；
 6. 本次人工介入，以及建议自动化或继续保留人工判断的部分；
-7. 对应 Git 提交。
+7. 对应 Git 提交；私人书注明“书籍内容未入 git”。

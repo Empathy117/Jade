@@ -5,7 +5,9 @@
 When the user asks to “把这本 TXT / EPUB 制作为沉浸阅读版本”, or makes an
 equivalent request to turn a TXT or EPUB book into a Reader book, follow
 [`docs/agent-book-production-protocol.md`](docs/agent-book-production-protocol.md)
-from preflight through library registration and validation.
+from preflight through library registration and validation. When the user asks
+for a visual-novel version, also follow
+[`docs/visual-novel-staging-guide.md`](docs/visual-novel-staging-guide.md).
 
 Non-negotiable rules:
 
@@ -46,6 +48,10 @@ Non-negotiable rules:
 - In the real Reader, verify preferred/beginning start choices, inline source
   images, gallery unlock order, zoom, and return-to-source behavior whenever a
   guide or source illustrations are present.
+- Book production only produces data and assets: never change the Reader
+  Runtime, `contracts/`, or the validator while making a book. Record any
+  missing presentation primitive in the book's production notes and ask the
+  user instead.
 - Record steps that still required human judgment so repeated work can later be
   considered for automation.
 - Keep Git commits atomic; do not combine book assets, runtime changes, and

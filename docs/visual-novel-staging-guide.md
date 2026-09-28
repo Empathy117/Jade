@@ -1,0 +1,251 @@
+# 视觉小说档位制作指南
+
+本指南是 [制书协议](agent-book-production-protocol.md) Step 6.6 的完整操作说明，
+决策依据见 [ADR-0004](adr/0004-reading-driven-camera-and-moments.md)（镜头、调色、
+关键时刻）与 [ADR-0005](adr/0005-visual-novel-presentation-profile.md)（视觉小说档位）。
+协议的全部数据边界照常适用：不复制正文、只引用段落 ID、私人书只在
+`books/local/` 制作且永不提交。
+
+参考实现：`books/restaurant-demo` 的 scene_006「钥匙孔」（p0113–p0136）。动手前先读它
+的 `direction.json`、`playback.json` 和 `production-notes.md` 中「视觉小说垂直切片」
+一节，再在 Reader 里把这一幕从 p0112 往后翻读一遍。
+
+## 1. 审美基准
+
+用户做这个项目的起点是 Tsukiweb（《月姬》网页版）：演出很简单，却很有感觉。
+钥匙孔切片得到的评价是“氛围感上升了一个等级，有点锈湖的味道”。这就是目标。
+
+- **氛围先于描绘。** 声音、光线、停顿、物件、质感，比画出人物更有力。
+- **文字始终是主角。** 演出为一句话加重量，从不替它说话，也不抢它的注意力。
+- **默认不做角色立绘，也不画角色正脸。** 立绘会让画面重复、成本暴涨，还会挤掉
+  读者的想象。人物需要“在场”时，依次考虑：物件（帽子、手、一盏灯）、剪影或
+  背影、原文自己的比喻。用户明确要求之前不做立绘。
+- **克制在位置，不在数量。** 视觉小说档位允许高密度，但每个演出都必须对应原文里
+  真实发生的事：文字里有声音才放音效，有冲击才震屏，文字在颤抖才抖字。宁缺毋滥。
+- **静默也是演出。** 一次压低的音乐、一段没有音效的空白，常比多加一层更有效。
+
+## 2. 何时使用，怎么推进
+
+1. **只在用户明确要求时启用**（例如“做成视觉小说版”）。否则一律保持默认的
+   `immersive` 档位，只可选用 Step 6.5 的镜头与调色。
+2. **先做一幕切片。** 整本书设为 `profile: "visual_novel"`，但只挑一幕按视觉小说
+   密度制作。切片完成后交给用户实读，用户认可再逐幕铺开。不要一开始就为全书做
+   CG 和音效。
+3. **第一次交付的范围：** 按协议完成整本书的可读基线（导入、全书连续的场景划分、
+   每个场景的背景与 BGM，背景可以先用占位图），再加这一幕切片。validator 要求
+   场景覆盖全书，所以不能只交一幕。
+4. **挑切片的标准：** 原文里有具体的声音、动作和一个可以停留的画面，最好含一个
+   情绪顶点。**优先从全书前三分之一里挑**：用户要实读切片，可能还没读过这本书，
+   后段高潮会剧透。用户指定了场景时以用户为准。
+5. **切片以外的场景仍守沉浸阅读的纪律。** 档位放宽的预算只为切片服务；其余场景按
+   协议 Step 6.5 的克制规则自我约束（每章至多 2 个关键时刻、间隔至少 40 段等），
+   即使 validator 在视觉小说档位下不会拦截。
+6. **全书铺开后仍然逐幕判断**：有的场景适合对话框，有的场景就该是安静的全屏文字。
+
+## 3. 可用的演出词汇（闭集）
+
+这些是 Runtime 能播放的全部手段。词汇表由 schema 固定，不能自造新值。
+
+### Direction（语义）→ Playback（执行）
+
+| 通道 | `direction.json` | `playback.json` | 说明 |
+|---|---|---|---|
+| 档位 | 顶层 `profile: "visual_novel"` | — | `immersive` 档位使用下面任何一项都会被 validator 拒绝 |
+| 版式 | scene `layout: "nvl" \| "adv"` | cue `layout` | `adv`：底部对话框，一次一句，逐字打出，画面不压暗 |
+| 氛围 | scene `atmosphere: {particles?: "dust", flicker?: "faint" \| "unsteady"}` | cue `atmosphere: {particles, density, flicker}` | 目前粒子只有 `dust` |
+| 音效 | `sounds[]: {id: sound_###, at, beat?, tags, intent}` | `sounds[]: {id, at, beat?, asset_id, gain, delay_ms?}` | 向前翻到锚点时响一次 |
+| 特效 | `effects[]: {at, beat?, type, strength}` | `effects[]: {at, beat?, type, intensity, duration_ms?}` | `type`：`shake` / `pulse` / `tremble` |
+| CG | `cgs[]: {id: cg_###, at, beat?, until, until_beat?, tags, intent}` | `cgs[]: {…, asset_id, transition, duration_ms}` | `at` 到 `until` 含首尾 |
+| 转场 | — | 背景与 CG 的 `transition`：`cut` / `crossfade` / `iris` / `wipe` | |
+| 关键时刻 | `moments[]`（ADR-0004 模板） | `moments[]` | 视觉小说档位预算更宽 |
+| 素材 | — | `assets.json` 类型 `cg`、`sfx` | `sfx` 不可 `loop` |
+
+### 各手段的用法
+
+| 手段 | 什么时候用 | 不要这样用 |
+|---|---|---|
+| `adv` 版式 | 对话密集、需要让画面说话的场景 | 长段叙述、心理描写 |
+| `dust` 粒子 | 室内、有光束、陈旧或静止的空间 | 户外开阔场景（会像雪） |
+| `flicker` | 灯光本身不稳，或气氛在逼近 | 只为“增加动感” |
+| `shake` | 物理冲击：破门、撞击、爆炸 | 情绪激动但没有冲击 |
+| `tremble` | 文字本身在颤抖（哆嗦、结巴、惊叫） | 普通对白 |
+| `pulse` | 恐惧或紧张的顶点，常与心跳音同拍 | 连续多拍使用 |
+| `iris` 转场 | 视线被吸住、“看见了什么”的瞬间 | 普通换场 |
+| `wipe` 转场 | 突然切入的画面、强行闯入的意象 | 温和的过渡 |
+| CG | 全书最值得停留的画面，每张对应原文一个具体意象 | 装饰性画面、角色正脸 |
+| `letterbox_hold` | 与 CG 同拍，给画面加电影画幅和停顿 | — |
+
+### 数值约定（与参考实现一致）
+
+| 项目 | 取值 |
+|---|---|
+| `strength` → `intensity` | `light` 0.3，`medium` 0.6，`strong` 0.95 |
+| `shake.duration_ms` | 480；`strong` 再加 220 |
+| `pulse.duration_ms` | 1500；`strong` 再加 220 |
+| `flicker` | `faint` 0.35，`unsteady` 0.7 |
+| `dust` 的 `density` | 约 0.45 |
+| CG `duration_ms` | 1300–1500 |
+| 场景切换的背景 `transition` | 一般 `crossfade`，进入视觉小说场景可用 `wipe`，1400–2200ms |
+| 音效 `gain` | 冲击 0.85–0.9，动物与机械 0.7–0.8，人声/低语 0.5–0.6，环境性 0.6 |
+| 同拍音效的先后 | 用 `delay_ms` 排队，例如破门后 180ms 狗吠 |
+| 与 CG 同拍的 `letterbox_hold` | `letterbox` 0.1，`in_ms` 1200–1400，`hold_ms` 1200–1800，`hide_chrome: true` |
+
+## 4. 逐拍编排的方法
+
+1. 把切片的每一段列成表：`锚点 | 原文里发生了什么（用自己的话，不抄原文） | 演出`。
+   先填第二列，再决定第三列；第二列是空的，第三列也必须是空的。
+2. **锚点默认用段落 ID**，不写 `beat`。只有长段落里的事件明显落在后半段时才用
+   `beat`。Reader 按约 120 字把段落切成阅读拍；要知道某段有几拍、事件在第几拍，
+   在 Reader 里翻到该段，看 `.reading-block` 元素的 `data-reading-beat`
+   属性（形如 `2/3`）。**这个属性从 1 开始计数，而契约里的 `beat` 从 0 开始**：
+   `2/3` 对应 `beat: 1`。
+3. 同一拍最多 2 个音效；每种特效在同一拍最多 1 个。
+4. 一次顶点通常是“CG + 黑边停顿 + 心跳音 + pulse”的组合；紧接着的一两拍可以
+   用 `shake` / `tremble` 延续，然后让画面回到平静。高潮之后留出几拍没有演出的空白。
+5. 用 `production-notes.md` 里的切片表记录最终编排（格式见第 9 节）。
+
+### 画面与声音的归属
+
+- **画面属于视角人物。** 背景和 CG 显示视角人物此刻所在的地方和看到的东西。
+  对话另一方在远处（电话、电台、书信、回忆）时，不切到对方那边；对方只通过声音、
+  文字和调色存在。
+- **画面不得早于文字揭示。** 背景、CG 与调色展示的环境信息（例如城市已成废墟）
+  只能出现在原文揭示之后。揭示之前，用不透露信息的画面或更暗、更近的取景。
+- **持续的声音走环境音通道，瞬间的声音走音效。** 电台底噪、风、雨这类要一直
+  响着的声音登记为可循环的 `ambience` 素材，由 cue 的 `ambience` 控制；调谐的
+  啸叫、摩尔斯电码、敲门这类一次性声音才是 `sfx`。`sfx` 不能循环。
+
+## 5. 必须知道的坑
+
+- **状态通道会一直保持。** `layout`、`atmosphere`、`grade` 与背景一样，从设置它的
+  cue 起一直生效，直到下一个 cue 改变它。视觉小说场景结束后的第一个 cue 必须写回
+  `layout: "nvl"` 和 `atmosphere: {particles: null, density: 0, flicker: 0}`，否则
+  对话框和灰尘会带进后面所有场景。
+- **`isolate_line` 会把 CG 一起压黑。** 与 CG 同拍的关键时刻用 `letterbox_hold`。
+- **一次性演出只在“向前翻页到达”时触发**：音效、`shake`、`pulse` 与关键时刻都是
+  如此。跳转、继续阅读、往回翻都不会触发，每次阅读会话也只触发一次。这是设计，
+  不是缺陷，但验证时必须从切片之前开始往后翻（见第 8 节）。
+- **Direction 与 Playback 必须一一对应。** `sounds` 与 `cgs` 的 id、锚点在两边完全
+  一致；`effects` 的锚点与类型一致。否则报 `*_mismatch`。
+- **CG 区间不能重叠**，`until` 不能早于 `at`。
+- **两份文档都要是 v2。** `direction.json` 与 `playback.json` 的 `schema_version`
+  都写 2。
+- **预算**（视觉小说档位）：每章至多 6 个关键时刻、间隔至少 8 段；`flash_cut`
+  全书至多 3 次；镜头至多每 2 段一个。没有章节标题的书整本算一章。
+- **打字效果**只在 `adv` 版式、向前翻页时出现；打字中第一次点击只补全整句。
+- **`iris` / `wipe` 转场只属于视觉小说档位**，沉浸档位的书用了会被拒绝。
+- **取景与余量要自查。** validator 只检查镜头缩放不超过背景的
+  `min_scale_headroom`（未登记时按 1.2），不检查 `framing`。余量不足 1.3 的背景
+  不要写 `close` / `detail`。
+
+## 6. 素材
+
+### 图片来源（背景与 CG）
+
+**Agent 不自己生图。** 用户的做法是：Agent 写 prompt，用户交给另一个生图模型出图。
+在用户出图之前，Agent 用程序绘制的占位图先把节奏跑通。背景与 CG 都遵循这一点，
+除非用户明确另有安排。
+
+### CG
+
+- 由 Agent 写生图 prompt，用户出图。规格：16:9，至少 2560×1440，JPEG；
+  与同书背景同一画风；无文字、签名、水印；默认不画人脸。
+- prompt 写进该书 `production-notes.md`，每张一个代码块，文件名即最终路径。
+- 用户出图前先放程序绘制的占位图（numpy + Pillow），让节奏能先跑通。参考
+  `scripts/render_restaurant_cgs.py`。
+
+### 音效
+
+- **适合程序合成、可直接作为正式素材的**：心跳、撞击、门响、风、沙沙声、噪声类
+  环境，以及电台底噪、调谐啸叫、摩尔斯电码这类电子声。参考
+  `scripts/generate_restaurant_sfx.sh`（ffmpeg `aevalsrc`）。
+- **合成效果差、必须标为占位的**：动物叫声、人声、笑声、低语。
+- 真实录音优先 CC0 或公有领域（OpenGameArt、Wikimedia Commons）。**下载任何文件前
+  （包括音效、BGM、背景与参考图）都要先向用户列出文件名、来源页、授权和大小，
+  得到同意后再下载。** 下载的原始文件
+  放临时目录，只把剪辑、响度处理后的片段放进书籍目录。
+- 授权优先级：CC0 / 公有领域 > CC BY > CC BY-SA。BY-SA 要署名，衍生片段也须沿用
+  同一授权，使用前先问用户。
+- 用户暂缓下载时，把检索到的候选（用途、来源、授权、大小）记进 `production-notes.md`，
+  以后不用重找。
+
+### 登记
+
+- 占位素材：`license` 写 `Project asset`，`source` 写
+  `Procedural placeholder, <生成脚本路径>, <日期>`，`title` 末尾加「（占位）」。
+- 私人书的生成与编译脚本放在 `books/local/<book-id>/` 里，不放 `scripts/`，
+  因为它们会随书目内容一起被忽略、不入 git。
+- 全部素材定稿后运行 hash-assets；替换任何文件后要重新运行。
+
+## 7. 编译 playback
+
+目前没有自动 Compiler，由 Agent 编译：
+
+- 为每本书写一个小的编译脚本（Python），从 direction 与一张“音效 → 素材、增益、
+  延迟”的映射表生成 playback 的 `sounds`、`effects`、`cgs`，数值按第 3 节约定换算。
+  不要手工逐条改 JSON。私人书的脚本放在书籍目录里，方便以后重跑。参考实现是
+  一次性生成的，没有保留编译脚本，新书不要照此办理。
+- 受 git 跟踪的书要保持 JSON 的既有格式（短数组写在一行），避免产生大片无意义的
+  diff；私人书不受此限。
+
+## 8. 验证
+
+在真实 Reader 中实际翻读，结构校验通过不等于体验通过。
+
+1. 运行校验（本机没有 `just` 时用括号里的等价命令）：
+   - `just hash-assets books/<path>`
+     （`uv run --project pipeline --frozen immersive-reader-hash-assets books/<path>`）
+   - `just validate books/<path>`
+     （`uv run --project pipeline --frozen immersive-reader-validate books/<path>`）
+   - `just validate-local`
+     （`uv run --project pipeline --frozen immersive-reader-validate-library books/library.local.json`）
+2. **从切片之前开始往后翻。** 一次性演出不响应跳转。在浏览器里：
+   1. 先备份用户状态：localStorage 里所有包含 `<book_id>` 的键，以及全局设置键
+      `immersive-reader:settings:v1`（测试“减少动态效果”时会改动它）；
+   2. 把 `immersive-reader:<book_id>:revision-<rev>` 设为切片前两三段的段落 ID，
+      `immersive-reader:<book_id>:reading-beat:revision-<rev>` 设为 `0`；
+   3. 刷新页面，点「继续阅读」，然后逐页向前翻。
+3. 逐拍确认：
+   - 版式在该进时进、该退时退，灰尘和闪烁只在该场景出现；
+   - 打字进行中第一次点击补全整句，第二次才翻页；
+   - 每个音效都响了，包括带 `delay_ms` 的（可在网络请求或 Performance 里看
+     `/sfx/` 文件是否被请求）；快速连续翻页时延迟音效也不能被吞掉；
+   - CG 进出场时机正确，对话框不遮住 CG 的关键内容；
+   - 往回翻不重放音效和特效；
+   - 打开「减少动态效果」后，只剩音效、CG 与版式，没有打字、粒子、闪烁、震屏
+     和抖字。
+4. **控制台必须干净。** 开发服务器热更新后可能残留 “change in the order of Hooks”
+   之类的旧错误；整页刷新后重新走一遍切片，以此时的控制台为准。
+5. **收尾时恢复用户状态**：把备份的阅读进度和设置写回 localStorage。
+
+## 9. 记录模板
+
+在 `production-notes.md` 中新增一节：
+
+```markdown
+## 视觉小说切片：<场景名>（<日期>）
+
+**这一幕的演出清单**
+
+| 锚点 | 演出 |
+|---|---|
+| p0000 | …… |
+
+**取舍**：每个 CG、关键时刻的一句理由；放弃的候选及原因。
+
+**占位素材**：哪些是占位、由哪个脚本生成、哪些必须替换。
+
+### 正式 CG 生图 prompt
+（每张一个代码块）
+
+### 待替换的真实音效
+（文件 | 需要的声音；检索过的候选 | 来源 | 授权 | 大小）
+```
+
+## 10. 不在制书范围内的事
+
+制书 Agent 只生产数据与素材，**不修改 Reader Runtime、`contracts/` 或 validator**。
+如果一本书需要现有词汇之外的演出（例如电台信号强弱的界面元素、给人声加滤波、
+说话人名牌、新的粒子种类、角色立绘），把需求和理由写进 `production-notes.md` 并告诉用户，
+由用户决定是否另开一项 Runtime 工作（需要新的 ADR）。在此之前，用现有词汇里
+最接近的手段表达，并在记录中说明差距。

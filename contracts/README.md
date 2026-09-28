@@ -55,6 +55,9 @@ keeps older schemas while any stored book still depends on them.
 - `playback.schema.json`: resolved paragraph cues consumed by the Runtime.
 - `guide.schema.json`: optional preferred narrative start and curated recurring
   references to source illustrations.
+- `codex.schema.json`: optional dossier of characters, relationships, family
+  trees, places, and maps, each atom anchored at its first textual reveal.
+- `library.schema.json`: the tracked and the private book shelves.
 
 JSON Schema validates document shape. Cross-document ordering, references,
 hashes, scene coverage, and asset file existence are enforced by the pipeline

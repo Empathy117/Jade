@@ -120,8 +120,9 @@ anything beyond `wide/hold`:
 "min_scale_headroom": 1.6
 ```
 
-`close` and `detail` framing are rejected at compile time for assets without
-enough resolution headroom.
+`close` and `detail` framing should not be used on assets without enough
+resolution headroom. The validator enforces the resolved camera scale against
+`min_scale_headroom`; choosing the framing word honestly is the Director's job.
 
 ### 5. Resolved playback (`playback.json` v2)
 
@@ -166,10 +167,15 @@ plate → (parallax, later) → grade → vignette / letterbox → reading surfa
 ### 7. Restraint rules (validator-enforced)
 
 - ≤ 2 moments per chapter; ≥ 40 paragraphs between moments.
-- ≤ 1 shot change per 3 paragraphs on average within a scene.
-- `flash_cut` ≤ 1 per book unless the protocol records a justification.
+- At most `ceil(paragraphs / 3)` shots per scene.
+- `flash_cut` ≤ 1 per book; this is a hard limit.
+- Camera scale ≤ the background's `min_scale_headroom` (1.2 when unrecorded).
 - Every moment and non-default shot must appear in the production notes with a
-  one-line rationale (human-judgment log, for later automation).
+  one-line rationale (human-judgment log, for later automation). This one is a
+  production rule, not a validator check.
+
+ADR-0005 widens these budgets for books that opt into the `visual_novel`
+profile.
 
 ## Consequences
 
