@@ -96,7 +96,9 @@ import type {
   SourceIllustration,
 } from "./reader/types";
 import { unlockAudio, useAudioDirector } from "./reader/useAudioDirector";
-import { Stage } from "./reader/Stage";
+import { Stage, type StageCg, type StagePulse } from "./reader/Stage";
+import { useSoundEffects } from "./reader/useSoundEffects";
+import { useTypewriter } from "./reader/useTypewriter";
 import { useStaging, type ReadingStep } from "./reader/useStaging";
 
 /** Shown before a bundle loads: no background, no music, no ambience. */
@@ -109,6 +111,9 @@ const SILENT_PLAYBACK: ResolvedPlaybackState = {
 };
 
 const NO_PASSAGE_MARKS = new Map<string, PassageMark[]>();
+
+/** Typing speed in the adv text box: brisk enough never to feel like waiting. */
+const TYPE_CHARS_PER_SECOND = 42;
 
 /** A press on the reading area, remembered until its click arrives. */
 interface ReaderPress {
@@ -155,6 +160,7 @@ export function App() {
   const [readingFloorIndex, setReadingFloorIndex] = useState(1);
   const [settings, setSettings] = useState<ReaderSettings>(loadSettings);
   const readingViewportRef = useRef<HTMLElement | null>(null);
+  const readerRef = useRef<HTMLElement | null>(null);
   const latestParagraphRef = useRef<HTMLDivElement | null>(null);
   const touchOrigin = useRef<{ x: number; y: number } | null>(null);
   const readerPress = useRef<ReaderPress | null>(null);
@@ -411,6 +417,22 @@ export function App() {
     assets,
     settings,
   });
+  useSoundEffects({
+    started,
+    bookPath: selectedBook?.path ?? null,
+    run: staging.oneShots,
+    assets,
+    settings,
+  });
+  const adv = staging.layout === "adv";
+  // Only a line reached by turning forward is typed out; paging back, jumping,
+  // and resuming show it whole, as a visual novel's backlog would.
+  const completeTyping = useTypewriter(
+    latestParagraphRef,
+    `${currentIndex}:${activeBeatIndex}`,
+    started && adv && staging.stepped && readingStep.direction === 1 && !settings.reducedMotion,
+    TYPE_CHARS_PER_SECOND,
+  );
   const visibleStart = useMemo(
     () =>
       bundle
@@ -498,9 +520,56 @@ export function App() {
     image.src = upcomingBackgroundSrc;
   }, [started, upcomingBackgroundSrc]);
 
+  // In the adv text box only the line being read is on screen.
+  const shownBeats = useMemo(
+    () => (adv ? visibleBeats.filter((beat) => beat.current) : visibleBeats),
+    [adv, visibleBeats],
+  );
+  const cgAsset = staging.cg ? assets.get(staging.cg.asset_id) : undefined;
+  const stageCg = useMemo<StageCg | null>(
+    () =>
+      staging.cg && cgAsset && selectedBook
+        ? {
+            id: staging.cg.id,
+            src: assetUrl(selectedBook.path, cgAsset),
+            transition: staging.cg.transition,
+            durationMs: staging.cg.duration_ms,
+          }
+        : null,
+    [cgAsset, selectedBook, staging.cg],
+  );
+  const stagePulse = useMemo<StagePulse | null>(() => {
+    const pulse = staging.oneShots?.effects.find((effect) => effect.type === "pulse");
+    return pulse && staging.oneShots
+      ? {
+          serial: staging.oneShots.serial,
+          intensity: pulse.intensity,
+          durationMs: pulse.duration_ms ?? 1200,
+        }
+      : null;
+  }, [staging.oneShots]);
+  useEffect(() => {
+    const shake = staging.oneShots?.effects.find((effect) => effect.type === "shake");
+    const root = readerRef.current;
+    if (!shake || !root || settings.reducedMotion) return;
+    const amplitude = 3 + 12 * shake.intensity;
+    const frames = [0, -1, 0.8, -0.6, 0.45, -0.3, 0.15, 0].map((factor, index) => ({
+      transform: `translate(${factor * amplitude}px, ${(index % 2 ? -0.5 : 0.4) * factor * amplitude}px)`,
+    }));
+    for (const element of root.querySelectorAll<HTMLElement>(".background-stage, .reading-viewport")) {
+      if (typeof element.animate === "function") {
+        element.animate(frames, { duration: shake.duration_ms ?? 450, easing: "ease-out" });
+      }
+    }
+    // Only a new run of one-shots shakes again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [staging.oneShots?.serial]);
+
   const { consumeHold } = staging;
   const next = useCallback(() => {
     if (!bundle) return;
+    // The first turn during typing completes the line, as in a visual novel.
+    if (completeTyping()) return;
     // A key moment's pacing hold spends the first turn instead of the page.
     if (consumeHold()) return;
     if (activeBeatIndex < currentBeats.length - 1) {
@@ -518,7 +587,15 @@ export function App() {
         nextFlowIndex(bundle.source.paragraphs, current.currentIndex),
       ),
     );
-  }, [activeBeatIndex, bundle, consumeHold, currentBeats.length, currentIndex, lastIndex]);
+  }, [
+    activeBeatIndex,
+    bundle,
+    completeTyping,
+    consumeHold,
+    currentBeats.length,
+    currentIndex,
+    lastIndex,
+  ]);
 
   const previous = useCallback(() => {
     if (!bundle) return;
@@ -935,8 +1012,14 @@ export function App() {
 
   return (
     <main
-      className={`reader-app${started ? " is-reading" : " is-cover"}${settings.pureMode ? " is-pure" : ""}${settings.reducedMotion ? " is-reduced-motion" : ""}${settings.sansFont ? " is-font-sans" : ""}${staging.chromeHidden ? " is-chrome-hidden" : ""}${staging.isolating ? " is-isolating" : ""}`}
-      style={{ "--font-scale": settings.fontScale } as React.CSSProperties}
+      className={`reader-app${started ? " is-reading" : " is-cover"}${settings.pureMode ? " is-pure" : ""}${settings.reducedMotion ? " is-reduced-motion" : ""}${settings.sansFont ? " is-font-sans" : ""}${staging.chromeHidden ? " is-chrome-hidden" : ""}${staging.isolating ? " is-isolating" : ""}${adv ? " is-adv" : ""}${staging.tremble > 0 ? " is-trembling" : ""}`}
+      style={
+        {
+          "--font-scale": settings.fontScale,
+          "--tremble": staging.tremble,
+        } as React.CSSProperties
+      }
+      ref={readerRef}
       onPointerDown={started ? handleReaderPointerDown : undefined}
       onPointerMove={started ? handleReaderPointerMove : undefined}
       onClick={started ? handleReaderClick : undefined}
@@ -946,10 +1029,14 @@ export function App() {
       <Stage
         src={backgroundSrc}
         durationMs={playbackState.background?.duration_ms ?? 1200}
+        transition={playbackState.background?.transition ?? "crossfade"}
         camera={staging.camera}
         stepped={staging.stepped}
         grade={staging.grade}
         moment={started ? staging.moment : null}
+        cg={started ? stageCg : null}
+        atmosphere={staging.atmosphere}
+        pulse={started ? stagePulse : null}
         reducedMotion={settings.reducedMotion}
         hidden={settings.pureMode}
       />
@@ -1065,7 +1152,7 @@ export function App() {
 
           <ReadingViewport
             bookPath={selectedBook.path}
-            beats={visibleBeats}
+            beats={shownBeats}
             illustrationsByAnchor={illustrationsByAnchor}
             referenceIllustrationIds={referenceIllustrationIds}
             markerNotes={noteAnchors.markers}

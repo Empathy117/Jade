@@ -1,15 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ParagraphPositions } from "./readerState";
 import {
+  atmosphereAt,
   cameraAt,
+  cgAt,
   gradeAt,
   IDENTITY_CAMERA,
+  layoutAt,
   momentAt,
+  NO_ATMOSPHERE,
+  oneShotsAt,
   pointKey,
+  trembleAt,
   type CameraState,
+  type OneShots,
   type ReadingPoint,
 } from "./staging";
-import type { BookBundle, GradeState, MomentCue } from "./types";
+import type { AtmosphereState, BookBundle, CgCue, GradeState, Layout, MomentCue } from "./types";
 
 /** The last page turn: its serial changes only when a turn actually moved. */
 export interface ReadingStep {
@@ -25,8 +32,19 @@ export interface MomentRun {
   active: boolean;
 }
 
+/** Sounds and effects that fired together; the serial replays nothing twice. */
+export interface OneShotRun extends OneShots {
+  serial: number;
+}
+
 export interface Staging {
   camera: CameraState;
+  layout: Layout;
+  atmosphere: AtmosphereState;
+  cg: CgCue | null;
+  oneShots: OneShotRun | null;
+  /** Tremble intensity for the line on screen. */
+  tremble: number;
   grade: GradeState | null;
   moment: MomentRun | null;
   /** The last move was a page turn, so the camera may travel; otherwise it settles. */
@@ -69,6 +87,7 @@ export function useStaging(
     stepped: false,
   });
   const [run, setRun] = useState<MomentRun | null>(null);
+  const [oneShots, setOneShots] = useState<OneShotRun | null>(null);
   const [fired, setFired] = useState<ReadonlySet<string>>(() => new Set());
   const [holding, setHolding] = useState(false);
   const [chromeRevealed, setChromeRevealed] = useState(false);
@@ -78,22 +97,36 @@ export function useStaging(
   if (bookId !== tracked.bookId) {
     setTracked({ bookId, key, serial: step.serial, stepped: false });
     setRun(null);
+    setOneShots(null);
     setFired(new Set());
     setHolding(false);
   } else if (key !== tracked.key || step.serial !== tracked.serial) {
     const stepped = key !== tracked.key && step.serial !== tracked.serial;
     setTracked({ bookId, key, serial: step.serial, stepped });
     if (key !== tracked.key) {
+      const forward = stepped && step.direction === 1;
+      const nextFired = new Set(fired);
+      if (bundle && forward) {
+        const due = oneShotsAt(positions, bundle.playback, point);
+        const sounds = due.sounds.filter((sound) => !fired.has(sound.id));
+        const effects = due.effects.filter((effect) => !fired.has(`${key}:${effect.type}`));
+        sounds.forEach((sound) => nextFired.add(sound.id));
+        effects.forEach((effect) => nextFired.add(`${key}:${effect.type}`));
+        if (sounds.length > 0 || effects.length > 0) {
+          setOneShots({ sounds, effects, serial: (oneShots?.serial ?? 0) + 1 });
+        }
+      }
       const cue = bundle ? momentAt(positions, bundle.playback, point) : null;
-      if (cue && stepped && step.direction === 1 && !fired.has(cue.id)) {
+      if (cue && forward && !fired.has(cue.id)) {
+        nextFired.add(cue.id);
         setRun({ cue, serial: (run?.serial ?? 0) + 1, active: true });
-        setFired(new Set(fired).add(cue.id));
         setHolding((cue.params.hold_ms ?? 0) > 0);
         setChromeRevealed(false);
       } else if (run?.active) {
         setRun({ ...run, active: false });
         setHolding(false);
       }
+      if (nextFired.size !== fired.size) setFired(nextFired);
     }
   }
 
@@ -124,8 +157,24 @@ export function useStaging(
     [bundle, positions, key],
   );
 
+  const presentation = useMemo(
+    () =>
+      bundle
+        ? {
+            layout: layoutAt(positions, bundle.playback, point),
+            atmosphere: atmosphereAt(positions, bundle.playback, point),
+            cg: cgAt(positions, bundle.playback, point),
+            tremble: trembleAt(positions, bundle.playback, point),
+          }
+        : { layout: "nvl" as const, atmosphere: NO_ATMOSPHERE, cg: null, tremble: 0 },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [bundle, positions, key],
+  );
+
   const active = run?.active ? run.cue : null;
   return {
+    ...presentation,
+    oneShots,
     camera,
     grade,
     moment: run,

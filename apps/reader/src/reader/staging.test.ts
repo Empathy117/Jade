@@ -2,11 +2,17 @@ import { describe, expect, it } from "vitest";
 
 import { paragraphIndex } from "./readerState";
 import {
+  atmosphereAt,
   cameraAt,
   cameraTransform,
+  cgAt,
   gradeAt,
   IDENTITY_CAMERA,
+  layoutAt,
   momentAt,
+  NO_ATMOSPHERE,
+  oneShotsAt,
+  trembleAt,
 } from "./staging";
 import type { PlaybackDocument, SourceDocument } from "./types";
 
@@ -125,5 +131,54 @@ describe("momentAt", () => {
   it("matches the exact paragraph and beat", () => {
     expect(momentAt(positions, playback, { index: 2, beat: 0 })).toBeNull();
     expect(momentAt(positions, playback, { index: 2, beat: 1 })?.id).toBe("moment_001");
+  });
+});
+
+describe("visual-novel channels", () => {
+  const dust = { particles: "dust" as const, density: 0.5, flicker: 0.3 };
+  const vn: PlaybackDocument = {
+    ...playback,
+    cues: [
+      { ...playback.cues[0], layout: "adv", atmosphere: dust },
+      { ...playback.cues[1], layout: "nvl", atmosphere: NO_ATMOSPHERE },
+    ],
+    cgs: [
+      {
+        id: "cg_001",
+        at: "p0003",
+        beat: 1,
+        until: "p0004",
+        asset_id: "cg_a",
+        transition: "iris",
+        duration_ms: 1200,
+      },
+    ],
+    sounds: [{ id: "sound_001", at: "p0004", asset_id: "sfx_a", gain: 0.8 }],
+    effects: [
+      { at: "p0004", type: "shake", intensity: 0.6 },
+      { at: "p0004", type: "tremble", intensity: 0.8 },
+    ],
+  };
+
+  it("holds layout and atmosphere until a cue changes them", () => {
+    expect(layoutAt(positions, vn, { index: 3, beat: 0 })).toBe("adv");
+    expect(atmosphereAt(positions, vn, { index: 3, beat: 0 })).toBe(dust);
+    expect(layoutAt(positions, vn, { index: 4, beat: 0 })).toBe("nvl");
+    expect(layoutAt(positions, playback, { index: 3, beat: 0 })).toBe("nvl");
+  });
+
+  it("shows event art over its inclusive span", () => {
+    expect(cgAt(positions, vn, { index: 2, beat: 0 })).toBeNull();
+    expect(cgAt(positions, vn, { index: 2, beat: 1 })?.id).toBe("cg_001");
+    expect(cgAt(positions, vn, { index: 3, beat: 0 })?.id).toBe("cg_001");
+    expect(cgAt(positions, vn, { index: 4, beat: 0 })).toBeNull();
+  });
+
+  it("separates one-shot events from the tremble state", () => {
+    const shots = oneShotsAt(positions, vn, { index: 3, beat: 0 });
+    expect(shots.sounds.map((sound) => sound.id)).toEqual(["sound_001"]);
+    expect(shots.effects.map((effect) => effect.type)).toEqual(["shake"]);
+    expect(trembleAt(positions, vn, { index: 3, beat: 0 })).toBe(0.8);
+    expect(trembleAt(positions, vn, { index: 2, beat: 0 })).toBe(0);
   });
 });

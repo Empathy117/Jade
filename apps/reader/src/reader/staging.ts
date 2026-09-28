@@ -1,10 +1,15 @@
 import { readingBeats } from "./readingBeats";
 import type { ParagraphPositions } from "./readerState";
 import type {
+  AtmosphereState,
   CameraKey,
+  CgCue,
+  EffectCue,
   GradeState,
+  Layout,
   MomentCue,
   PlaybackDocument,
+  SoundCue,
   SourceDocument,
 } from "./types";
 
@@ -169,6 +174,97 @@ export function momentAt(
     if (momentPoint && comparePoints(momentPoint, point) === 0) return moment;
   }
   return null;
+}
+
+/**
+ * The latest value a cue sets for one state channel at or before a paragraph.
+ * Like the background, a channel holds until a later cue changes it.
+ */
+function cueStateAt<K extends "layout" | "atmosphere">(
+  positions: ParagraphPositions,
+  playback: PlaybackDocument,
+  index: number,
+  channel: K,
+): PlaybackDocument["cues"][number][K] | undefined {
+  let value: PlaybackDocument["cues"][number][K] | undefined;
+  for (const cue of playback.cues) {
+    const cueIndex = positions.get(cue.at);
+    if (cueIndex === undefined) continue;
+    if (cueIndex > index) break;
+    if (Object.hasOwn(cue, channel)) value = cue[channel];
+  }
+  return value;
+}
+
+export function layoutAt(
+  positions: ParagraphPositions,
+  playback: PlaybackDocument,
+  point: ReadingPoint,
+): Layout {
+  return cueStateAt(positions, playback, point.index, "layout") ?? "nvl";
+}
+
+export const NO_ATMOSPHERE: AtmosphereState = { particles: null, density: 0, flicker: 0 };
+
+export function atmosphereAt(
+  positions: ParagraphPositions,
+  playback: PlaybackDocument,
+  point: ReadingPoint,
+): AtmosphereState {
+  return cueStateAt(positions, playback, point.index, "atmosphere") ?? NO_ATMOSPHERE;
+}
+
+/** The event art covering a reading point, if any. */
+export function cgAt(
+  positions: ParagraphPositions,
+  playback: PlaybackDocument,
+  point: ReadingPoint,
+): CgCue | null {
+  for (const cg of playback.cgs ?? []) {
+    const start = anchorPoint(positions, cg);
+    const end = anchorPoint(positions, { at: cg.until, beat: cg.until_beat });
+    if (!start || !end) continue;
+    if (comparePoints(start, point) <= 0 && comparePoints(point, end) <= 0) return cg;
+  }
+  return null;
+}
+
+export interface OneShots {
+  sounds: SoundCue[];
+  effects: EffectCue[];
+}
+
+/**
+ * Sounds and effects anchored exactly at a reading point. `tremble` is left
+ * out: it is a state of the line on screen, not an event (see `trembleAt`).
+ */
+export function oneShotsAt(
+  positions: ParagraphPositions,
+  playback: PlaybackDocument,
+  point: ReadingPoint,
+): OneShots {
+  const at = (anchor: { at: string; beat?: number }) => {
+    const anchored = anchorPoint(positions, anchor);
+    return anchored !== null && comparePoints(anchored, point) === 0;
+  };
+  return {
+    sounds: (playback.sounds ?? []).filter(at),
+    effects: (playback.effects ?? []).filter((effect) => effect.type !== "tremble" && at(effect)),
+  };
+}
+
+/** Tremble intensity for the line at a reading point; 0 when it is still. */
+export function trembleAt(
+  positions: ParagraphPositions,
+  playback: PlaybackDocument,
+  point: ReadingPoint,
+): number {
+  for (const effect of playback.effects ?? []) {
+    if (effect.type !== "tremble") continue;
+    const anchored = anchorPoint(positions, effect);
+    if (anchored && comparePoints(anchored, point) === 0) return effect.intensity;
+  }
+  return 0;
 }
 
 /**

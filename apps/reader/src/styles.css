@@ -172,6 +172,97 @@ button { color: inherit; }
   from { opacity: 1; }
   to { opacity: 0; }
 }
+
+/* Visual-novel profile (ADR-0005). --------------------------------------- */
+@property --reveal {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 150%;
+}
+/* Iris and wipe arrivals reveal the new plate or event art through a moving
+   soft-edged mask; they replace the default crossfade animation. */
+.background-layer.is-arriving-iris,
+.stage-cg.is-arriving-iris {
+  animation-name: arrive-iris;
+  animation-timing-function: cubic-bezier(.4,0,.2,1);
+  animation-fill-mode: both;
+  mask-image: radial-gradient(circle farthest-corner at 50% 50%, #000 calc(var(--reveal) - 14%), transparent var(--reveal));
+}
+.background-layer.is-arriving-wipe,
+.stage-cg.is-arriving-wipe {
+  animation-name: arrive-wipe;
+  animation-timing-function: cubic-bezier(.65,0,.35,1);
+  animation-fill-mode: both;
+  mask-image: linear-gradient(90deg, #000 calc(var(--reveal) - 20%), transparent var(--reveal));
+}
+@keyframes arrive-iris { from { --reveal: 0%; } to { --reveal: 118%; } }
+@keyframes arrive-wipe { from { --reveal: 0%; } to { --reveal: 122%; } }
+
+.stage-flicker, .stage-cg, .stage-cg__image, .stage-particles, .stage-pulse {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+/* A lamp on a failing circuit: irregular dips, never a strobe. */
+.stage-flicker { background: #000; opacity: 0; }
+.stage-flicker.is-active { animation: stage-flicker 5.3s steps(1) infinite; }
+@keyframes stage-flicker {
+  0% { opacity: 0; }
+  7% { opacity: calc(var(--flicker) * .32); }
+  8% { opacity: 0; }
+  31% { opacity: calc(var(--flicker) * .16); }
+  33% { opacity: 0; }
+  58% { opacity: calc(var(--flicker) * .42); }
+  59% { opacity: calc(var(--flicker) * .08); }
+  61% { opacity: calc(var(--flicker) * .5); }
+  63% { opacity: 0; }
+}
+
+.stage-cg { overflow: hidden; animation: cg-arrive 1200ms ease both; }
+.stage-cg__image, .stage-cg.is-leaving { background-position: center; background-size: cover; }
+.stage-cg__image.is-drifting { animation: cg-drift 26s cubic-bezier(.22,.61,.36,1) both; }
+.stage-cg.is-leaving { animation: cg-leave 900ms ease both; }
+@keyframes cg-arrive { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cg-leave { from { opacity: 1; } to { opacity: 0; } }
+@keyframes cg-drift { from { transform: scale(1); } to { transform: scale(1.045); } }
+
+.stage-particles { width: 100%; height: 100%; mix-blend-mode: screen; opacity: 0; transition: opacity 1400ms ease; }
+.stage-particles.is-active { opacity: 1; }
+/* The heartbeat darkens the edges toward a dried-blood red. */
+.stage-pulse {
+  opacity: 0;
+  background: radial-gradient(ellipse at center, transparent 42%, rgba(38, 6, 5, .85) 100%);
+}
+
+/* adv: one line in a text box; the picture leads. */
+.background-shade { transition: opacity 900ms ease; }
+.is-adv .background-shade { opacity: .38; }
+.is-adv .reading-viewport {
+  inset: auto clamp(16px, 7vw, 112px) calc(var(--viewport-bottom) + 6px);
+  max-height: 38vh;
+  mask-image: none;
+  border: 1px solid rgba(214,194,143,.16);
+  border-radius: 3px;
+  background: linear-gradient(180deg, rgba(12,11,10,.7), rgba(8,8,7,.86));
+  box-shadow: 0 18px 60px rgba(0,0,0,.45);
+  backdrop-filter: blur(8px);
+}
+.is-adv .paragraph-stack {
+  width: auto;
+  min-height: 0;
+  padding: clamp(18px, 3vh, 28px) clamp(20px, 3vw, 36px);
+}
+.is-adv .paragraph.is-current { text-shadow: none; }
+::highlight(untyped) { color: transparent; text-shadow: none; }
+
+/* tremble: the line itself shakes while it is on screen. */
+.is-trembling .paragraph.is-current { animation: text-tremble 120ms steps(1) infinite; }
+@keyframes text-tremble {
+  0% { translate: calc(var(--tremble) * 1.6px) 0; }
+  25% { translate: calc(var(--tremble) * -1.4px) calc(var(--tremble) * 1px); }
+  50% { translate: calc(var(--tremble) * 1px) calc(var(--tremble) * -1.4px); }
+  75% { translate: calc(var(--tremble) * -1.6px) calc(var(--tremble) * .6px); }
+}
 .background-layer--current { animation: reveal-background 1400ms ease both; }
 .background-shade {
   background: linear-gradient(90deg, rgba(9,9,8,.79), rgba(10,10,9,.28) 52%, rgba(8,8,7,.62)), linear-gradient(0deg, rgba(9,9,8,.88), transparent 42%, rgba(9,9,8,.45));

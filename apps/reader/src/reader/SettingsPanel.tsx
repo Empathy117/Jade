@@ -44,7 +44,7 @@ export function SettingsPanel({ settings, onChange, onClose }: SettingsPanelProp
       <RangeSetting label="字号" value={settings.fontScale} min={0.85} max={1.3} step={0.05} display={`${Math.round(settings.fontScale * 100)}%`} onChange={(value) => update("fontScale", value)} />
       <RangeSetting label="主音量" value={settings.masterVolume} min={0} max={1} step={0.05} display={`${Math.round(settings.masterVolume * 100)}%`} onChange={(value) => update("masterVolume", value)} />
       <RangeSetting label="音乐" value={settings.musicVolume} min={0} max={1} step={0.05} display={`${Math.round(settings.musicVolume * 100)}%`} onChange={(value) => update("musicVolume", value)} />
-      <RangeSetting label="环境音" value={settings.ambienceVolume} min={0} max={1} step={0.05} display={`${Math.round(settings.ambienceVolume * 100)}%`} onChange={(value) => update("ambienceVolume", value)} />
+      <RangeSetting label="环境音与音效" value={settings.ambienceVolume} min={0} max={1} step={0.05} display={`${Math.round(settings.ambienceVolume * 100)}%`} onChange={(value) => update("ambienceVolume", value)} />
     </aside>
   );
 }

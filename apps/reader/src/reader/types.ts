@@ -161,7 +161,15 @@ export interface Scene {
   shots?: Shot[];
   /** v2: name of an entry in `DirectionDocument.grades`. */
   grade?: string;
+  /** v2, visual_novel only. */
+  layout?: Layout;
+  atmosphere?: { particles?: ParticleKind; flicker?: "faint" | "unsteady" };
 }
+
+export type Layout = "nvl" | "adv";
+export type ParticleKind = "dust";
+export type EffectType = "shake" | "pulse" | "tremble";
+export type PresentationProfile = "immersive" | "visual_novel";
 
 export type ShotFraming = "wide" | "medium" | "close" | "detail";
 export type ShotMove =
@@ -213,9 +221,10 @@ export interface DirectionDocument {
   scenes: Scene[];
   grades?: Record<string, GradeToken>;
   moments?: DirectedMoment[];
+  profile?: PresentationProfile;
 }
 
-export type AssetType = "background" | "music" | "ambience";
+export type AssetType = "background" | "music" | "ambience" | "cg" | "sfx";
 
 export interface Asset {
   id: string;
@@ -240,9 +249,11 @@ export interface AssetsDocument {
   assets: Asset[];
 }
 
+export type Transition = "cut" | "crossfade" | "iris" | "wipe";
+
 export interface BackgroundCue {
   asset_id: string;
-  transition: "cut" | "crossfade";
+  transition: Transition;
   duration_ms: number;
 }
 
@@ -264,6 +275,45 @@ export interface PlaybackCue {
   clear_text?: boolean;
   /** v2: colour grade from this paragraph on. */
   grade?: GradeState;
+  /** v2, visual_novel only: text layout from this paragraph on. */
+  layout?: Layout;
+  /** v2, visual_novel only: particles and light flicker from this paragraph on. */
+  atmosphere?: AtmosphereState;
+}
+
+export interface AtmosphereState {
+  particles: ParticleKind | null;
+  density: number;
+  flicker: number;
+}
+
+export interface SoundCue {
+  id: string;
+  at: string;
+  beat?: number;
+  asset_id: string;
+  gain: number;
+  delay_ms?: number;
+}
+
+export interface EffectCue {
+  at: string;
+  beat?: number;
+  type: EffectType;
+  intensity: number;
+  duration_ms?: number;
+}
+
+/** Event art shown from `at` through `until`, inclusive. */
+export interface CgCue {
+  id: string;
+  at: string;
+  beat?: number;
+  until: string;
+  until_beat?: number;
+  asset_id: string;
+  transition: Transition;
+  duration_ms: number;
 }
 
 export interface GradeState extends GradeToken {
@@ -318,6 +368,9 @@ export interface PlaybackDocument {
   cues: PlaybackCue[];
   camera?: CameraKey[];
   moments?: MomentCue[];
+  sounds?: SoundCue[];
+  effects?: EffectCue[];
+  cgs?: CgCue[];
 }
 
 export interface BookBundle {
