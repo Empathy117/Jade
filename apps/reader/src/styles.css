@@ -155,10 +155,16 @@ button { color: inherit; }
   right: 0;
   height: var(--letterbox, 0%);
   background: #050504;
-  transition: height var(--letterbox-ms, 1400ms) cubic-bezier(.22,.61,.36,1);
+  /* A hairline keeps the bars legible as a frame even over a dark plate. */
+  border: 0 solid transparent;
+  transition:
+    height var(--letterbox-ms, 1400ms) cubic-bezier(.22,.61,.36,1),
+    border-color var(--letterbox-ms, 1400ms) ease;
 }
-.stage-letterbox::before { top: 0; }
-.stage-letterbox::after { bottom: 0; }
+.stage-letterbox::before { top: 0; border-bottom-width: 1px; }
+.stage-letterbox::after { bottom: 0; border-top-width: 1px; }
+.stage-letterbox.is-active::before,
+.stage-letterbox.is-active::after { border-color: rgba(214,194,143,.28); }
 .stage-flash { pointer-events: none; animation: stage-flash 600ms ease-out both; }
 .stage-flash--white { background: #fffaf0; }
 .stage-flash--black { background: #000; }

@@ -127,7 +127,7 @@ export function Stage({
         }}
       />
       <div
-        className="stage-letterbox"
+        className={`stage-letterbox${letterbox > 0 ? " is-active" : ""}`}
         style={
           {
             "--letterbox": `${letterbox * 100}%`,
