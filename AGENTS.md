@@ -37,7 +37,9 @@ Non-negotiable rules:
   ([`docs/music-library.md`](docs/music-library.md)) as a reference when choosing
   BGM; the best-fitting track wins, and a gap is recorded for the user to fill
   rather than papered over. Library recordings never enter tracked bundles.
-- Prefer stable, restrained presentation over frequent asset changes.
+- Prefer stable, restrained presentation over frequent asset changes. A book
+  may opt into the `visual_novel` profile (ADR-0005) for denser staging; its
+  wider budget is still enforced by the validator.
 - Record a license, source, and attribution decision for every asset, and pin
   the finished catalog's bytes with `just hash-assets` before validating.
 - Validate the complete bundle and `books/library.json` before handoff.
