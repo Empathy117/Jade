@@ -13,6 +13,10 @@ from immersive_reader.documents import (
     schema_issues,
     sha256_file,
 )
+from immersive_reader.staging_validation import (
+    validate_direction_staging,
+    validate_playback_staging,
+)
 
 __all__ = ["JsonObject", "ValidationIssue", "validate_bundle"]
 
@@ -81,6 +85,12 @@ def validate_bundle(
                 documents["direction.json"],
             )
         )
+        issues.extend(
+            validate_direction_staging(
+                documents["source.json"],
+                documents["direction.json"],
+            )
+        )
 
     if {"source.json", "guide.json"} <= schema_valid_documents:
         issues.extend(_validate_guide(documents["source.json"], documents["guide.json"]))
@@ -105,6 +115,14 @@ def validate_bundle(
     } <= schema_valid_documents:
         issues.extend(
             _validate_playback(
+                documents["source.json"],
+                documents["direction.json"],
+                documents["assets.json"],
+                documents["playback.json"],
+            )
+        )
+        issues.extend(
+            validate_playback_staging(
                 documents["source.json"],
                 documents["direction.json"],
                 documents["assets.json"],

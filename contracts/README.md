@@ -23,6 +23,12 @@ any of them is rejected. The framing metadata on background assets
 (`focal_points`, `text_safe_area`, `min_scale_headroom`) is optional and
 additive, so `assets` stays at version 1.
 
+The validator enforces the v2 cross-document rules: shots stay inside their
+scene, a shot's `focus` names a focal point on the background showing there,
+camera scale stays within that background's `min_scale_headroom` (1.2 when
+unrecorded), playback moments mirror directed moments, and the ADR-0004
+restraint budget holds.
+
 The `$id` of each schema includes its major contract version. The repository
 keeps older schemas while any stored book still depends on them.
 
