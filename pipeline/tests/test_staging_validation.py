@@ -327,3 +327,11 @@ def test_visual_novel_budget_allows_denser_moments() -> None:
     visual_novel = {**direction_with(moments), "profile": "visual_novel"}
     assert "moments_too_close" in issue_codes(validate_direction_staging(source, immersive))
     assert validate_direction_staging(source, visual_novel) == []
+
+
+def test_immersive_profile_rejects_mask_transitions(tmp_path: Path) -> None:
+    bundle = staged_bundle(tmp_path)
+    edit(
+        bundle, "playback.json", lambda p: p["cues"][0]["background"].update(transition="iris")
+    )
+    assert "profile_feature" in issue_codes(validate_bundle(bundle, contracts_dir=CONTRACTS))

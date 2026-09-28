@@ -28,6 +28,7 @@ BUDGETS = {
 # Only a visual-novel book may use these; an immersive book stays restrained.
 VISUAL_NOVEL_FIELDS = ("sounds", "effects", "cgs")
 VISUAL_NOVEL_SCENE_FIELDS = ("layout", "atmosphere")
+VISUAL_NOVEL_TRANSITIONS = ("iris", "wipe")
 # Scale a background may be pushed to when its catalog entry records no
 # headroom: enough for a gentle drift or a medium framing, not a close-up.
 DEFAULT_SCALE_HEADROOM = 1.2
@@ -421,6 +422,13 @@ def _validate_visual_novel_playback(
             if playback.get(field):
                 issue(f"$.{field}", "profile_feature", f"{field} needs profile visual_novel")
         for index, cue in enumerate(playback["cues"]):
+            transition = (cue.get("background") or {}).get("transition")
+            if transition in VISUAL_NOVEL_TRANSITIONS:
+                issue(
+                    f"$.cues[{index}].background.transition",
+                    "profile_feature",
+                    f"{transition} transition needs profile visual_novel",
+                )
             for field in VISUAL_NOVEL_SCENE_FIELDS:
                 if field in cue:
                     issue(
