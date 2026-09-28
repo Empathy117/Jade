@@ -154,6 +154,19 @@ heavy vignette. No text, letters, signature or watermark. 16:9 wide, 2560x1440.
 | `heartbeat.mp3` | 缓慢的心跳两下，低频为主 |
 | `rustle.mp3` | 黑暗中草丛或布料的沙沙声 |
 
+2026-09-28 检索过的候选（尚未下载，用户决定暂缓）：
+
+| 用途 | 候选 | 授权 | 大小 |
+|---|---|---|---|
+| 狗吠 | OpenGameArt「Dog barking mono」`dog_barking_mono.wav`（Brandon Morris） | CC0 / OGA-BY 3.0 | 180KB |
+| 低吼 | OpenGameArt「Dog sounds」`dog.7z`（pauliuw），作者注明部分有底噪 | CC0 | 1.8MB |
+| 破门、门被冲开 | OpenGameArt「100 CC0 metal and wood SFX」（rubberduck） | CC0 | 2MB |
+| 笑声 | OpenGameArt「Group giggling」`group_giggling.ogg`（Nocturnal_Vanguard），需闷化成隔门效果 | CC0 | 150KB |
+| 心跳 | OpenGameArt「Heartbeat sounds」`heartbeat_slow_0.wav`（bart） | CC0 | 635KB |
+| 沙沙声 | OpenGameArt「20 Rustles of dry leaves」`qubodup-rustle.7z`（qubodup） | CC0 | 10.6MB |
+| 猫嚎 | Wikimedia Commons「Felis silvestris catus, aggressie, 2023-08-19 02h06, a.mp3」（JMK），两只猫夜间对峙 | CC BY-SA 4.0，需署名且衍生片段同授权 | 3.55MB |
+| 低语 | 未找到合适的 CC0 录音；Commons 上只有单人英文耳语单词 | — | — |
+
 ## 仍需人工判断
 
 - 一首曲子是否“好听且适合长期阅读”无法只靠技术指标判断；
