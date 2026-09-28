@@ -29,6 +29,14 @@ camera scale stays within that background's `min_scale_headroom` (1.2 when
 unrecorded), playback moments mirror directed moments, and the ADR-0004
 restraint budget holds.
 
+Playback v2 semantics the Compiler must honour:
+
+- Camera `x` and `y` run from -1 to 1 within the slack the scale leaves; at
+  `x: 1` the image's right edge meets the viewport's. Keys interpolate by
+  reading position and never across a background cue.
+- A grade stays in force until the next cue grade or `grade_shift`; emit a
+  grade with `shade: 0` to return a scene to the ungraded plate.
+
 The `$id` of each schema includes its major contract version. The repository
 keeps older schemas while any stored book still depends on them.
 
