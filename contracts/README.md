@@ -29,6 +29,11 @@ camera scale stays within that background's `min_scale_headroom` (1.2 when
 unrecorded), playback moments mirror directed moments, and the ADR-0004
 restraint budget holds.
 
+Version 2 also carries the opt-in `visual_novel` profile
+([ADR-0005](../docs/adr/0005-visual-novel-presentation-profile.md)): per-scene
+`layout` and `atmosphere`, beat-anchored `sounds` and `effects`, CG spans
+(`cgs`), and `iris`/`wipe` transitions. Assets gain the `cg` and `sfx` types.
+
 Playback v2 semantics the Compiler must honour:
 
 - Camera `x` and `y` run from -1 to 1 within the slack the scale leaves; at

@@ -47,6 +47,27 @@
       "items": {
         "$ref": "#/$defs/moment"
       }
+    },
+    "profile": {
+      "enum": ["immersive", "visual_novel"]
+    },
+    "sounds": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/sound"
+      }
+    },
+    "effects": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/effect"
+      }
+    },
+    "cgs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/cg"
+      }
     }
   },
   "$defs": {
@@ -197,6 +218,21 @@
         },
         "grade": {
           "$ref": "#/$defs/tag"
+        },
+        "layout": {
+          "enum": ["nvl", "adv"]
+        },
+        "atmosphere": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "particles": {
+              "enum": ["dust"]
+            },
+            "flicker": {
+              "enum": ["faint", "unsteady"]
+            }
+          }
         }
       }
     },
@@ -310,6 +346,101 @@
           }
         }
       ]
+    },
+    "soundId": {
+      "type": "string",
+      "pattern": "^sound_[0-9]{3,}$"
+    },
+    "cgId": {
+      "type": "string",
+      "pattern": "^cg_[0-9]{3,}$"
+    },
+    "sound": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "at", "tags", "intent"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/soundId"
+        },
+        "at": {
+          "$ref": "#/$defs/paragraphId"
+        },
+        "beat": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tags": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/tagList"
+            },
+            {
+              "minItems": 1
+            }
+          ]
+        },
+        "intent": {
+          "$ref": "#/$defs/tag"
+        }
+      }
+    },
+    "effect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["at", "type", "strength"],
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/paragraphId"
+        },
+        "beat": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "type": {
+          "enum": ["shake", "pulse", "tremble"]
+        },
+        "strength": {
+          "enum": ["light", "medium", "strong"]
+        }
+      }
+    },
+    "cg": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "at", "until", "tags", "intent"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/cgId"
+        },
+        "at": {
+          "$ref": "#/$defs/paragraphId"
+        },
+        "beat": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "until": {
+          "$ref": "#/$defs/paragraphId"
+        },
+        "until_beat": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tags": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/tagList"
+            },
+            {
+              "minItems": 1
+            }
+          ]
+        },
+        "intent": {
+          "$ref": "#/$defs/tag"
+        }
+      }
     }
   },
   "allOf": [
@@ -329,6 +460,18 @@
             },
             {
               "required": ["moments"]
+            },
+            {
+              "required": ["profile"]
+            },
+            {
+              "required": ["sounds"]
+            },
+            {
+              "required": ["effects"]
+            },
+            {
+              "required": ["cgs"]
             }
           ]
         }
@@ -353,6 +496,12 @@
                   },
                   {
                     "required": ["grade"]
+                  },
+                  {
+                    "required": ["layout"]
+                  },
+                  {
+                    "required": ["atmosphere"]
                   }
                 ]
               }

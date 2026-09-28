@@ -25,6 +25,12 @@
           },
           {
             "$ref": "#/$defs/ambienceAsset"
+          },
+          {
+            "$ref": "#/$defs/cgAsset"
+          },
+          {
+            "$ref": "#/$defs/sfxAsset"
           }
         ]
       }
@@ -68,7 +74,7 @@
           "minLength": 1
         },
         "type": {
-          "enum": ["background", "music", "ambience"]
+          "enum": ["background", "music", "ambience", "cg", "sfx"]
         },
         "path": {
           "$ref": "#/$defs/relativePath"
@@ -189,6 +195,44 @@
         "maximum": 1
       },
       "description": "x, y, width, height as fractions of the image"
+    },
+    "cgAsset": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/assetBase"
+        },
+        {
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": {
+              "const": "cg"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "sfxAsset": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/assetBase"
+        },
+        {
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": {
+              "const": "sfx"
+            },
+            "duration_ms": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
     }
   }
 }

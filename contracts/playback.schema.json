@@ -47,6 +47,24 @@
       "items": {
         "$ref": "#/$defs/momentCue"
       }
+    },
+    "sounds": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/soundCue"
+      }
+    },
+    "effects": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/effectCue"
+      }
+    },
+    "cgs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/cgCue"
+      }
     }
   },
   "$defs": {
@@ -71,7 +89,7 @@
       "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
     },
     "transition": {
-      "enum": ["cut", "crossfade"]
+      "enum": ["cut", "crossfade", "iris", "wipe"]
     },
     "backgroundState": {
       "type": "object",
@@ -172,6 +190,12 @@
         },
         "grade": {
           "$ref": "#/$defs/gradeState"
+        },
+        "layout": {
+          "enum": ["nvl", "adv"]
+        },
+        "atmosphere": {
+          "$ref": "#/$defs/atmosphereState"
         }
       },
       "anyOf": [
@@ -189,6 +213,12 @@
         },
         {
           "required": ["grade"]
+        },
+        {
+          "required": ["layout"]
+        },
+        {
+          "required": ["atmosphere"]
         }
       ]
     },
@@ -338,6 +368,133 @@
           }
         }
       }
+    },
+    "soundId": {
+      "type": "string",
+      "pattern": "^sound_[0-9]{3,}$"
+    },
+    "cgId": {
+      "type": "string",
+      "pattern": "^cg_[0-9]{3,}$"
+    },
+    "soundCue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "at", "asset_id", "gain"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/soundId"
+        },
+        "at": {
+          "$ref": "#/$defs/paragraphId"
+        },
+        "beat": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "asset_id": {
+          "$ref": "#/$defs/assetId"
+        },
+        "gain": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "delay_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5000
+        }
+      }
+    },
+    "effectCue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["at", "type", "intensity"],
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/paragraphId"
+        },
+        "beat": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "type": {
+          "enum": ["shake", "pulse", "tremble"]
+        },
+        "intensity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5000
+        }
+      }
+    },
+    "cgCue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "at", "until", "asset_id", "transition", "duration_ms"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/cgId"
+        },
+        "at": {
+          "$ref": "#/$defs/paragraphId"
+        },
+        "beat": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "until": {
+          "$ref": "#/$defs/paragraphId"
+        },
+        "until_beat": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "asset_id": {
+          "$ref": "#/$defs/assetId"
+        },
+        "transition": {
+          "$ref": "#/$defs/transition"
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 30000
+        }
+      }
+    },
+    "atmosphereState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["particles", "density", "flicker"],
+      "properties": {
+        "particles": {
+          "oneOf": [
+            {
+              "enum": ["dust"]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "density": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "flicker": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
     }
   },
   "allOf": [
@@ -357,6 +514,15 @@
             },
             {
               "required": ["moments"]
+            },
+            {
+              "required": ["sounds"]
+            },
+            {
+              "required": ["effects"]
+            },
+            {
+              "required": ["cgs"]
             }
           ]
         }
@@ -375,7 +541,17 @@
           "cues": {
             "items": {
               "not": {
-                "required": ["grade"]
+                "anyOf": [
+                  {
+                    "required": ["grade"]
+                  },
+                  {
+                    "required": ["layout"]
+                  },
+                  {
+                    "required": ["atmosphere"]
+                  }
+                ]
               }
             }
           }
