@@ -42,8 +42,10 @@ Playback v2 semantics the Compiler must honour:
 - A grade stays in force until the next cue grade or `grade_shift`; emit a
   grade with `shade: 0` to return a scene to the ungraded plate.
 
-The `$id` of each schema includes its major contract version. The repository
-keeps older schemas while any stored book still depends on them.
+The `$id` of each schema still carries the `/v1/` path of the first contract.
+A document's version is its `schema_version`; `direction` and `playback`
+accept 1 and 2 in the same file. The repository keeps older schemas while any
+stored book still depends on them.
 
 ## Documents
 
