@@ -14,7 +14,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": 1
+      "enum": [1, 2]
     },
     "book_id": {
       "$ref": "#/$defs/bookId"
@@ -34,6 +34,18 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/cue"
+      }
+    },
+    "camera": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/cameraKey"
+      }
+    },
+    "moments": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/momentCue"
       }
     }
   },
@@ -157,6 +169,9 @@
         },
         "clear_text": {
           "type": "boolean"
+        },
+        "grade": {
+          "$ref": "#/$defs/gradeState"
         }
       },
       "anyOf": [
@@ -171,8 +186,201 @@
         },
         {
           "required": ["clear_text"]
+        },
+        {
+          "required": ["grade"]
         }
       ]
+    },
+    "unit": {
+      "type": "number",
+      "minimum": -1,
+      "maximum": 1
+    },
+    "momentId": {
+      "type": "string",
+      "pattern": "^moment_[0-9]{3,}$"
+    },
+    "cameraKey": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["at", "scale", "x", "y"],
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/paragraphId"
+        },
+        "beat": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "scale": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 3
+        },
+        "x": {
+          "$ref": "#/$defs/unit"
+        },
+        "y": {
+          "$ref": "#/$defs/unit"
+        },
+        "blur": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 40
+        },
+        "drift": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.02
+        }
+      }
+    },
+    "gradeState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tint", "shade", "saturation", "duration_ms"],
+      "properties": {
+        "tint": {
+          "type": "string",
+          "pattern": "^#[0-9a-f]{6}$"
+        },
+        "shade": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "saturation": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1.5
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 30000
+        }
+      }
+    },
+    "momentCue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "at", "template", "params"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/momentId"
+        },
+        "at": {
+          "$ref": "#/$defs/paragraphId"
+        },
+        "beat": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "template": {
+          "enum": [
+            "letterbox_hold",
+            "isolate_line",
+            "silence",
+            "grade_shift",
+            "flash_cut",
+            "slow_reveal"
+          ]
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "in_ms": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000
+            },
+            "out_ms": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000
+            },
+            "hold_ms": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2500
+            },
+            "dim": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "blur_px": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 40
+            },
+            "letterbox": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 0.25
+            },
+            "flash": {
+              "enum": ["white", "black"]
+            },
+            "music_gain": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "grade": {
+              "$ref": "#/$defs/gradeState"
+            },
+            "hide_chrome": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": 1
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "anyOf": [
+            {
+              "required": ["camera"]
+            },
+            {
+              "required": ["moments"]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": 1
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "cues": {
+            "items": {
+              "not": {
+                "required": ["grade"]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }

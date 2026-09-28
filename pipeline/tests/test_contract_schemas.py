@@ -25,3 +25,97 @@ def test_valid_fixture_documents_match_their_schemas() -> None:
         document = json.loads((VALID_BUNDLE / document_name).read_text(encoding="utf-8"))
         schema = json.loads((CONTRACTS / schema_name).read_text(encoding="utf-8"))
         Draft202012Validator(schema).validate(document)
+
+
+def _load(name: str) -> dict:
+    return json.loads((VALID_BUNDLE / name).read_text(encoding="utf-8"))
+
+
+def _validator(schema_name: str) -> Draft202012Validator:
+    schema = json.loads((CONTRACTS / schema_name).read_text(encoding="utf-8"))
+    return Draft202012Validator(schema)
+
+
+def _direction_v2() -> dict:
+    direction = _load("direction.json")
+    direction["schema_version"] = 2
+    direction["grades"] = {
+        "night": {"tint": "#1d2433", "shade": 0.52, "saturation": 0.7},
+    }
+    scene = direction["scenes"][0]
+    scene["grade"] = "night"
+    scene["shots"] = [
+        {"at": "p0002", "framing": "wide", "move": "drift"},
+        {"at": "p0003", "beat": 1, "framing": "close", "move": "push_in", "focus": "trail"},
+    ]
+    direction["moments"] = [
+        {"id": "moment_001", "at": "p0003", "template": "isolate_line", "intent": "threat"},
+    ]
+    return direction
+
+
+def _playback_v2() -> dict:
+    playback = _load("playback.json")
+    playback["schema_version"] = 2
+    playback["camera"] = [
+        {"at": "p0002", "scale": 1.0, "x": 0, "y": 0, "drift": 0.01},
+        {"at": "p0003", "beat": 1, "scale": 1.4, "x": 0.1, "y": -0.05, "blur": 0},
+    ]
+    playback["moments"] = [
+        {
+            "id": "moment_001",
+            "at": "p0003",
+            "template": "isolate_line",
+            "params": {"dim": 0.72, "blur_px": 14, "in_ms": 900, "out_ms": 1400,
+                       "hide_chrome": True},
+        },
+    ]
+    playback["cues"][0]["grade"] = {
+        "tint": "#1d2433", "shade": 0.52, "saturation": 0.7, "duration_ms": 1600,
+    }
+    return playback
+
+
+def test_v2_direction_and_playback_match_their_schemas() -> None:
+    _validator("direction.schema.json").validate(_direction_v2())
+    _validator("playback.schema.json").validate(_playback_v2())
+
+
+def test_v1_documents_reject_v2_fields() -> None:
+    direction = _direction_v2()
+    direction["schema_version"] = 1
+    playback = _playback_v2()
+    playback["schema_version"] = 1
+    assert not _validator("direction.schema.json").is_valid(direction)
+    assert not _validator("playback.schema.json").is_valid(playback)
+
+    direction = _load("direction.json")
+    direction["scenes"][0]["shots"] = [{"at": "p0002", "framing": "wide", "move": "hold"}]
+    assert not _validator("direction.schema.json").is_valid(direction)
+
+
+def test_grade_shift_moment_requires_a_grade() -> None:
+    direction = _direction_v2()
+    direction["moments"][0]["template"] = "grade_shift"
+    assert not _validator("direction.schema.json").is_valid(direction)
+    direction["moments"][0]["grade"] = "night"
+    assert _validator("direction.schema.json").is_valid(direction)
+
+
+def test_moment_hold_is_capped() -> None:
+    direction = _direction_v2()
+    direction["moments"][0]["hold_ms"] = 2501
+    assert not _validator("direction.schema.json").is_valid(direction)
+
+
+def test_background_assets_accept_framing_metadata() -> None:
+    assets = _load("assets.json")
+    background = next(a for a in assets["assets"] if a["type"] == "background")
+    background["focal_points"] = {"trail": [0.4, 0.5, 0.2, 0.3]}
+    background["text_safe_area"] = [0.08, 0.35, 0.84, 0.55]
+    background["min_scale_headroom"] = 1.6
+    _validator("assets.schema.json").validate(assets)
+
+    music = next(a for a in assets["assets"] if a["type"] == "music")
+    music["focal_points"] = {"trail": [0.4, 0.5, 0.2, 0.3]}
+    assert not _validator("assets.schema.json").is_valid(assets)

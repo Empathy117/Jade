@@ -16,6 +16,13 @@ contract for the prototype.
 - A migration creates a new document; it never rewrites an immutable source
   revision in place.
 
+`direction` and `playback` accept versions `1` and `2` in one schema file
+([ADR-0004](../docs/adr/0004-reading-driven-camera-and-moments.md)). Version 2
+adds shots, key moments, and grade tokens; a version-1 document that carries
+any of them is rejected. The framing metadata on background assets
+(`focal_points`, `text_safe_area`, `min_scale_headroom`) is optional and
+additive, so `assets` stays at version 1.
+
 The `$id` of each schema includes its major contract version. The repository
 keeps older schemas while any stored book still depends on them.
 
