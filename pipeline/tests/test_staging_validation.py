@@ -208,3 +208,122 @@ def test_flash_cut_is_rare() -> None:
     assert "flash_cut_budget_exceeded" in issue_codes(
         validate_direction_staging(source, flashy)
     )
+
+
+def visual_novel_bundle(tmp_path: Path) -> Path:
+    bundle = staged_bundle(tmp_path)
+    (bundle / "assets" / "cg").mkdir(parents=True)
+    (bundle / "assets" / "sfx").mkdir(parents=True)
+    (bundle / "assets" / "cg" / "keyhole.jpg").write_bytes(b"cg")
+    (bundle / "assets" / "sfx" / "door.mp3").write_bytes(b"sfx")
+
+    def assets(document: dict) -> None:
+        base = {"tags": ["x"], "license": "CC0-1.0", "source": "test", "attribution": None}
+        document["assets"] += [
+            {"id": "cg_keyhole", "type": "cg", "path": "assets/cg/keyhole.jpg", **base},
+            {"id": "sfx_door", "type": "sfx", "path": "assets/sfx/door.mp3", **base},
+        ]
+
+    def direction(document: dict) -> None:
+        document["profile"] = "visual_novel"
+        document["scenes"][0]["layout"] = "adv"
+        document["scenes"][0]["atmosphere"] = {"particles": "dust"}
+        document["sounds"] = [
+            {"id": "sound_001", "at": "p0003", "tags": ["door"], "intent": "impact"},
+        ]
+        document["effects"] = [{"at": "p0003", "type": "shake", "strength": "medium"}]
+        document["cgs"] = [
+            {
+                "id": "cg_001",
+                "at": "p0002",
+                "until": "p0003",
+                "tags": ["keyhole"],
+                "intent": "threat",
+            },
+        ]
+
+    def playback(document: dict) -> None:
+        cue = document["cues"][0]
+        cue["layout"] = "adv"
+        cue["atmosphere"] = {"particles": "dust", "density": 0.4, "flicker": 0}
+        document["sounds"] = [
+            {"id": "sound_001", "at": "p0003", "asset_id": "sfx_door", "gain": 0.8}
+        ]
+        document["effects"] = [{"at": "p0003", "type": "shake", "intensity": 0.5}]
+        document["cgs"] = [
+            {
+                "id": "cg_001",
+                "at": "p0002",
+                "until": "p0003",
+                "asset_id": "cg_keyhole",
+                "transition": "iris",
+                "duration_ms": 1200,
+            }
+        ]
+
+    edit(bundle, "assets.json", assets)
+    edit(bundle, "direction.json", direction)
+    edit(bundle, "playback.json", playback)
+    return bundle
+
+
+def test_visual_novel_bundle_is_valid(tmp_path: Path) -> None:
+    assert validate_bundle(visual_novel_bundle(tmp_path), contracts_dir=CONTRACTS) == []
+
+
+def test_immersive_profile_rejects_visual_novel_features(tmp_path: Path) -> None:
+    bundle = visual_novel_bundle(tmp_path)
+    edit(bundle, "direction.json", lambda d: d.pop("profile"))
+    assert "profile_feature" in issue_codes(validate_bundle(bundle, contracts_dir=CONTRACTS))
+
+
+def test_playback_channels_must_mirror_direction(tmp_path: Path) -> None:
+    bundle = visual_novel_bundle(tmp_path)
+    edit(bundle, "playback.json", lambda p: p["effects"][0].update(type="pulse"))
+    edit(bundle, "playback.json", lambda p: p["cgs"][0].update(until="p0004"))
+    codes = issue_codes(validate_bundle(bundle, contracts_dir=CONTRACTS))
+    assert {"effects_mismatch", "cgs_mismatch"} <= codes
+
+
+def test_sound_and_cg_assets_must_have_the_right_type(tmp_path: Path) -> None:
+    bundle = visual_novel_bundle(tmp_path)
+    edit(bundle, "playback.json", lambda p: p["sounds"][0].update(asset_id="cg_keyhole"))
+    assert "asset_type_mismatch" in issue_codes(
+        validate_bundle(bundle, contracts_dir=CONTRACTS)
+    )
+
+
+def test_cg_spans_may_not_overlap(tmp_path: Path) -> None:
+    bundle = visual_novel_bundle(tmp_path)
+
+    def overlap(direction: dict) -> None:
+        direction["cgs"].append(
+            {"id": "cg_002", "at": "p0003", "until": "p0004", "tags": ["x"], "intent": "x"}
+        )
+
+    edit(bundle, "direction.json", overlap)
+    assert "cg_overlap" in issue_codes(validate_bundle(bundle, contracts_dir=CONTRACTS))
+
+
+def test_sounds_per_beat_are_capped(tmp_path: Path) -> None:
+    bundle = visual_novel_bundle(tmp_path)
+
+    def crowd(direction: dict) -> None:
+        for number in (2, 3):
+            direction["sounds"].append(
+                {"id": f"sound_00{number}", "at": "p0003", "tags": ["x"], "intent": "x"}
+            )
+
+    edit(bundle, "direction.json", crowd)
+    assert "sound_budget_exceeded" in issue_codes(
+        validate_bundle(bundle, contracts_dir=CONTRACTS)
+    )
+
+
+def test_visual_novel_budget_allows_denser_moments() -> None:
+    source = long_source(1, 100)
+    moments = [moment(1, 2), moment(2, 12), moment(3, 22)]
+    immersive = direction_with(moments)
+    visual_novel = {**direction_with(moments), "profile": "visual_novel"}
+    assert "moments_too_close" in issue_codes(validate_direction_staging(source, immersive))
+    assert validate_direction_staging(source, visual_novel) == []
