@@ -157,14 +157,62 @@ export interface Scene {
   weather: string | null;
   mood: string[];
   tension: number;
+  /** v2: framing intent within the scene; the Reader plays resolved camera keys. */
+  shots?: Shot[];
+  /** v2: name of an entry in `DirectionDocument.grades`. */
+  grade?: string;
+}
+
+export type ShotFraming = "wide" | "medium" | "close" | "detail";
+export type ShotMove =
+  | "hold"
+  | "drift"
+  | "push_in"
+  | "pull_out"
+  | "pan_left"
+  | "pan_right"
+  | "rack_focus";
+
+export interface Shot {
+  at: string;
+  beat?: number;
+  framing: ShotFraming;
+  move: ShotMove;
+  focus?: string;
+}
+
+export type MomentTemplate =
+  | "letterbox_hold"
+  | "isolate_line"
+  | "silence"
+  | "grade_shift"
+  | "flash_cut"
+  | "slow_reveal";
+
+export interface DirectedMoment {
+  id: string;
+  at: string;
+  beat?: number;
+  template: MomentTemplate;
+  intent: string;
+  hold_ms?: number;
+  grade?: string;
+}
+
+export interface GradeToken {
+  tint: string;
+  shade: number;
+  saturation: number;
 }
 
 export interface DirectionDocument {
-  schema_version: 1;
+  schema_version: 1 | 2;
   book_id: string;
   source_revision: number;
   source_sha256: string;
   scenes: Scene[];
+  grades?: Record<string, GradeToken>;
+  moments?: DirectedMoment[];
 }
 
 export type AssetType = "background" | "music" | "ambience";
@@ -180,6 +228,10 @@ export interface Asset {
   attribution: string | null;
   loop?: boolean;
   duration_ms?: number;
+  /** Background only: named regions as [x, y, width, height] fractions. */
+  focal_points?: Record<string, [number, number, number, number]>;
+  text_safe_area?: [number, number, number, number];
+  min_scale_headroom?: number;
 }
 
 export interface AssetsDocument {
@@ -210,15 +262,62 @@ export interface PlaybackCue {
   music?: MusicCue | null;
   ambience?: AmbienceCue[];
   clear_text?: boolean;
+  /** v2: colour grade from this paragraph on. */
+  grade?: GradeState;
+}
+
+export interface GradeState extends GradeToken {
+  duration_ms: number;
+}
+
+/**
+ * A resolved camera framing at one reading position.
+ *
+ * `x` and `y` run from -1 to 1 and place the frame within the slack the scale
+ * leaves: at `x: 1` the image's right edge meets the viewport's right edge, so
+ * no framing can ever expose the stage behind the plate.
+ */
+export interface CameraKey {
+  at: string;
+  beat?: number;
+  scale: number;
+  x: number;
+  y: number;
+  blur?: number;
+  /** Amplitude of the idle drift while this key holds, as a scale fraction. */
+  drift?: number;
+}
+
+export interface MomentParams {
+  in_ms?: number;
+  out_ms?: number;
+  hold_ms?: number;
+  dim?: number;
+  blur_px?: number;
+  letterbox?: number;
+  flash?: "white" | "black";
+  music_gain?: number;
+  grade?: GradeState;
+  hide_chrome?: boolean;
+}
+
+export interface MomentCue {
+  id: string;
+  at: string;
+  beat?: number;
+  template: MomentTemplate;
+  params: MomentParams;
 }
 
 export interface PlaybackDocument {
-  schema_version: 1;
+  schema_version: 1 | 2;
   book_id: string;
   source_revision: number;
   source_sha256: string;
   asset_catalog_id: string;
   cues: PlaybackCue[];
+  camera?: CameraKey[];
+  moments?: MomentCue[];
 }
 
 export interface BookBundle {

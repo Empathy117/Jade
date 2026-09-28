@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { LibraryScreen } from "./LibraryScreen";
-import { BackgroundStage } from "./reader/BackgroundStage";
 import { CoverScreen } from "./reader/CoverScreen";
 import {
   assetUrl,
@@ -97,6 +96,8 @@ import type {
   SourceIllustration,
 } from "./reader/types";
 import { unlockAudio, useAudioDirector } from "./reader/useAudioDirector";
+import { Stage } from "./reader/Stage";
+import { useStaging, type ReadingStep } from "./reader/useStaging";
 
 /** Shown before a bundle loads: no background, no music, no ambience. */
 const SILENT_PLAYBACK: ResolvedPlaybackState = {
@@ -131,6 +132,7 @@ export function App() {
     furthestReadIndex: 1,
   });
   const [beatIndex, setBeatIndex] = useState(0);
+  const [readingStep, setReadingStep] = useState<ReadingStep>({ serial: 0, direction: 1 });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [contentsOpen, setContentsOpen] = useState(false);
@@ -348,13 +350,6 @@ export function App() {
         : SILENT_PLAYBACK,
     [bundle, currentIndex, sourcePositions],
   );
-  const audioError = useAudioDirector({
-    started,
-    bookPath: selectedBook?.path ?? null,
-    playback: playbackState,
-    assets,
-    settings,
-  });
 
   const activeScene = useMemo(
     () => (bundle ? sceneAt(sourcePositions, bundle.direction, currentIndex) : null),
@@ -393,6 +388,29 @@ export function App() {
     [bundle, currentIndex],
   );
   const activeBeatIndex = Math.min(beatIndex, Math.max(0, currentBeats.length - 1));
+  const staging = useStaging(
+    bundle,
+    sourcePositions,
+    { index: currentIndex, beat: activeBeatIndex },
+    readingStep,
+  );
+  const stagedPlayback = useMemo(
+    () =>
+      staging.musicGain === 1 || !playbackState.music
+        ? playbackState
+        : {
+            ...playbackState,
+            music: { ...playbackState.music, gain: playbackState.music.gain * staging.musicGain },
+          },
+    [playbackState, staging.musicGain],
+  );
+  const audioError = useAudioDirector({
+    started,
+    bookPath: selectedBook?.path ?? null,
+    playback: stagedPlayback,
+    assets,
+    settings,
+  });
   const visibleStart = useMemo(
     () =>
       bundle
@@ -480,14 +498,19 @@ export function App() {
     image.src = upcomingBackgroundSrc;
   }, [started, upcomingBackgroundSrc]);
 
+  const { consumeHold } = staging;
   const next = useCallback(() => {
     if (!bundle) return;
+    // A key moment's pacing hold spends the first turn instead of the page.
+    if (consumeHold()) return;
     if (activeBeatIndex < currentBeats.length - 1) {
       setBeatIndex(activeBeatIndex + 1);
+      setReadingStep((step) => ({ serial: step.serial + 1, direction: 1 }));
       return;
     }
     if (currentIndex >= lastIndex) return;
     setBeatIndex(0);
+    setReadingStep((step) => ({ serial: step.serial + 1, direction: 1 }));
     setCursor((current) =>
       moveReadingCursor(
         bundle.source,
@@ -495,12 +518,13 @@ export function App() {
         nextFlowIndex(bundle.source.paragraphs, current.currentIndex),
       ),
     );
-  }, [activeBeatIndex, bundle, currentBeats.length, currentIndex, lastIndex]);
+  }, [activeBeatIndex, bundle, consumeHold, currentBeats.length, currentIndex, lastIndex]);
 
   const previous = useCallback(() => {
     if (!bundle) return;
     if (activeBeatIndex > 0) {
       setBeatIndex(activeBeatIndex - 1);
+      setReadingStep((step) => ({ serial: step.serial + 1, direction: -1 }));
       return;
     }
     const targetIndex = previousFlowIndex(
@@ -510,6 +534,7 @@ export function App() {
     );
     const targetBeats = readingBeats(bundle.source.paragraphs[targetIndex]);
     setBeatIndex(Math.max(0, targetBeats.length - 1));
+    setReadingStep((step) => ({ serial: step.serial + 1, direction: -1 }));
     setCursor((current) =>
       moveReadingCursor(
         bundle.source,
@@ -806,6 +831,7 @@ export function App() {
   }
 
   function handleReaderPointerMove(event: React.PointerEvent<HTMLElement>) {
+    if (staging.chromeHidden && event.pointerType === "mouse") staging.revealChrome();
     const press = readerPress.current;
     if (!press || press.moved || !event.isPrimary) return;
     if (!isTap(event.clientX - press.x, event.clientY - press.y)) press.moved = true;
@@ -909,7 +935,7 @@ export function App() {
 
   return (
     <main
-      className={`reader-app${started ? " is-reading" : " is-cover"}${settings.pureMode ? " is-pure" : ""}${settings.reducedMotion ? " is-reduced-motion" : ""}${settings.sansFont ? " is-font-sans" : ""}`}
+      className={`reader-app${started ? " is-reading" : " is-cover"}${settings.pureMode ? " is-pure" : ""}${settings.reducedMotion ? " is-reduced-motion" : ""}${settings.sansFont ? " is-font-sans" : ""}${staging.chromeHidden ? " is-chrome-hidden" : ""}${staging.isolating ? " is-isolating" : ""}`}
       style={{ "--font-scale": settings.fontScale } as React.CSSProperties}
       onPointerDown={started ? handleReaderPointerDown : undefined}
       onPointerMove={started ? handleReaderPointerMove : undefined}
@@ -917,9 +943,13 @@ export function App() {
       onTouchStart={started ? handleTouchStart : undefined}
       onTouchEnd={started ? handleTouchEnd : undefined}
     >
-      <BackgroundStage
+      <Stage
         src={backgroundSrc}
         durationMs={playbackState.background?.duration_ms ?? 1200}
+        camera={staging.camera}
+        stepped={staging.stepped}
+        grade={staging.grade}
+        moment={started ? staging.moment : null}
         reducedMotion={settings.reducedMotion}
         hidden={settings.pureMode}
       />
