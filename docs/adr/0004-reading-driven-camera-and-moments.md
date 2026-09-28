@@ -190,7 +190,8 @@ plate → (parallax, later) → grade → vignette / letterbox → reading surfa
 
 ## Rollout
 
-1. Schemas v2 for `direction`, `assets`, `playback`; validator accepts v1 and v2.
+1. Schemas v2 for `direction` and `playback`; validator accepts v1 and v2. The
+   framing metadata on `assets` is optional and additive, so `assets` stays v1.
 2. Runtime `Stage` with camera interpolation and grade tokens; reduced-motion path.
 3. Moment templates `isolate_line`, `letterbox_hold`, `silence`.
 4. Pilot on one chapter of a public-domain book; run the experience gate.
