@@ -68,6 +68,12 @@
       "items": {
         "$ref": "#/$defs/cg"
       }
+    },
+    "instruments": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/instrument"
+      }
     }
   },
   "$defs": {
@@ -441,6 +447,64 @@
           "$ref": "#/$defs/tag"
         }
       }
+    },
+    "instrumentId": {
+      "type": "string",
+      "pattern": "^instrument_[0-9]{3,}$"
+    },
+    "instrumentState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["at", "state"],
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/paragraphId"
+        },
+        "beat": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "state": {
+          "enum": ["off", "listening", "tuning", "contact", "transmitting", "lost"]
+        }
+      }
+    },
+    "instrument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "at", "until", "intent", "states"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/instrumentId"
+        },
+        "kind": {
+          "enum": ["radio"]
+        },
+        "at": {
+          "$ref": "#/$defs/paragraphId"
+        },
+        "beat": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "until": {
+          "$ref": "#/$defs/paragraphId"
+        },
+        "until_beat": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "intent": {
+          "$ref": "#/$defs/tag"
+        },
+        "states": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/instrumentState"
+          }
+        }
+      }
     }
   },
   "allOf": [
@@ -472,6 +536,9 @@
             },
             {
               "required": ["cgs"]
+            },
+            {
+              "required": ["instruments"]
             }
           ]
         }

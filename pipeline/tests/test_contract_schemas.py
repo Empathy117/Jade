@@ -227,3 +227,76 @@ def test_assets_accept_cg_and_sfx() -> None:
     _validator("assets.schema.json").validate(assets)
     assets["assets"][-1]["loop"] = True
     assert not _validator("assets.schema.json").is_valid(assets)
+
+
+def _radio_direction() -> dict:
+    direction = _direction_visual_novel()
+    direction["instruments"] = [
+        {
+            "id": "instrument_001",
+            "kind": "radio",
+            "at": "p0002",
+            "until": "p0003",
+            "intent": "first_contact",
+            "states": [
+                {"at": "p0002", "state": "listening"},
+                {"at": "p0003", "beat": 1, "state": "contact"},
+            ],
+        }
+    ]
+    return direction
+
+
+def _radio_playback() -> dict:
+    playback = _playback_visual_novel()
+    playback["instruments"] = [
+        {
+            "id": "instrument_001",
+            "kind": "radio",
+            "at": "p0002",
+            "until": "p0003",
+            "placement": "auto",
+            "keys": [
+                {
+                    "at": "p0002",
+                    "state": "listening",
+                    "frequency": "14.195",
+                    "signal": 0.05,
+                    "noise": 0.6,
+                    "tx": False,
+                },
+                {
+                    "at": "p0003",
+                    "beat": 1,
+                    "state": "contact",
+                    "frequency": "14.255",
+                    "signal": 0.6,
+                    "noise": 0.3,
+                    "tx": False,
+                    "tuning": True,
+                },
+            ],
+        }
+    ]
+    return playback
+
+
+def test_radio_instrument_matches_its_schemas() -> None:
+    _validator("direction.schema.json").validate(_radio_direction())
+    _validator("playback.schema.json").validate(_radio_playback())
+
+
+def test_v1_documents_reject_instruments() -> None:
+    direction = _load("direction.json")
+    direction["instruments"] = _radio_direction()["instruments"]
+    assert not _validator("direction.schema.json").is_valid(direction)
+
+
+def test_radio_vocabulary_and_frequency_are_closed() -> None:
+    direction = _radio_direction()
+    direction["instruments"][0]["states"][0]["state"] = "singing"
+    assert not _validator("direction.schema.json").is_valid(direction)
+
+    playback = _radio_playback()
+    playback["instruments"][0]["keys"][0]["frequency"] = "14.195 MHz"
+    assert not _validator("playback.schema.json").is_valid(playback)

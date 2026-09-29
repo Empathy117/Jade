@@ -79,10 +79,10 @@ describe what the text says is happening, never more.
     "at": "p00214", "until": "p00306",
     "placement": "auto",
     "keys": [
-      { "at": "p00214", "frequency": "14.195", "signal": 0.05, "noise": 0.6, "tx": false },
-      { "at": "p00222", "frequency": "14.195", "signal": 0.05, "noise": 0.6, "tx": true },
-      { "at": "p00256", "frequency": "14.130", "signal": 0.05, "noise": 0.7, "tx": false, "tuning": true },
-      { "at": "p00268", "beat": 1, "frequency": "14.255", "signal": 0.55, "noise": 0.4, "tx": false }
+      { "at": "p00214", "state": "listening", "frequency": "14.195", "signal": 0.05, "noise": 0.6, "tx": false },
+      { "at": "p00222", "state": "transmitting", "frequency": "14.195", "signal": 0.05, "noise": 0.6, "tx": true },
+      { "at": "p00256", "state": "tuning", "frequency": "14.130", "signal": 0.05, "noise": 0.7, "tx": false, "tuning": true },
+      { "at": "p00268", "beat": 1, "state": "contact", "frequency": "14.255", "signal": 0.55, "noise": 0.4, "tx": false }
     ]
   }
 ]
@@ -95,6 +95,8 @@ describe what the text says is happening, never more.
 - **`signal`** and **`noise`** run from 0 to 1. Signal sets the S-meter
   needle's resting position. Noise sets how much the needle and the waveform
   react to sound.
+- **`state`** repeats the directed state in force at the key, so the Runtime
+  never reinterprets intent; `off` hides the trace and darkens the display.
 - **`tx`** lights the transmit lamp.
 - **`tuning`** makes the digits roll from the previous key's frequency to this
   one during the page turn.

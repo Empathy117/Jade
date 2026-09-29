@@ -32,7 +32,9 @@ restraint budget holds.
 Version 2 also carries the opt-in `visual_novel` profile
 ([ADR-0005](../docs/adr/0005-visual-novel-presentation-profile.md)): per-scene
 `layout` and `atmosphere`, beat-anchored `sounds` and `effects`, CG spans
-(`cgs`), and `iris`/`wipe` transitions. Assets gain the `cg` and `sfx` types.
+(`cgs`), `iris`/`wipe` transitions, and instrument spans such as the radio
+([ADR-0006](../docs/adr/0006-instrument-channel.md)). Assets gain the `cg` and
+`sfx` types.
 
 Playback v2 semantics the Compiler must honour:
 
