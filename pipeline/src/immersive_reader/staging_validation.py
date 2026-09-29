@@ -26,7 +26,7 @@ BUDGETS = {
     "visual_novel": Budget(6, 8, 3, 2, 2),
 }
 # Only a visual-novel book may use these; an immersive book stays restrained.
-VISUAL_NOVEL_FIELDS = ("sounds", "effects", "cgs", "instruments")
+VISUAL_NOVEL_FIELDS = ("sounds", "effects", "cgs", "instruments", "gestures")
 VISUAL_NOVEL_SCENE_FIELDS = ("layout", "atmosphere")
 VISUAL_NOVEL_TRANSITIONS = ("iris", "wipe")
 # Scale a background may be pushed to when its catalog entry records no
@@ -186,6 +186,7 @@ def validate_direction_staging(
                 f"starting at {paragraphs[chapter]['id']}",
             )
     issues.extend(_validate_visual_novel_direction(positions, direction, budget))
+    issues.extend(_gesture_issues(paragraphs, positions, direction, budget))
     return issues
 
 
@@ -459,11 +460,97 @@ def _validate_visual_novel_playback(
     mirror("effects", ("at", "beat", "type"))
     mirror("cgs", ("id", "at", "beat", "until", "until_beat"))
     mirror("instruments", ("id", "kind", "at", "beat", "until", "until_beat"))
+    mirror("gestures", ("id", "kind", "at", "beat"))
 
     for index, sound in enumerate(playback.get("sounds", [])):
         check_asset(sound["asset_id"], "sfx", f"$.sounds[{index}].asset_id")
     for index, cg in enumerate(playback.get("cgs", [])):
         check_asset(cg["asset_id"], "cg", f"$.cgs[{index}].asset_id")
+    for index, gesture in enumerate(playback.get("gestures", [])):
+        if "sound" in gesture:
+            path = f"$.gestures[{index}].sound.asset_id"
+            check_asset(gesture["sound"]["asset_id"], "sfx", path)
+    return issues
+
+
+def _gesture_issues(
+    paragraphs: list[JsonObject],
+    positions: dict[str, int],
+    direction: JsonObject,
+    budget: Budget,
+) -> list[ValidationIssue]:
+    """Gestures are spaced like moments and never share a beat with a moment or a CG."""
+
+    issues: list[ValidationIssue] = []
+
+    def issue(path: str, code: str, message: str) -> None:
+        issues.append(ValidationIssue("direction.json", path, code, message))
+
+    def point(paragraph_id: str, beat: int) -> Position | None:
+        position = positions.get(paragraph_id)
+        return None if position is None else (position, beat)
+
+    moment_points = {
+        point(moment["at"], moment.get("beat", 0)) for moment in direction.get("moments", [])
+    }
+    cg_spans = [
+        (point(cg["at"], cg.get("beat", 0)), point(cg["until"], cg.get("until_beat", 0)))
+        for cg in direction.get("cgs", [])
+    ]
+
+    gesture_ids: set[str] = set()
+    previous: tuple[Position, str] | None = None
+    for index, gesture in enumerate(direction.get("gestures", [])):
+        path = f"$.gestures[{index}]"
+        if gesture["id"] in gesture_ids:
+            issue(
+                f"{path}.id",
+                "duplicate_gesture_id",
+                f"gesture id is already used: {gesture['id']}",
+            )
+        gesture_ids.add(gesture["id"])
+        key = point(gesture["at"], gesture.get("beat", 0))
+        if key is None:
+            issue(
+                f"{path}.at",
+                "paragraph_not_found",
+                f"paragraph does not exist: {gesture['at']}",
+            )
+            continue
+        if paragraphs[key[0]]["kind"] == "title":
+            issue(
+                f"{path}.at",
+                "paragraph_not_directable",
+                f"title paragraph cannot carry a gesture: {gesture['at']}",
+            )
+        if key in moment_points:
+            issue(
+                f"{path}.at",
+                "gesture_on_moment",
+                f"a moment already holds this reading beat: {gesture['at']}",
+            )
+        for start, end in cg_spans:
+            if start is not None and end is not None and start <= key <= end:
+                issue(
+                    f"{path}.at",
+                    "gesture_under_cg",
+                    f"gesture falls inside a CG span: {gesture['at']}",
+                )
+                break
+        if previous is not None:
+            previous_key, previous_id = previous
+            if key <= previous_key:
+                issue(
+                    f"{path}.at", "gesture_out_of_order", f"gesture is not after {previous_id}"
+                )
+            elif key[0] - previous_key[0] < budget.paragraphs_between_moments:
+                issue(
+                    f"{path}.at",
+                    "gestures_too_close",
+                    f"{key[0] - previous_key[0]} paragraphs after {previous_id}; "
+                    f"at least {budget.paragraphs_between_moments} required",
+                )
+        previous = (key, gesture["id"])
     return issues
 
 

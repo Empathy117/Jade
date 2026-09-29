@@ -429,3 +429,103 @@ def test_playback_instruments_mirror_direction(tmp_path: Path) -> None:
     assert "instruments_mismatch" in issue_codes(
         validate_bundle(bundle, contracts_dir=CONTRACTS)
     )
+
+
+def gesture_bundle(tmp_path: Path) -> Path:
+    bundle = visual_novel_bundle(tmp_path)
+
+    def direction(document: dict) -> None:
+        document["gestures"] = [
+            {"id": "gesture_001", "kind": "press_seal", "at": "p0004", "intent": "sending_off"}
+        ]
+
+    def playback(document: dict) -> None:
+        document["gestures"] = [
+            {
+                "id": "gesture_001",
+                "kind": "press_seal",
+                "at": "p0004",
+                "placement": "auto",
+                "params": {},
+                "sound": {"asset_id": "sfx_door", "gain": 0.4},
+            }
+        ]
+
+    edit(bundle, "direction.json", direction)
+    edit(bundle, "playback.json", playback)
+    return bundle
+
+
+def test_gesture_bundle_is_valid(tmp_path: Path) -> None:
+    assert validate_bundle(gesture_bundle(tmp_path), contracts_dir=CONTRACTS) == []
+
+
+def test_immersive_profile_rejects_gestures(tmp_path: Path) -> None:
+    bundle = gesture_bundle(tmp_path)
+
+    def immersive(direction: dict) -> None:
+        direction.pop("profile")
+        for field in ("sounds", "effects", "cgs"):
+            direction.pop(field)
+        for scene in direction["scenes"]:
+            scene.pop("layout", None)
+            scene.pop("atmosphere", None)
+
+    edit(bundle, "direction.json", immersive)
+    assert "profile_feature" in issue_codes(validate_bundle(bundle, contracts_dir=CONTRACTS))
+
+
+def test_playback_gestures_mirror_direction(tmp_path: Path) -> None:
+    bundle = gesture_bundle(tmp_path)
+    edit(
+        bundle,
+        "playback.json",
+        lambda p: p["gestures"][0].update(kind="grind_ink", params={"tone": "pale"}),
+    )
+    assert "gestures_mismatch" in issue_codes(validate_bundle(bundle, contracts_dir=CONTRACTS))
+
+
+def test_gesture_sound_must_be_a_sound_effect(tmp_path: Path) -> None:
+    bundle = gesture_bundle(tmp_path)
+    edit(bundle, "playback.json", lambda p: p["gestures"][0]["sound"].update(asset_id="cg_keyhole"))
+    assert "asset_type_mismatch" in issue_codes(validate_bundle(bundle, contracts_dir=CONTRACTS))
+
+
+def test_gestures_keep_clear_of_moments_and_cgs(tmp_path: Path) -> None:
+    def move_to(paragraph: str):
+        def change(document: dict) -> None:
+            document["gestures"][0]["at"] = paragraph
+
+        return change
+
+    on_moment = gesture_bundle(tmp_path / "moment")
+    edit(on_moment, "direction.json", move_to("p0003"))
+    edit(on_moment, "playback.json", move_to("p0003"))
+    assert "gesture_on_moment" in issue_codes(
+        validate_bundle(on_moment, contracts_dir=CONTRACTS)
+    )
+
+    under_cg = gesture_bundle(tmp_path / "cg")
+    edit(under_cg, "direction.json", move_to("p0002"))
+    edit(under_cg, "playback.json", move_to("p0002"))
+    assert "gesture_under_cg" in issue_codes(validate_bundle(under_cg, contracts_dir=CONTRACTS))
+
+
+def test_gestures_are_spaced_like_moments() -> None:
+    source = long_source(1, 100)
+
+    def direction(*positions: int) -> dict:
+        return {
+            "schema_version": 2,
+            "profile": "visual_novel",
+            "scenes": [],
+            "gestures": [
+                {"id": f"gesture_{n:03d}", "kind": "grind_ink", "at": f"p{at:04d}", "intent": "x"}
+                for n, at in enumerate(positions, start=1)
+            ],
+        }
+
+    assert "gestures_too_close" in issue_codes(
+        validate_direction_staging(source, direction(2, 6))
+    )
+    assert validate_direction_staging(source, direction(2, 14)) == []

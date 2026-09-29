@@ -156,8 +156,9 @@ compete.
 - `kind` and `params` belong to the closed vocabulary above.
 - There is at most one gesture per reading beat, none on a beat that also
   carries a moment, and none inside a CG span.
-- Gestures in one book are at least 40 paragraphs apart, the same restraint
-  rule as moments.
+- Gestures are spaced at least as far apart as the profile's moments
+  (8 paragraphs in `visual_novel`), so one scene can hold a pair such as
+  grinding at night and sealing the next morning, but not a string of them.
 - `sound.asset_id`, when present, names an `sfx` asset.
 
 ## Consequences
@@ -175,7 +176,7 @@ compete.
 - This is the first input the Reader accepts besides navigation. Pointer
   capture must not leak into page turning, selection, or swipe handling, and
   that needs tests.
-- Another overlay competes with the text. The restraint rules (40-paragraph
+- Another overlay competes with the text. The restraint rules (moment
   spacing, no CG overlap, visual-novel profile only) exist to keep it rare.
 - Each new kind needs its own drawing and parameters, which means a Runtime
   change and an amendment to this ADR.
