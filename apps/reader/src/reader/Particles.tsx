@@ -27,9 +27,10 @@ export function Particles({ kind, density, hidden }: ParticlesProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
+    if (!kind || hidden || density <= 0) return;
     const canvas = canvasRef.current;
     const context = canvas?.getContext("2d");
-    if (!canvas || !context || !kind || hidden || density <= 0) return;
+    if (!canvas || !context) return;
 
     const ratio = Math.min(window.devicePixelRatio || 1, 2);
     const resize = () => {
