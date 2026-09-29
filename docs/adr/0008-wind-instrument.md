@@ -112,7 +112,9 @@ streaks, no flicker.
 ### 5. Validator rules
 
 ADR-0006's rules apply. In addition, the schemas close the `wind` state
-vocabulary, the `from` vocabulary, and forbid `from` on a `calm` key.
+vocabulary, the `from` vocabulary, and forbid `from` on a `calm` key. For
+every kind, the validator now checks that each playback key's `state` is the
+directed state in force at that reading point.
 
 ## Consequences
 
@@ -136,8 +138,8 @@ vocabulary, the `from` vocabulary, and forbid `from` on a `calm` key.
 
 1. Contracts: `wind` in the instrument kind, per-kind state vocabularies, and
    a `wind` playback key, with schema tests.
-2. Validator: a `wind` bundle in the staging tests; no new rule beyond the
-   schemas.
+2. Validator: a `wind` bundle in the staging tests, and the check that
+   playback keys repeat the directed state.
 3. Runtime: split `Instrument` into a shared shell and a `radio` face, then
    add the `wind` face.
 4. Staging guide: when to use it and the rule against inventing a direction.

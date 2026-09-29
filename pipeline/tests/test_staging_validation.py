@@ -431,6 +431,64 @@ def test_playback_instruments_mirror_direction(tmp_path: Path) -> None:
     )
 
 
+def test_instrument_keys_repeat_the_directed_state(tmp_path: Path) -> None:
+    bundle = radio_bundle(tmp_path)
+    edit(bundle, "playback.json", lambda p: p["instruments"][0]["keys"][1].update(state="lost"))
+    assert "instrument_state_mismatch" in issue_codes(
+        validate_bundle(bundle, contracts_dir=CONTRACTS)
+    )
+
+
+def wind_bundle(tmp_path: Path) -> Path:
+    bundle = visual_novel_bundle(tmp_path)
+
+    def direction(document: dict) -> None:
+        document["instruments"] = [
+            {
+                "id": "instrument_001",
+                "kind": "wind",
+                "at": "p0002",
+                "until": "p0003",
+                "intent": "waiting_out_the_gale",
+                "states": [
+                    {"at": "p0002", "state": "breeze"},
+                    {"at": "p0003", "state": "gale"},
+                ],
+            }
+        ]
+
+    def playback(document: dict) -> None:
+        document["instruments"] = [
+            {
+                "id": "instrument_001",
+                "kind": "wind",
+                "at": "p0002",
+                "until": "p0003",
+                "placement": "auto",
+                "keys": [
+                    {"at": "p0002", "state": "breeze", "strength": 0.25, "gust": 0.3},
+                    {"at": "p0003", "state": "gale", "from": "sw", "strength": 0.75, "gust": 0.6},
+                ],
+            }
+        ]
+
+    edit(bundle, "direction.json", direction)
+    edit(bundle, "playback.json", playback)
+    return bundle
+
+
+def test_wind_bundle_is_valid(tmp_path: Path) -> None:
+    assert validate_bundle(wind_bundle(tmp_path), contracts_dir=CONTRACTS) == []
+
+
+def test_wind_keys_repeat_the_directed_state(tmp_path: Path) -> None:
+    bundle = wind_bundle(tmp_path)
+    edit(bundle, "playback.json", lambda p: p["instruments"][0]["keys"][0].update(state="gale"))
+    assert "instrument_state_mismatch" in issue_codes(
+        validate_bundle(bundle, contracts_dir=CONTRACTS)
+    )
+
+
 def gesture_bundle(tmp_path: Path) -> Path:
     bundle = visual_novel_bundle(tmp_path)
 

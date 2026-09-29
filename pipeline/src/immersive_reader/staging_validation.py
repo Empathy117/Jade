@@ -319,6 +319,7 @@ def validate_playback_staging(
 
     issues.extend(_validate_visual_novel_playback(catalog, direction, playback))
     issues.extend(_instrument_span_issues("playback.json", positions, playback, "keys"))
+    issues.extend(_instrument_state_issues(positions, direction, playback))
     return issues
 
 
@@ -615,6 +616,42 @@ def _instrument_span_issues(
                     f"{inner} must advance: {entry['at']}",
                 )
             previous = key
+    return issues
+
+
+def _instrument_state_issues(
+    positions: dict[str, int],
+    direction: JsonObject,
+    playback: JsonObject,
+) -> list[ValidationIssue]:
+    """Each playback key repeats the directed state in force at its reading point."""
+
+    issues: list[ValidationIssue] = []
+    directed = {instrument["id"]: instrument for instrument in direction.get("instruments", [])}
+    for index, instrument in enumerate(playback.get("instruments", [])):
+        source = directed.get(instrument["id"])
+        if source is None or source["kind"] != instrument["kind"]:
+            continue  # reported as instruments_mismatch
+        states = [
+            ((positions[state["at"]], state.get("beat", 0)), state["state"])
+            for state in source["states"]
+            if state["at"] in positions
+        ]
+        for key_index, key in enumerate(instrument["keys"]):
+            if key["at"] not in positions:
+                continue  # reported as paragraph_not_found
+            point = (positions[key["at"]], key.get("beat", 0))
+            in_force = [state for at, state in states if at <= point]
+            expected = in_force[-1] if in_force else None
+            if key["state"] != expected:
+                issues.append(
+                    ValidationIssue(
+                        "playback.json",
+                        f"$.instruments[{index}].keys[{key_index}].state",
+                        "instrument_state_mismatch",
+                        f"{key['state']} at {key['at']}, but direction has {expected}",
+                    )
+                )
     return issues
 
 
