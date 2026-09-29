@@ -1,6 +1,6 @@
 # ADR-0006: An instrument channel, starting with the radio
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-09-29
 **Deciders:** Project owner
 
@@ -98,8 +98,8 @@ describe what the text says is happening, never more.
 - **`tx`** lights the transmit lamp.
 - **`tuning`** makes the digits roll from the previous key's frequency to this
   one during the page turn.
-- **`placement`** is `auto` (above the adv text box, or the top-right corner
-  in nvl), `top_right`, or `above_text`.
+- **`placement`** is `auto` (right-aligned above the adv text box, or the
+  top-right corner in nvl), `top_right`, or `above_text`.
 
 Keys hold rather than interpolate. The Runtime eases the needle toward each
 new value with a damped motion, the way a physical meter settles. A page turn
@@ -174,11 +174,15 @@ reflects `tx`.
    slice (scene_005). Anchors in this ADR's examples are illustrative; the
    pilot uses the reworked direction.
 
-## Open questions
+## Resolved questions
 
-- Should `placement: auto` sit above the text box, or in a corner that keeps
-  the CG's centre clear?
-- Should the waveform trace show only when `noise` is above zero, or always
-  while a span is active?
-- When a CG covers the stage mid-span, should the instrument dim (proposed) or
-  hide entirely?
+- **Placement:** `auto` puts the instrument right-aligned just above the adv
+  text box, so the radio sits beside the voice it carries while the CG's centre
+  stays clear. In nvl it goes to the top-right corner.
+- **Waveform:** the trace shows whenever the instrument is on. With no sound it
+  lies flat, and a flat line reads as dead air. It is hidden only in the `off`
+  state.
+- **Under a CG:** the instrument dims so the CG leads; it does not hide.
+
+Implementation waits until the rework of 《我们生活在南京》 is complete, so
+the pilot can use the reworked direction.
