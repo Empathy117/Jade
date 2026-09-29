@@ -335,3 +335,97 @@ def test_immersive_profile_rejects_mask_transitions(tmp_path: Path) -> None:
         bundle, "playback.json", lambda p: p["cues"][0]["background"].update(transition="iris")
     )
     assert "profile_feature" in issue_codes(validate_bundle(bundle, contracts_dir=CONTRACTS))
+
+
+def radio_bundle(tmp_path: Path) -> Path:
+    bundle = visual_novel_bundle(tmp_path)
+
+    def direction(document: dict) -> None:
+        document["instruments"] = [
+            {
+                "id": "instrument_001",
+                "kind": "radio",
+                "at": "p0002",
+                "until": "p0003",
+                "intent": "first_contact",
+                "states": [
+                    {"at": "p0002", "state": "listening"},
+                    {"at": "p0003", "state": "contact"},
+                ],
+            }
+        ]
+
+    def playback(document: dict) -> None:
+        document["instruments"] = [
+            {
+                "id": "instrument_001",
+                "kind": "radio",
+                "at": "p0002",
+                "until": "p0003",
+                "placement": "auto",
+                "keys": [
+                    {
+                        "at": "p0002",
+                        "state": "listening",
+                        "signal": 0.05,
+                        "noise": 0.6,
+                        "tx": False,
+                    },
+                    {
+                        "at": "p0003",
+                        "state": "contact",
+                        "frequency": "14.255",
+                        "signal": 0.6,
+                        "noise": 0.3,
+                        "tx": False,
+                    },
+                ],
+            }
+        ]
+
+    edit(bundle, "direction.json", direction)
+    edit(bundle, "playback.json", playback)
+    return bundle
+
+
+def test_radio_bundle_is_valid(tmp_path: Path) -> None:
+    assert validate_bundle(radio_bundle(tmp_path), contracts_dir=CONTRACTS) == []
+
+
+def test_immersive_profile_rejects_instruments(tmp_path: Path) -> None:
+    bundle = radio_bundle(tmp_path)
+
+    def immersive(direction: dict) -> None:
+        direction.pop("profile")
+        for field in ("sounds", "effects", "cgs"):
+            direction.pop(field)
+        for scene in direction["scenes"]:
+            scene.pop("layout", None)
+            scene.pop("atmosphere", None)
+
+    edit(bundle, "direction.json", immersive)
+    assert "profile_feature" in issue_codes(validate_bundle(bundle, contracts_dir=CONTRACTS))
+
+
+def test_instrument_keys_stay_inside_their_span(tmp_path: Path) -> None:
+    bundle = radio_bundle(tmp_path)
+    edit(bundle, "playback.json", lambda p: p["instruments"][0]["keys"][1].update(at="p0004"))
+    assert "instrument_outside_span" in issue_codes(
+        validate_bundle(bundle, contracts_dir=CONTRACTS)
+    )
+
+
+def test_instrument_keys_must_advance(tmp_path: Path) -> None:
+    bundle = radio_bundle(tmp_path)
+    edit(bundle, "playback.json", lambda p: p["instruments"][0]["keys"].reverse())
+    assert "instrument_out_of_order" in issue_codes(
+        validate_bundle(bundle, contracts_dir=CONTRACTS)
+    )
+
+
+def test_playback_instruments_mirror_direction(tmp_path: Path) -> None:
+    bundle = radio_bundle(tmp_path)
+    edit(bundle, "playback.json", lambda p: p["instruments"][0].update(until="p0002"))
+    assert "instruments_mismatch" in issue_codes(
+        validate_bundle(bundle, contracts_dir=CONTRACTS)
+    )

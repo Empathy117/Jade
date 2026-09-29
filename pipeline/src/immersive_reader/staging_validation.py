@@ -26,7 +26,7 @@ BUDGETS = {
     "visual_novel": Budget(6, 8, 3, 2, 2),
 }
 # Only a visual-novel book may use these; an immersive book stays restrained.
-VISUAL_NOVEL_FIELDS = ("sounds", "effects", "cgs")
+VISUAL_NOVEL_FIELDS = ("sounds", "effects", "cgs", "instruments")
 VISUAL_NOVEL_SCENE_FIELDS = ("layout", "atmosphere")
 VISUAL_NOVEL_TRANSITIONS = ("iris", "wipe")
 # Scale a background may be pushed to when its catalog entry records no
@@ -317,6 +317,7 @@ def validate_playback_staging(
         )
 
     issues.extend(_validate_visual_novel_playback(catalog, direction, playback))
+    issues.extend(_instrument_span_issues("playback.json", positions, playback, "keys"))
     return issues
 
 
@@ -404,6 +405,8 @@ def _validate_visual_novel_direction(
         if previous_end is not None and start <= previous_end:
             issue(f"{path}.at", "cg_overlap", f"cg overlaps the previous one: {cg['id']}")
         previous_end = max(previous_end or end, end)
+
+    issues.extend(_instrument_span_issues("direction.json", positions, direction, "states"))
     return issues
 
 
@@ -455,11 +458,76 @@ def _validate_visual_novel_playback(
     mirror("sounds", ("id", "at", "beat"))
     mirror("effects", ("at", "beat", "type"))
     mirror("cgs", ("id", "at", "beat", "until", "until_beat"))
+    mirror("instruments", ("id", "kind", "at", "beat", "until", "until_beat"))
 
     for index, sound in enumerate(playback.get("sounds", [])):
         check_asset(sound["asset_id"], "sfx", f"$.sounds[{index}].asset_id")
     for index, cg in enumerate(playback.get("cgs", [])):
         check_asset(cg["asset_id"], "cg", f"$.cgs[{index}].asset_id")
+    return issues
+
+
+def _instrument_span_issues(
+    document_name: str,
+    positions: dict[str, int],
+    document: JsonObject,
+    inner: str,
+) -> list[ValidationIssue]:
+    """Instrument spans are ordered and disjoint; their states or keys sit inside them."""
+
+    issues: list[ValidationIssue] = []
+
+    def issue(path: str, code: str, message: str) -> None:
+        issues.append(ValidationIssue(document_name, path, code, message))
+
+    def point(paragraph_id: str, beat: int, path: str) -> Position | None:
+        position = positions.get(paragraph_id)
+        if position is None:
+            issue(path, "paragraph_not_found", f"paragraph does not exist: {paragraph_id}")
+            return None
+        return (position, beat)
+
+    previous_end: Position | None = None
+    for index, instrument in enumerate(document.get("instruments", [])):
+        path = f"$.instruments[{index}]"
+        start = point(instrument["at"], instrument.get("beat", 0), f"{path}.at")
+        end = point(instrument["until"], instrument.get("until_beat", 0), f"{path}.until")
+        if start is None or end is None:
+            continue
+        if end < start:
+            issue(
+                f"{path}.until",
+                "instrument_inverted",
+                f"span ends before it starts: {instrument['id']}",
+            )
+            continue
+        if previous_end is not None and start <= previous_end:
+            issue(
+                f"{path}.at",
+                "instrument_overlap",
+                f"span overlaps the previous one: {instrument['id']}",
+            )
+        previous_end = end
+
+        previous: Position | None = None
+        for entry_index, entry in enumerate(instrument[inner]):
+            entry_path = f"{path}.{inner}[{entry_index}].at"
+            key = point(entry["at"], entry.get("beat", 0), entry_path)
+            if key is None:
+                continue
+            if not start <= key <= end:
+                issue(
+                    entry_path,
+                    "instrument_outside_span",
+                    f"{entry['at']} is outside {instrument['id']}",
+                )
+            if previous is not None and key <= previous:
+                issue(
+                    entry_path,
+                    "instrument_out_of_order",
+                    f"{inner} must advance: {entry['at']}",
+                )
+            previous = key
     return issues
 
 
