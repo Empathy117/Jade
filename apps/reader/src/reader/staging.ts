@@ -6,6 +6,8 @@ import type {
   CgCue,
   EffectCue,
   GradeState,
+  InstrumentCue,
+  InstrumentKey,
   Layout,
   MomentCue,
   PlaybackDocument,
@@ -225,6 +227,37 @@ export function cgAt(
     const end = anchorPoint(positions, { at: cg.until, beat: cg.until_beat });
     if (!start || !end) continue;
     if (comparePoints(start, point) <= 0 && comparePoints(point, end) <= 0) return cg;
+  }
+  return null;
+}
+
+export interface InstrumentReading {
+  cue: InstrumentCue;
+  key: InstrumentKey;
+  /** The key before `key`, for rolling digits on a page turn. */
+  previous: InstrumentKey | null;
+}
+
+/**
+ * The instrument on screen at a reading point and the key in force. Before its
+ * first key, a span shows that first key: the object is already there.
+ */
+export function instrumentAt(
+  positions: ParagraphPositions,
+  playback: PlaybackDocument,
+  point: ReadingPoint,
+): InstrumentReading | null {
+  for (const cue of playback.instruments ?? []) {
+    const start = anchorPoint(positions, cue);
+    const end = anchorPoint(positions, { at: cue.until, beat: cue.until_beat });
+    if (!start || !end) continue;
+    if (comparePoints(point, start) < 0 || comparePoints(point, end) > 0) continue;
+    let index = 0;
+    cue.keys.forEach((key, keyIndex) => {
+      const keyPoint = anchorPoint(positions, key);
+      if (keyPoint && comparePoints(keyPoint, point) <= 0) index = keyIndex;
+    });
+    return { cue, key: cue.keys[index], previous: index > 0 ? cue.keys[index - 1] : null };
   }
   return null;
 }

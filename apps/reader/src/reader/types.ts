@@ -304,6 +304,36 @@ export interface EffectCue {
   duration_ms?: number;
 }
 
+export type InstrumentKind = "radio";
+export type RadioState = "off" | "listening" | "tuning" | "contact" | "transmitting" | "lost";
+export type InstrumentPlacement = "auto" | "top_right" | "above_text";
+
+/** One resolved reading of an instrument; it holds until the next key. */
+export interface InstrumentKey {
+  at: string;
+  beat?: number;
+  state: RadioState;
+  /** Display digits exactly as the text gives them; absent when it gives none. */
+  frequency?: string;
+  signal: number;
+  noise: number;
+  tx: boolean;
+  /** Roll the digits from the previous key's frequency on a page turn. */
+  tuning?: boolean;
+}
+
+/** An instrument on screen from `at` through `until`, inclusive (ADR-0006). */
+export interface InstrumentCue {
+  id: string;
+  kind: InstrumentKind;
+  at: string;
+  beat?: number;
+  until: string;
+  until_beat?: number;
+  placement: InstrumentPlacement;
+  keys: InstrumentKey[];
+}
+
 /** Event art shown from `at` through `until`, inclusive. */
 export interface CgCue {
   id: string;
@@ -371,6 +401,7 @@ export interface PlaybackDocument {
   sounds?: SoundCue[];
   effects?: EffectCue[];
   cgs?: CgCue[];
+  instruments?: InstrumentCue[];
 }
 
 export interface BookBundle {

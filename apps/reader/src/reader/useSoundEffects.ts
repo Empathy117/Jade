@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { Howl } from "howler";
 
 import { assetUrl } from "./data";
+import { tapReactive } from "./reactiveBus";
 import type { Asset } from "./types";
 import type { AudioSettings } from "./useAudioDirector";
 import type { OneShotRun } from "./useStaging";
@@ -45,6 +46,7 @@ export function useSoundEffects({ started, bookPath, run, assets, settings }: So
           },
         });
         playing.current.add(howl);
+        tapReactive(howl);
         howl.play();
       };
       if (!sound.delay_ms) {

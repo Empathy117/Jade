@@ -6,6 +6,7 @@ import {
   cgAt,
   gradeAt,
   IDENTITY_CAMERA,
+  instrumentAt,
   layoutAt,
   momentAt,
   NO_ATMOSPHERE,
@@ -13,6 +14,7 @@ import {
   pointKey,
   trembleAt,
   type CameraState,
+  type InstrumentReading,
   type OneShots,
   type ReadingPoint,
 } from "./staging";
@@ -42,6 +44,7 @@ export interface Staging {
   layout: Layout;
   atmosphere: AtmosphereState;
   cg: CgCue | null;
+  instrument: InstrumentReading | null;
   oneShots: OneShotRun | null;
   /** Tremble intensity for the line on screen. */
   tremble: number;
@@ -165,8 +168,15 @@ export function useStaging(
             atmosphere: atmosphereAt(positions, bundle.playback, point),
             cg: cgAt(positions, bundle.playback, point),
             tremble: trembleAt(positions, bundle.playback, point),
+            instrument: instrumentAt(positions, bundle.playback, point),
           }
-        : { layout: "nvl" as const, atmosphere: NO_ATMOSPHERE, cg: null, tremble: 0 },
+        : {
+            layout: "nvl" as const,
+            atmosphere: NO_ATMOSPHERE,
+            cg: null,
+            tremble: 0,
+            instrument: null,
+          },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [bundle, positions, key],
   );

@@ -97,6 +97,7 @@ import type {
   SourceIllustration,
 } from "./reader/types";
 import { unlockAudio, useAudioDirector } from "./reader/useAudioDirector";
+import { Instrument } from "./reader/Instrument";
 import { Stage, type StageCg, type StagePulse } from "./reader/Stage";
 import { useSoundEffects } from "./reader/useSoundEffects";
 import { useTypewriter } from "./reader/useTypewriter";
@@ -1075,6 +1076,18 @@ export function App() {
         reducedMotion={settings.reducedMotion}
         hidden={settings.pureMode}
       />
+      {started ? (
+        <Instrument
+          reading={staging.instrument}
+          stepped={staging.stepped}
+          layout={staging.layout}
+          reducedMotion={settings.reducedMotion}
+          reactive={!settings.muted && !settings.pureMode}
+          dimmed={Boolean(stageCg)}
+          hidden={settings.pureMode}
+          viewportRef={readingViewportRef}
+        />
+      ) : null}
 
       {!started ? (
         <CoverScreen

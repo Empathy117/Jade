@@ -3,6 +3,7 @@ import { Howl, Howler } from "howler";
 
 import { pageVisibilityGain } from "./audioPolicy";
 import { assetUrl } from "./data";
+import { tapReactive } from "./reactiveBus";
 import type { Asset, ResolvedPlaybackState } from "./types";
 
 export interface AudioSettings {
@@ -153,6 +154,7 @@ export function useAudioDirector({
         },
       });
       ambience.current.set(desired.asset_id, howl);
+      tapReactive(howl);
       howl.play();
       howl.fade(0, targetVolume, 900);
     }

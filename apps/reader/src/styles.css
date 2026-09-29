@@ -343,6 +343,63 @@ button { color: inherit; }
 .is-adv .advance-hint { display: none; }
 ::highlight(untyped) { color: transparent; text-shadow: none; }
 
+/* Instruments (ADR-0006): a quiet panel, never a chassis. */
+.instrument {
+  position: absolute;
+  z-index: 2;
+  width: clamp(180px, 20vw, 248px);
+  padding: 10px 12px 8px;
+  border: 1px solid rgba(214,194,143,.2);
+  border-radius: 3px;
+  background: rgba(10,10,9,.58);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 12px 40px rgba(0,0,0,.35);
+  color: rgba(236,196,120,.92);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 900ms ease, transform 900ms ease;
+}
+.instrument.is-visible { opacity: 1; transform: none; }
+.instrument.is-visible.is-dimmed { opacity: .32; }
+/* Never flash in a default corner before the text box has been measured. */
+.instrument.is-unplaced { visibility: hidden; }
+.instrument--top_right {
+  top: calc(clamp(22px, 4vh, 42px) + 58px);
+  right: clamp(22px, 4vw, 58px);
+}
+.instrument__readout { display: flex; align-items: baseline; gap: 6px; }
+.instrument__digits {
+  font: 500 22px/1 "Source Sans 3", sans-serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .08em;
+  text-shadow: 0 0 10px rgba(236,168,80,.35);
+}
+.instrument__unit { font: 500 11px "Source Sans 3", sans-serif; letter-spacing: .14em; opacity: .6; }
+.instrument__lamp {
+  margin-left: auto;
+  padding: 1px 5px;
+  border: 1px solid rgba(214,90,66,.35);
+  border-radius: 2px;
+  color: rgba(214,90,66,.35);
+  font: 600 10px "Source Sans 3", sans-serif;
+  letter-spacing: .12em;
+  transition: color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+.instrument__lamp.is-lit {
+  color: #fff3ea;
+  background: rgba(214,90,66,.85);
+  box-shadow: 0 0 12px rgba(214,90,66,.7);
+}
+.instrument__meter { display: block; width: 100%; margin-top: 6px; overflow: visible; }
+.instrument__arc { fill: none; stroke: rgba(236,196,120,.45); stroke-width: 1; }
+.instrument__arc--over { stroke: rgba(214,90,66,.6); stroke-width: 2; }
+.instrument__tick { stroke: rgba(236,196,120,.55); stroke-width: 1; }
+.instrument__label { fill: rgba(236,196,120,.55); font: 500 7px "Source Sans 3", sans-serif; text-anchor: middle; }
+.instrument__needle { stroke: rgba(255,238,205,.95); stroke-width: 1.2; stroke-linecap: round; }
+.instrument__trace { display: block; width: 100%; height: 26px; margin-top: 2px; }
+.instrument.is-off .instrument__digits { opacity: .25; text-shadow: none; }
+
 /* tremble: the line itself shakes while it is on screen. */
 .is-trembling .paragraph.is-current { animation: text-tremble 120ms steps(1) infinite; }
 @keyframes text-tremble {

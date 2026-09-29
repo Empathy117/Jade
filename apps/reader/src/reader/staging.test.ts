@@ -8,6 +8,7 @@ import {
   cgAt,
   gradeAt,
   IDENTITY_CAMERA,
+  instrumentAt,
   layoutAt,
   momentAt,
   NO_ATMOSPHERE,
@@ -180,5 +181,41 @@ describe("visual-novel channels", () => {
     expect(shots.effects.map((effect) => effect.type)).toEqual(["shake"]);
     expect(trembleAt(positions, vn, { index: 3, beat: 0 })).toBe(0.8);
     expect(trembleAt(positions, vn, { index: 2, beat: 0 })).toBe(0);
+  });
+});
+
+describe("instrumentAt", () => {
+  const radio: PlaybackDocument = {
+    ...playback,
+    instruments: [
+      {
+        id: "instrument_001",
+        kind: "radio",
+        at: "p0003",
+        until: "p0005",
+        placement: "auto",
+        keys: [
+          { at: "p0003", beat: 1, state: "listening", frequency: "14.195", signal: 0.05, noise: 0.6, tx: false },
+          { at: "p0004", state: "contact", frequency: "14.255", signal: 0.6, noise: 0.3, tx: false, tuning: true },
+        ],
+      },
+    ],
+  };
+
+  it("is absent outside the span", () => {
+    expect(instrumentAt(positions, radio, { index: 1, beat: 0 })).toBeNull();
+    expect(instrumentAt(positions, radio, { index: 5, beat: 0 })).toBeNull();
+  });
+
+  it("shows the first key from the start of the span", () => {
+    const reading = instrumentAt(positions, radio, { index: 2, beat: 0 });
+    expect(reading?.key.state).toBe("listening");
+    expect(reading?.previous).toBeNull();
+  });
+
+  it("holds the latest key and remembers the one before", () => {
+    const reading = instrumentAt(positions, radio, { index: 4, beat: 0 });
+    expect(reading?.key.frequency).toBe("14.255");
+    expect(reading?.previous?.frequency).toBe("14.195");
   });
 });
