@@ -3,6 +3,8 @@ import type { AudioSettings } from "./useAudioDirector";
 
 export interface ReaderSettings extends AudioSettings {
   fontScale: number;
+  /** Extra darkness laid over background plates (not event art), 0–0.6. */
+  backdropDim: number;
   sansFont: boolean;
   reducedMotion: boolean;
 }
@@ -11,6 +13,7 @@ export const SETTINGS_KEY = "immersive-reader:settings:v1";
 
 export const DEFAULT_SETTINGS: ReaderSettings = {
   fontScale: 1,
+  backdropDim: 0,
   sansFont: false,
   masterVolume: 0.9,
   musicVolume: 0.55,

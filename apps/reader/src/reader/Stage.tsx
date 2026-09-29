@@ -184,6 +184,8 @@ export function Stage({
         }}
       />
       <div className="background-shade" />
+      {/* The reader's own 背景压暗; it sits under event art, which stays as drawn. */}
+      <div className="stage-dim" />
       <div className="background-grain" />
       <div
         className={`stage-flicker${atmosphere.flicker > 0 && !reducedMotion ? " is-active" : ""}`}

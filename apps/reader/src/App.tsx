@@ -1050,6 +1050,7 @@ export function App() {
       style={
         {
           "--font-scale": settings.fontScale,
+          "--backdrop-dim": settings.backdropDim,
           "--tremble": staging.tremble,
         } as React.CSSProperties
       }

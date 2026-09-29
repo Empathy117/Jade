@@ -42,6 +42,7 @@ export function SettingsPanel({ settings, onChange, onClose }: SettingsPanelProp
         onChange={(checked) => update("reducedMotion", checked)}
       />
       <RangeSetting label="字号" value={settings.fontScale} min={0.85} max={1.3} step={0.05} display={`${Math.round(settings.fontScale * 100)}%`} onChange={(value) => update("fontScale", value)} />
+      <RangeSetting label="背景压暗" value={settings.backdropDim} min={0} max={0.6} step={0.05} display={settings.backdropDim > 0 ? `${Math.round(settings.backdropDim * 100)}%` : "关闭"} onChange={(value) => update("backdropDim", value)} />
       <RangeSetting label="主音量" value={settings.masterVolume} min={0} max={1} step={0.05} display={`${Math.round(settings.masterVolume * 100)}%`} onChange={(value) => update("masterVolume", value)} />
       <RangeSetting label="音乐" value={settings.musicVolume} min={0} max={1} step={0.05} display={`${Math.round(settings.musicVolume * 100)}%`} onChange={(value) => update("musicVolume", value)} />
       <RangeSetting label="环境音与音效" value={settings.ambienceVolume} min={0} max={1} step={0.05} display={`${Math.round(settings.ambienceVolume * 100)}%`} onChange={(value) => update("ambienceVolume", value)} />
@@ -53,7 +54,13 @@ function ToggleSetting({ title, note, checked, onChange }: { title: string; note
   return (
     <label className="toggle-row">
       <span><strong>{title}</strong><small>{note}</small></span>
-      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
+      <input
+        className="switch"
+        type="checkbox"
+        role="switch"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+      />
     </label>
   );
 }
