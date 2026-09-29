@@ -471,9 +471,15 @@
           "minimum": 0
         },
         "state": {
-          "enum": ["off", "listening", "tuning", "contact", "transmitting", "lost"]
+          "anyOf": [{ "$ref": "#/$defs/radioState" }, { "$ref": "#/$defs/windState" }]
         }
       }
+    },
+    "radioState": {
+      "enum": ["off", "listening", "tuning", "contact", "transmitting", "lost"]
+    },
+    "windState": {
+      "enum": ["calm", "breeze", "wind", "gale", "storm"]
     },
     "instrument": {
       "type": "object",
@@ -484,7 +490,7 @@
           "$ref": "#/$defs/instrumentId"
         },
         "kind": {
-          "enum": ["radio"]
+          "enum": ["radio", "wind"]
         },
         "at": {
           "$ref": "#/$defs/paragraphId"
@@ -510,7 +516,25 @@
             "$ref": "#/$defs/instrumentState"
           }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "radio" } } },
+          "then": {
+            "properties": {
+              "states": { "items": { "properties": { "state": { "$ref": "#/$defs/radioState" } } } }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "wind" } } },
+          "then": {
+            "properties": {
+              "states": { "items": { "properties": { "state": { "$ref": "#/$defs/windState" } } } }
+            }
+          }
+        }
+      ]
     },
     "gestureId": {
       "type": "string",

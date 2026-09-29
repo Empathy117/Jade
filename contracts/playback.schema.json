@@ -512,7 +512,7 @@
       "type": "string",
       "pattern": "^instrument_[0-9]{3,}$"
     },
-    "instrumentKey": {
+    "radioKey": {
       "type": "object",
       "additionalProperties": false,
       "required": ["at", "state", "signal", "noise", "tx"],
@@ -549,6 +549,38 @@
         }
       }
     },
+    "windKey": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["at", "state", "strength", "gust"],
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/paragraphId"
+        },
+        "beat": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "state": {
+          "enum": ["calm", "breeze", "wind", "gale", "storm"]
+        },
+        "from": {
+          "enum": ["n", "ne", "e", "se", "s", "sw", "w", "nw"]
+        },
+        "strength": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "gust": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "if": { "properties": { "state": { "const": "calm" } } },
+      "then": { "not": { "required": ["from"] } }
+    },
     "instrumentCue": {
       "type": "object",
       "additionalProperties": false,
@@ -558,7 +590,7 @@
           "$ref": "#/$defs/instrumentId"
         },
         "kind": {
-          "enum": ["radio"]
+          "enum": ["radio", "wind"]
         },
         "at": {
           "$ref": "#/$defs/paragraphId"
@@ -581,10 +613,20 @@
           "type": "array",
           "minItems": 1,
           "items": {
-            "$ref": "#/$defs/instrumentKey"
+            "type": "object"
           }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "radio" } } },
+          "then": { "properties": { "keys": { "items": { "$ref": "#/$defs/radioKey" } } } }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "wind" } } },
+          "then": { "properties": { "keys": { "items": { "$ref": "#/$defs/windKey" } } } }
+        }
+      ]
     },
     "gestureId": {
       "type": "string",

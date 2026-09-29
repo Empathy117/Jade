@@ -302,6 +302,71 @@ def test_radio_vocabulary_and_frequency_are_closed() -> None:
     assert not _validator("playback.schema.json").is_valid(playback)
 
 
+def _wind_direction() -> dict:
+    direction = _direction_visual_novel()
+    direction["instruments"] = [
+        {
+            "id": "instrument_001",
+            "kind": "wind",
+            "at": "p0002",
+            "until": "p0003",
+            "intent": "waiting_out_the_gale",
+            "states": [
+                {"at": "p0002", "state": "calm"},
+                {"at": "p0003", "beat": 1, "state": "gale"},
+            ],
+        }
+    ]
+    return direction
+
+
+def _wind_playback() -> dict:
+    playback = _playback_visual_novel()
+    playback["instruments"] = [
+        {
+            "id": "instrument_001",
+            "kind": "wind",
+            "at": "p0002",
+            "until": "p0003",
+            "placement": "auto",
+            "keys": [
+                {"at": "p0002", "state": "calm", "strength": 0, "gust": 0},
+                {"at": "p0003", "beat": 1, "state": "gale", "from": "sw", "strength": 0.75, "gust": 0.6},
+            ],
+        }
+    ]
+    return playback
+
+
+def test_wind_instrument_matches_its_schemas() -> None:
+    _validator("direction.schema.json").validate(_wind_direction())
+    _validator("playback.schema.json").validate(_wind_playback())
+
+
+def test_each_instrument_kind_keeps_its_own_vocabulary() -> None:
+    direction = _wind_direction()
+    direction["instruments"][0]["states"][0]["state"] = "listening"
+    assert not _validator("direction.schema.json").is_valid(direction)
+
+    direction = _radio_direction()
+    direction["instruments"][0]["states"][0]["state"] = "gale"
+    assert not _validator("direction.schema.json").is_valid(direction)
+
+    playback = _wind_playback()
+    playback["instruments"][0]["keys"][1] = _radio_playback()["instruments"][0]["keys"][1]
+    assert not _validator("playback.schema.json").is_valid(playback)
+
+
+def test_wind_direction_is_a_closed_compass_point_and_calm_has_none() -> None:
+    playback = _wind_playback()
+    playback["instruments"][0]["keys"][1]["from"] = "south-west"
+    assert not _validator("playback.schema.json").is_valid(playback)
+
+    playback = _wind_playback()
+    playback["instruments"][0]["keys"][0]["from"] = "n"
+    assert not _validator("playback.schema.json").is_valid(playback)
+
+
 def _gesture_direction() -> dict:
     direction = _direction_visual_novel()
     direction["gestures"] = [
