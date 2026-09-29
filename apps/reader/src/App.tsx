@@ -113,6 +113,9 @@ const SILENT_PLAYBACK: ResolvedPlaybackState = {
 
 const NO_PASSAGE_MARKS = new Map<string, PassageMark[]>();
 
+/** How long a bookmark confirmation stays on screen. */
+const NOTICE_MS = 1800;
+
 /** Typing speed in the adv text box: brisk enough never to feel like waiting. */
 const TYPE_CHARS_PER_SECOND = 42;
 
@@ -159,6 +162,8 @@ export function App() {
   // the live watermark advances the moment the panel opens.
   const [codexPanelSeen, setCodexPanelSeen] = useState(-1);
   const [readingFloorIndex, setReadingFloorIndex] = useState(1);
+  // A short confirmation for actions with no control of their own on screen.
+  const [notice, setNotice] = useState<{ text: string; serial: number } | null>(null);
   const [settings, setSettings] = useState<ReaderSettings>(loadSettings);
   const readingViewportRef = useRef<HTMLElement | null>(null);
   const readerRef = useRef<HTMLElement | null>(null);
@@ -650,6 +655,12 @@ export function App() {
   }, [bundle, furthestReadIndex, shelfPercent, started]);
 
   useEffect(() => {
+    if (!notice) return;
+    const timeout = window.setTimeout(() => setNotice(null), NOTICE_MS);
+    return () => window.clearTimeout(timeout);
+  }, [notice]);
+
+  useEffect(() => {
     if (!started || historyOpen) return;
     const animationFrame = window.requestAnimationFrame(() => {
       if (readingViewportRef.current && latestParagraphRef.current) {
@@ -663,11 +674,18 @@ export function App() {
     return () => window.cancelAnimationFrame(animationFrame);
   }, [activeBeatIndex, currentIndex, historyOpen, settings.reducedMotion, started]);
 
+  /** `announce` confirms a toggle made where nothing else on screen shows it. */
   const toggleBookmarkAt = useCallback(
-    (paragraphId: string) => {
+    (paragraphId: string, announce: boolean) => {
+      const adding = !isBookmarked(bookmarks, paragraphId);
       setBookmarks((current) => toggleBookmark(current, paragraphId, Date.now()));
+      if (!announce) return;
+      setNotice((current) => ({
+        text: adding ? "已为本段加书签" : "已移除本段书签",
+        serial: (current?.serial ?? 0) + 1,
+      }));
     },
-    [],
+    [bookmarks],
   );
 
   // Selecting text belongs to reading, not to any panel laid over it.
@@ -726,7 +744,7 @@ export function App() {
         previous();
       } else if ((event.key === "b" || event.key === "B") && plainKey && bundle) {
         event.preventDefault();
-        toggleBookmarkAt(bundle.source.paragraphs[currentIndex].id);
+        toggleBookmarkAt(bundle.source.paragraphs[currentIndex].id, true);
       } else if (event.key === "/" && plainKey) {
         event.preventDefault();
         setSettingsOpen(false);
@@ -1103,48 +1121,15 @@ export function App() {
                 </button>
               ) : null}
               <button
-                className={`icon-button icon-button--bookmark${currentBookmarked ? " is-active" : ""}`}
-                type="button"
-                data-interactive="true"
-                aria-label={currentBookmarked ? "移除本段书签" : "为本段添加书签"}
-                aria-pressed={currentBookmarked}
-                title={currentBookmarked ? "移除本段书签（B）" : "为本段添加书签（B）"}
-                onClick={() => toggleBookmarkAt(bundle.source.paragraphs[currentIndex].id)}
-              >
-                <span aria-hidden="true">签</span>
-              </button>
-              <button
-                className="icon-button icon-button--search"
-                type="button"
-                data-interactive="true"
-                aria-label="检索已读内容"
-                aria-expanded={searchOpen}
-                title="检索已读内容（/）"
-                onClick={toggleSearch}
-              >
-                <span aria-hidden="true">搜</span>
-              </button>
-              <button
                 className="icon-button icon-button--chapters"
                 type="button"
                 data-interactive="true"
                 aria-label="目录"
                 aria-expanded={contentsOpen}
-                title="目录：章节、书签与批注"
+                title="目录：章节、书签、检索与历史"
                 onClick={toggleContents}
               >
                 <span aria-hidden="true">目</span>
-              </button>
-              <button
-                className="icon-button icon-button--history"
-                type="button"
-                data-interactive="true"
-                aria-label="阅读历史"
-                aria-expanded={historyOpen}
-                title="阅读历史（↑）"
-                onClick={toggleHistory}
-              >
-                <span aria-hidden="true">↑</span>
               </button>
               <button
                 className="icon-button"
@@ -1152,6 +1137,7 @@ export function App() {
                 data-interactive="true"
                 aria-label="阅读设置"
                 aria-expanded={settingsOpen}
+                title="阅读设置"
                 onClick={() => {
                   const open = settingsOpen;
                   closePanels();
@@ -1227,6 +1213,10 @@ export function App() {
               positions={sourcePositions}
               currentIndex={currentIndex}
               initialTab={null}
+              currentBookmarked={currentBookmarked}
+              onToggleBookmark={() => toggleBookmarkAt(bundle.source.paragraphs[currentIndex].id, false)}
+              onOpenSearch={toggleSearch}
+              onOpenHistory={toggleHistory}
               onClose={() => setContentsOpen(false)}
               onJump={jumpToParagraph}
               onRemoveBookmark={(paragraphId) =>
@@ -1302,6 +1292,9 @@ export function App() {
             />
           ) : null}
           {audioError ? <div className="audio-notice">{audioError}，已继续纯文本阅读。</div> : null}
+          <div className="reader-notice" role="status">
+            {notice ? <span key={notice.serial}>{notice.text}</span> : null}
+          </div>
           <div className="advance-hint" aria-hidden="true">空格继续 · ↑ 回顾</div>
         </>
       )}

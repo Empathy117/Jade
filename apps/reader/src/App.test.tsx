@@ -244,16 +244,25 @@ describe("App", () => {
   it("bookmarks the current paragraph and lists it in the contents panel", async () => {
     const user = await startReading();
 
-    await user.click(screen.getByRole("button", { name: "为本段添加书签" }));
-    expect(screen.getByRole("button", { name: "移除本段书签" })).toBeDefined();
-
     await user.click(screen.getByRole("button", { name: "目录" }));
-    await user.click(screen.getByRole("tab", { name: /书签/ }));
     const dialog = screen.getByRole("dialog", { name: "目录" });
+    await user.click(within(dialog).getByRole("button", { name: "为本段添加书签" }));
+    expect(within(dialog).getByRole("button", { name: "移除本段书签" })).toBeDefined();
+
+    expect(within(dialog).getByRole("tab", { name: /书签/ }).getAttribute("aria-selected")).toBe("true");
     expect(within(dialog).getByText(/第 1 段正文。/)).toBeDefined();
 
     const saved = window.localStorage.getItem(bookmarksStorageKey("test-book", 1));
     expect(saved).toContain("p0002");
+  });
+
+  it("confirms a bookmark made from the keyboard", async () => {
+    const user = await startReading();
+
+    await user.keyboard("b");
+
+    expect((await screen.findByRole("status")).textContent).toBe("已为本段加书签");
+    expect(window.localStorage.getItem(bookmarksStorageKey("test-book", 1))).toContain("p0002");
   });
 
   it("searches only what has been read and jumps to a hit", async () => {
@@ -262,6 +271,7 @@ describe("App", () => {
     await user.keyboard(" ");
     await screen.findByText("第 3 段正文。");
 
+    await user.click(screen.getByRole("button", { name: "目录" }));
     await user.click(screen.getByRole("button", { name: "检索已读内容" }));
     const input = await screen.findByLabelText("检索已读正文");
     await user.type(input, "第 1 段");

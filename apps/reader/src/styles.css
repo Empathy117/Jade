@@ -443,7 +443,6 @@ button { color: inherit; }
   backdrop-filter: blur(10px);
 }
 .icon-button:hover { border-color: rgba(228,213,175,.7); background: rgba(228,213,175,.1); }
-.icon-button--history { font: 500 18px "Source Sans 3", sans-serif; }
 .icon-button--chapters { font: 500 15px "Noto Serif SC", serif; }
 .icon-button--codex { position: relative; font: 600 13px "Noto Serif SC", serif; }
 .icon-button--codex.has-fresh::after {
@@ -851,8 +850,49 @@ button { color: inherit; }
   text-align: center;
 }
 
+/* Heading, tools, tabs, list, footer. Doubled to outrank .history-panel's own rows. */
+.history-panel.contents-panel { grid-template-rows: auto auto auto minmax(0, 1fr) auto; }
+/* An empty tab says so in the middle of the panel, not stranded at its top. */
+.history-list:has(> .panel-empty:only-child) { display: grid; align-content: center; }
+.contents-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 20px 4px;
+}
+.contents-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 13px;
+  border: 1px solid rgba(242,237,228,.16);
+  border-radius: 999px;
+  background: rgba(242,237,228,.03);
+  color: rgba(242,237,228,.78);
+  font: 500 13px "Noto Serif SC", serif;
+  letter-spacing: .06em;
+  cursor: pointer;
+  transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+.contents-actions button:hover { border-color: rgba(214,194,143,.5); color: #fffaf0; }
+.contents-actions button:focus-visible { outline: 1px solid rgba(214,194,143,.8); outline-offset: 2px; }
+.contents-actions button.is-active { border-color: rgba(214,194,143,.7); background: rgba(214,194,143,.14); color: #f0dfae; }
+.contents-actions kbd {
+  min-width: 18px;
+  padding: 1px 5px;
+  border: 1px solid rgba(242,237,228,.16);
+  border-radius: 4px;
+  color: rgba(242,237,228,.55);
+  font: 500 11px/1.4 "Source Sans 3", sans-serif;
+  text-align: center;
+}
+/* Shortcut hints mean nothing without a keyboard, and cost a phone its one row. */
+@media (hover: none), (max-width: 680px) {
+  .contents-actions { padding: 12px 14px 4px; }
+  .contents-actions kbd { display: none; }
+}
+
 /* Contents panel rows that pair a jump area with a remove control. */
-.contents-panel { grid-template-rows: auto auto minmax(0, 1fr) auto; }
 .history-entry.contents-row { grid-template-columns: minmax(0, 1fr) auto; padding: 0; }
 .contents-row__jump {
   display: grid;
@@ -894,12 +934,6 @@ button { color: inherit; }
   letter-spacing: .04em;
 }
 
-.icon-button--bookmark, .icon-button--search { font: 500 13px "Noto Serif SC", serif; }
-.icon-button--bookmark.is-active {
-  border-color: rgba(214,194,143,.8);
-  background: rgba(214,194,143,.16);
-  color: #f0dfae;
-}
 
 .source-illustration {
   /* Shrink-to-fit keeps publisher glyph bitmaps (single rare characters) at
@@ -1485,6 +1519,26 @@ button { color: inherit; }
 .range-setting small { color: #c9b98e; }
 .range-setting input { width: 100%; accent-color: #c7ad70; }
 .audio-notice { position: absolute; z-index: 9; left: 50%; bottom: 92px; transform: translateX(-50%); padding: 9px 14px; border-radius: 8px; background: rgba(135,63,45,.9); font-size: 12px; }
+/* Confirms an action taken from the keyboard or inside a panel. */
+.reader-notice { position: absolute; z-index: 9; left: 50%; top: clamp(84px, 12vh, 118px); transform: translateX(-50%); pointer-events: none; }
+.reader-notice span {
+  display: block;
+  padding: 8px 16px;
+  border: 1px solid rgba(214,194,143,.4);
+  border-radius: 999px;
+  background: rgba(24,22,19,.94);
+  box-shadow: 0 12px 34px rgba(0,0,0,.4);
+  color: #f0dfae;
+  font: 500 13px "Noto Serif SC", serif;
+  letter-spacing: .08em;
+  white-space: nowrap;
+  animation: reader-notice 1800ms ease both;
+}
+@keyframes reader-notice {
+  0% { opacity: 0; translate: 0 -4px; }
+  12%, 80% { opacity: 1; translate: 0 0; }
+  100% { opacity: 0; }
+}
 .is-pure .reading-viewport { background: #151411; }
 .is-pure .paragraph { text-shadow: none; }
 
@@ -1548,12 +1602,12 @@ button { color: inherit; }
   .advance-hint { display: none; }
   .cover-screen { left: 28px; bottom: 70px; }
   .cover-screen h1 { font-size: 48px; }
-  .header-actions { gap: 5px; }
-  .icon-button { width: 34px; height: 34px; }
-  .icon-button--bookmark, .icon-button--search, .icon-button--codex, .icon-button--chapters { font-size: 12px; }
+  .header-actions { gap: 8px; }
+  .icon-button { width: 38px; height: 38px; }
+  .icon-button--codex, .icon-button--chapters { font-size: 13px; }
   .book-mark__title {
     display: block;
-    max-width: 34vw;
+    max-width: 46vw;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

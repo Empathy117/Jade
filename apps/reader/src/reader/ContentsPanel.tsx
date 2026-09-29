@@ -17,6 +17,11 @@ interface ContentsPanelProps {
   positions: ParagraphPositions;
   currentIndex: number;
   initialTab: ContentsTab | null;
+  /** The paragraph being read already carries a bookmark. */
+  currentBookmarked: boolean;
+  onToggleBookmark: () => void;
+  onOpenSearch: () => void;
+  onOpenHistory: () => void;
   onClose: () => void;
   onJump: (index: number) => void;
   onRemoveBookmark: (paragraphId: string) => void;
@@ -26,7 +31,8 @@ interface ContentsPanelProps {
 /**
  * The reader's own way back into the book: unlocked chapters, bookmarks, and
  * margin notes, all jumpable. Like everything else, nothing here reaches past
- * what has already been read.
+ * what has already been read. It also carries the tools the reading header
+ * keeps out of sight: bookmarking the current paragraph, search, and history.
  */
 export function ContentsPanel({
   chapters,
@@ -36,6 +42,10 @@ export function ContentsPanel({
   positions,
   currentIndex,
   initialTab,
+  currentBookmarked,
+  onToggleBookmark,
+  onOpenSearch,
+  onOpenHistory,
   onClose,
   onJump,
   onRemoveBookmark,
@@ -92,10 +102,32 @@ export function ContentsPanel({
         <header className="history-heading">
           <div>
             <p>目录</p>
-            <span>章节、书签与批注 · 点击任意条目跳转</span>
+            <span>{hasChapters ? "章节、书签与批注" : "书签与批注"} · 点击任意条目跳转</span>
           </div>
           <button type="button" aria-label="关闭目录" onClick={onClose}>×</button>
         </header>
+
+        <div className="contents-actions">
+          <button
+            type="button"
+            className={currentBookmarked ? "is-active" : ""}
+            aria-label={currentBookmarked ? "移除本段书签" : "为本段添加书签"}
+            aria-pressed={currentBookmarked}
+            onClick={() => {
+              onToggleBookmark();
+              setTab("bookmarks");
+            }}
+          >
+            {currentBookmarked ? "已加书签" : "为本段加书签"}
+            <kbd>B</kbd>
+          </button>
+          <button type="button" aria-label="检索已读内容" onClick={onOpenSearch}>
+            检索已读<kbd>/</kbd>
+          </button>
+          <button type="button" aria-label="阅读历史" onClick={onOpenHistory}>
+            阅读历史<kbd>↑</kbd>
+          </button>
+        </div>
 
         <nav className="codex-tabs" role="tablist" aria-label="目录页签">
           {tabs.map((entry) => (
@@ -163,7 +195,7 @@ export function ContentsPanel({
               ))
             ) : (
               <p className="panel-empty">
-                还没有书签。阅读时点右上角的「签」，或按 B 键，收藏当前位置。
+                还没有书签。点上方「为本段加书签」，或阅读时按 B 键，收藏当前位置。
               </p>
             )
           ) : null}
