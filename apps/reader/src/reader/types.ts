@@ -334,6 +334,29 @@ export interface InstrumentCue {
   keys: InstrumentKey[];
 }
 
+export type GestureKind = "grind_ink" | "press_seal";
+export type GesturePlacement = "auto" | "center" | "above_text";
+
+/** Per-kind parameters, each taken from what the text says (ADR-0007). */
+export interface GestureParams {
+  /** grind_ink: the hint arrow's direction; absent when the text gives none. */
+  direction?: "cw" | "ccw";
+  /** grind_ink: how dark the ink gets when grinding completes. */
+  tone?: "pale" | "normal" | "deep";
+}
+
+/** One simple motion the reader may make, or skip by turning the page. */
+export interface GestureCue {
+  id: string;
+  kind: GestureKind;
+  at: string;
+  beat?: number;
+  placement: GesturePlacement;
+  params: GestureParams;
+  /** A sound effect played once when the gesture completes. */
+  sound?: { asset_id: string; gain: number };
+}
+
 /** Event art shown from `at` through `until`, inclusive. */
 export interface CgCue {
   id: string;
@@ -402,6 +425,7 @@ export interface PlaybackDocument {
   effects?: EffectCue[];
   cgs?: CgCue[];
   instruments?: InstrumentCue[];
+  gestures?: GestureCue[];
 }
 
 export interface BookBundle {

@@ -400,6 +400,80 @@ button { color: inherit; }
 .instrument__trace { display: block; width: 100%; height: 26px; margin-top: 2px; }
 .instrument.is-off .instrument__digits { opacity: .25; text-shadow: none; }
 
+/* Gesture beats (ADR-0007): one quiet object that invites one motion. */
+.gesture {
+  position: absolute;
+  z-index: 3;
+  width: clamp(200px, 24vw, 272px);
+  padding: 10px 12px 8px;
+  border: 1px solid rgba(214,194,143,.2);
+  border-radius: 3px;
+  background: rgba(10,10,9,.58);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 12px 40px rgba(0,0,0,.35);
+  color: rgba(236,196,120,.92);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, 6px);
+  transition: opacity 700ms ease, transform 700ms ease, border-color 300ms ease;
+}
+.gesture.is-visible { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.gesture.is-finished { cursor: default; }
+.gesture:focus-visible { outline: none; border-color: rgba(236,196,120,.7); }
+.gesture.is-unplaced { visibility: hidden; }
+.gesture--lower { left: 50%; bottom: 30vh; }
+.gesture--center { left: 50%; top: 50%; transform: translate(-50%, -46%); }
+.gesture--center.is-visible { transform: translate(-50%, -50%); }
+.gesture__art { display: block; width: 100%; overflow: visible; }
+.gesture__stone { fill: #2b2a28; stroke: rgba(236,196,120,.28); stroke-width: 1; }
+.gesture__well { fill: #1d1c1b; stroke: rgba(236,196,120,.18); stroke-width: 1; }
+.gesture__face { fill: #3a3936; }
+.gesture__ink { fill: #0d0d0e; pointer-events: none; transition: opacity 240ms linear; }
+.gesture__swirl path { fill: none; stroke: rgba(236,226,200,.22); stroke-width: 1.2; stroke-linecap: round; }
+.gesture__stick { fill: #121212; stroke: rgba(236,196,120,.45); stroke-width: .8; }
+.gesture.is-finished .gesture__swirl path { stroke-opacity: 0; transition: stroke-opacity 900ms ease; }
+.gesture__arrow {
+  fill: none;
+  stroke: rgba(236,196,120,.55);
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  stroke-dasharray: 3 4;
+}
+.gesture__paper { fill: #e8e0cc; stroke: rgba(0,0,0,.25); stroke-width: .8; }
+.gesture__flap { fill: none; stroke: rgba(90,74,50,.45); stroke-width: 1; }
+.gesture__target {
+  fill: none;
+  stroke: rgba(196,64,44,.5);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+  transition: opacity 300ms ease;
+}
+.gesture__seal { opacity: 0; transform-box: fill-box; transform-origin: center; }
+.gesture__seal-body { fill: rgba(190,52,36,.9); }
+.gesture__seal-mark { fill: none; stroke: rgba(248,232,220,.85); stroke-width: 1.6; stroke-linecap: round; }
+.gesture--press_seal.is-finished .gesture__target { opacity: 0; }
+.gesture--press_seal.is-finished .gesture__seal { opacity: 1; animation: gesture-seal-press 420ms cubic-bezier(.2,.8,.3,1); }
+.gesture.is-still .gesture__seal { animation: none; }
+@keyframes gesture-seal-press {
+  from { opacity: 0; transform: scale(1.35); }
+  60% { opacity: 1; transform: scale(.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+.gesture__hint {
+  display: block;
+  margin-top: 4px;
+  text-align: center;
+  font: 500 12px "Source Sans 3", sans-serif;
+  letter-spacing: .18em;
+  opacity: 0;
+  transition: opacity 500ms ease;
+}
+.gesture__hint.is-shown { opacity: .75; }
+
 /* tremble: the line itself shakes while it is on screen. */
 .is-trembling .paragraph.is-current { animation: text-tremble 120ms steps(1) infinite; }
 @keyframes text-tremble {

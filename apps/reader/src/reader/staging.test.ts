@@ -6,6 +6,7 @@ import {
   cameraAt,
   cameraTransform,
   cgAt,
+  gestureAt,
   gradeAt,
   IDENTITY_CAMERA,
   instrumentAt,
@@ -217,5 +218,27 @@ describe("instrumentAt", () => {
     const reading = instrumentAt(positions, radio, { index: 4, beat: 0 });
     expect(reading?.key.frequency).toBe("14.255");
     expect(reading?.previous?.frequency).toBe("14.195");
+  });
+});
+
+describe("gestureAt", () => {
+  const withGesture: PlaybackDocument = {
+    ...playback,
+    gestures: [
+      {
+        id: "gesture_001",
+        kind: "grind_ink",
+        at: "p0003",
+        beat: 2,
+        placement: "auto",
+        params: { direction: "ccw", tone: "pale" },
+      },
+    ],
+  };
+
+  it("matches only the exact paragraph and beat", () => {
+    expect(gestureAt(positions, withGesture, { index: 2, beat: 1 })).toBeNull();
+    expect(gestureAt(positions, withGesture, { index: 2, beat: 2 })?.id).toBe("gesture_001");
+    expect(gestureAt(positions, playback, { index: 2, beat: 2 })).toBeNull();
   });
 });

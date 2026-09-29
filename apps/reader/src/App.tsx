@@ -91,17 +91,24 @@ import { SettingsPanel } from "./reader/SettingsPanel";
 import type {
   Asset,
   BookBundle,
+  GestureKind,
   LibraryBook,
   LibraryDocument,
   ResolvedPlaybackState,
   SourceIllustration,
 } from "./reader/types";
 import { unlockAudio, useAudioDirector } from "./reader/useAudioDirector";
+import { Gesture } from "./reader/Gesture";
 import { Instrument } from "./reader/Instrument";
 import { Stage, type StageCg, type StagePulse } from "./reader/Stage";
 import { useSoundEffects } from "./reader/useSoundEffects";
 import { useTypewriter } from "./reader/useTypewriter";
-import { useStaging, type ReadingStep } from "./reader/useStaging";
+import {
+  useStaging,
+  type GestureRun,
+  type OneShotRun,
+  type ReadingStep,
+} from "./reader/useStaging";
 
 /** Shown before a bundle loads: no background, no music, no ambience. */
 const SILENT_PLAYBACK: ResolvedPlaybackState = {
@@ -428,6 +435,31 @@ export function App() {
     started,
     bookPath: selectedBook?.path ?? null,
     run: staging.oneShots,
+    assets,
+    settings,
+  });
+  // A gesture's sound belongs to the reader's act, so it plays on completion
+  // rather than on arrival; its hint is shown only until the kind is learned.
+  const [learnedGestures, setLearnedGestures] = useState<ReadonlySet<GestureKind>>(
+    () => new Set(),
+  );
+  const [gestureSound, setGestureSound] = useState<OneShotRun | null>(null);
+  const completeGesture = useCallback((run: GestureRun) => {
+    setLearnedGestures((learned) =>
+      learned.has(run.cue.kind) ? learned : new Set(learned).add(run.cue.kind),
+    );
+    const sound = run.cue.sound;
+    if (!sound) return;
+    setGestureSound((previous) => ({
+      sounds: [{ id: run.cue.id, at: run.cue.at, asset_id: sound.asset_id, gain: sound.gain }],
+      effects: [],
+      serial: (previous?.serial ?? 0) + 1,
+    }));
+  }, []);
+  useSoundEffects({
+    started,
+    bookPath: selectedBook?.path ?? null,
+    run: gestureSound,
     assets,
     settings,
   });
@@ -1085,6 +1117,17 @@ export function App() {
           reactive={!settings.muted && !settings.pureMode}
           dimmed={Boolean(stageCg)}
           hidden={settings.pureMode}
+          viewportRef={readingViewportRef}
+        />
+      ) : null}
+      {started ? (
+        <Gesture
+          run={staging.gesture}
+          layout={staging.layout}
+          reducedMotion={settings.reducedMotion}
+          hidden={settings.pureMode}
+          learned={learnedGestures}
+          onComplete={completeGesture}
           viewportRef={readingViewportRef}
         />
       ) : null}

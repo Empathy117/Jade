@@ -5,6 +5,7 @@ import type {
   CameraKey,
   CgCue,
   EffectCue,
+  GestureCue,
   GradeState,
   InstrumentCue,
   InstrumentKey,
@@ -258,6 +259,19 @@ export function instrumentAt(
       if (keyPoint && comparePoints(keyPoint, point) <= 0) index = keyIndex;
     });
     return { cue, key: cue.keys[index], previous: index > 0 ? cue.keys[index - 1] : null };
+  }
+  return null;
+}
+
+/** The gesture anchored exactly at a reading point, if any. */
+export function gestureAt(
+  positions: ParagraphPositions,
+  playback: PlaybackDocument,
+  point: ReadingPoint,
+): GestureCue | null {
+  for (const gesture of playback.gestures ?? []) {
+    const anchored = anchorPoint(positions, gesture);
+    if (anchored && comparePoints(anchored, point) === 0) return gesture;
   }
   return null;
 }

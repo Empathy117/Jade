@@ -4,6 +4,7 @@ import {
   atmosphereAt,
   cameraAt,
   cgAt,
+  gestureAt,
   gradeAt,
   IDENTITY_CAMERA,
   instrumentAt,
@@ -18,7 +19,15 @@ import {
   type OneShots,
   type ReadingPoint,
 } from "./staging";
-import type { AtmosphereState, BookBundle, CgCue, GradeState, Layout, MomentCue } from "./types";
+import type {
+  AtmosphereState,
+  BookBundle,
+  CgCue,
+  GestureCue,
+  GradeState,
+  Layout,
+  MomentCue,
+} from "./types";
 
 /** The last page turn: its serial changes only when a turn actually moved. */
 export interface ReadingStep {
@@ -31,6 +40,15 @@ export interface MomentRun {
   cue: MomentCue;
   /** Distinguishes consecutive runs so one-shot effects replay. */
   serial: number;
+  active: boolean;
+}
+
+/** A gesture that arrived, kept after the reader moves on so it can close. */
+export interface GestureRun {
+  cue: GestureCue;
+  /** Distinguishes consecutive runs so each starts unfinished. */
+  serial: number;
+  /** False once the reader has turned past it: it shows finished and fades. */
   active: boolean;
 }
 
@@ -50,6 +68,7 @@ export interface Staging {
   tremble: number;
   grade: GradeState | null;
   moment: MomentRun | null;
+  gesture: GestureRun | null;
   /** The last move was a page turn, so the camera may travel; otherwise it settles. */
   stepped: boolean;
   chromeHidden: boolean;
@@ -90,6 +109,7 @@ export function useStaging(
     stepped: false,
   });
   const [run, setRun] = useState<MomentRun | null>(null);
+  const [gesture, setGesture] = useState<GestureRun | null>(null);
   const [oneShots, setOneShots] = useState<OneShotRun | null>(null);
   const [fired, setFired] = useState<ReadonlySet<string>>(() => new Set());
   const [holding, setHolding] = useState(false);
@@ -100,6 +120,7 @@ export function useStaging(
   if (bookId !== tracked.bookId) {
     setTracked({ bookId, key, serial: step.serial, stepped: false });
     setRun(null);
+    setGesture(null);
     setOneShots(null);
     setFired(new Set());
     setHolding(false);
@@ -128,6 +149,14 @@ export function useStaging(
       } else if (run?.active) {
         setRun({ ...run, active: false });
         setHolding(false);
+      }
+      // A gesture arrives like a moment: once, and only on a forward turn.
+      const gestureCue = bundle ? gestureAt(positions, bundle.playback, point) : null;
+      if (gestureCue && forward && !fired.has(gestureCue.id)) {
+        nextFired.add(gestureCue.id);
+        setGesture({ cue: gestureCue, serial: (gesture?.serial ?? 0) + 1, active: true });
+      } else if (gesture?.active) {
+        setGesture({ ...gesture, active: false });
       }
       if (nextFired.size !== fired.size) setFired(nextFired);
     }
@@ -188,6 +217,7 @@ export function useStaging(
     camera,
     grade,
     moment: run,
+    gesture,
     stepped: tracked.stepped,
     chromeHidden: Boolean(active?.params.hide_chrome) && !chromeRevealed,
     isolating: active?.template === "isolate_line",
