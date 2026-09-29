@@ -31,6 +31,9 @@ function textNodes(root: Element): Text[] {
  * screen readers see it all. Only a CSS highlight over the untyped tail hides
  * it visually, so nothing about the source text or its offsets changes.
  * Browsers without the Highlight API simply show the line at once.
+ *
+ * While a line types, its block carries `data-typing`, so the advance cue can
+ * wait for the line to finish.
  */
 export function useTypewriter(
   lineRef: React.RefObject<HTMLElement | null>,
@@ -42,8 +45,9 @@ export function useTypewriter(
 
   useEffect(() => {
     const registry = highlightRegistry();
-    const line = lineRef.current?.querySelector(".paragraph");
-    if (!enabled || !registry || !line) return;
+    const block = lineRef.current;
+    const line = block?.querySelector(".paragraph");
+    if (!enabled || !registry || !block || !line) return;
 
     const nodes = textNodes(line);
     const total = nodes.reduce((sum, node) => sum + node.length, 0);
@@ -72,6 +76,7 @@ export function useTypewriter(
     const finish = () => {
       window.cancelAnimationFrame(frame);
       registry.delete(HIGHLIGHT);
+      delete block.dataset.typing;
       typing.current = null;
     };
     const tick = (now: number) => {
@@ -85,6 +90,7 @@ export function useTypewriter(
       frame = window.requestAnimationFrame(tick);
     };
     hideFrom(0);
+    block.dataset.typing = "true";
     typing.current = { finish };
     frame = window.requestAnimationFrame(tick);
     return finish;

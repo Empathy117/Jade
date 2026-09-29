@@ -317,6 +317,29 @@ button { color: inherit; }
   padding: clamp(18px, 3vh, 28px) clamp(20px, 3vw, 36px);
 }
 .is-adv .paragraph.is-current { text-shadow: none; }
+/* The advance cue waits at the end of the line until it has finished typing. */
+.is-adv .reading-viewport:not(.is-at-end) .paragraph.is-current::after {
+  content: "";
+  display: inline-block;
+  width: .46em;
+  height: .36em;
+  margin-left: .55em;
+  background: #d6c28f;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  vertical-align: .08em;
+  animation: advance-cue 1.3s ease-in-out infinite;
+}
+.is-adv [data-typing] .paragraph.is-current::after { visibility: hidden; animation: none; }
+@keyframes advance-cue {
+  0%, 100% { opacity: .9; translate: 0 0; }
+  50% { opacity: .35; translate: 0 .14em; }
+}
+/* An unwritten margin note stays out of the box until the pointer is in it;
+   selecting words still offers 批注 either way. */
+.is-adv .paragraph-chip--annotation:not(.is-filled) { display: none; }
+.is-adv .reading-viewport:hover .paragraph-chip--annotation,
+.is-adv .reading-viewport:focus-within .paragraph-chip--annotation { display: inline-block; }
+.is-adv .advance-hint { display: none; }
 ::highlight(untyped) { color: transparent; text-shadow: none; }
 
 /* tremble: the line itself shakes while it is on screen. */

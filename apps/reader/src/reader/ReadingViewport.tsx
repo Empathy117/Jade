@@ -76,7 +76,7 @@ export function ReadingViewport({
   return (
     <>
       <section
-        className={`reading-viewport${hasSourceIllustration ? " has-source-illustration" : ""}${sweep.sweeping ? " is-sweeping" : ""}`}
+        className={`reading-viewport${hasSourceIllustration ? " has-source-illustration" : ""}${sweep.sweeping ? " is-sweeping" : ""}${atEnd ? " is-at-end" : ""}`}
         aria-label="小说正文"
         ref={viewportRef}
       >
