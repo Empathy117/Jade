@@ -74,6 +74,12 @@
       "items": {
         "$ref": "#/$defs/instrument"
       }
+    },
+    "gestures": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/gesture"
+      }
     }
   },
   "$defs": {
@@ -505,6 +511,33 @@
           }
         }
       }
+    },
+    "gestureId": {
+      "type": "string",
+      "pattern": "^gesture_[0-9]{3,}$"
+    },
+    "gesture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "at", "intent"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/gestureId"
+        },
+        "kind": {
+          "enum": ["grind_ink", "press_seal"]
+        },
+        "at": {
+          "$ref": "#/$defs/paragraphId"
+        },
+        "beat": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "intent": {
+          "$ref": "#/$defs/tag"
+        }
+      }
     }
   },
   "allOf": [
@@ -539,6 +572,9 @@
             },
             {
               "required": ["instruments"]
+            },
+            {
+              "required": ["gestures"]
             }
           ]
         }

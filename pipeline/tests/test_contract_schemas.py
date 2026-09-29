@@ -300,3 +300,64 @@ def test_radio_vocabulary_and_frequency_are_closed() -> None:
     playback = _radio_playback()
     playback["instruments"][0]["keys"][0]["frequency"] = "14.195 MHz"
     assert not _validator("playback.schema.json").is_valid(playback)
+
+
+def _gesture_direction() -> dict:
+    direction = _direction_visual_novel()
+    direction["gestures"] = [
+        {"id": "gesture_001", "kind": "grind_ink", "at": "p0002", "intent": "mourning_ink"},
+        {"id": "gesture_002", "kind": "press_seal", "at": "p0003", "beat": 1, "intent": "sending_off"},
+    ]
+    return direction
+
+
+def _gesture_playback() -> dict:
+    playback = _playback_visual_novel()
+    playback["gestures"] = [
+        {
+            "id": "gesture_001",
+            "kind": "grind_ink",
+            "at": "p0002",
+            "placement": "auto",
+            "params": {"direction": "ccw", "tone": "pale"},
+        },
+        {
+            "id": "gesture_002",
+            "kind": "press_seal",
+            "at": "p0003",
+            "beat": 1,
+            "placement": "center",
+            "params": {},
+            "sound": {"asset_id": "sfx_seal", "gain": 0.4},
+        },
+    ]
+    return playback
+
+
+def test_gestures_match_their_schemas() -> None:
+    _validator("direction.schema.json").validate(_gesture_direction())
+    _validator("playback.schema.json").validate(_gesture_playback())
+
+
+def test_v1_documents_reject_gestures() -> None:
+    direction = _load("direction.json")
+    direction["gestures"] = _gesture_direction()["gestures"]
+    assert not _validator("direction.schema.json").is_valid(direction)
+
+
+def test_gesture_kinds_and_params_are_closed() -> None:
+    direction = _gesture_direction()
+    direction["gestures"][0]["kind"] = "strike_match"
+    assert not _validator("direction.schema.json").is_valid(direction)
+
+    playback = _gesture_playback()
+    playback["gestures"][0]["params"]["tone"] = "inky"
+    assert not _validator("playback.schema.json").is_valid(playback)
+
+    playback = _gesture_playback()
+    playback["gestures"][0]["params"]["pressure"] = 0.5
+    assert not _validator("playback.schema.json").is_valid(playback)
+
+    playback = _gesture_playback()
+    playback["gestures"][1]["params"] = {"direction": "cw"}
+    assert not _validator("playback.schema.json").is_valid(playback)

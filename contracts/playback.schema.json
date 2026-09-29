@@ -71,6 +71,12 @@
       "items": {
         "$ref": "#/$defs/instrumentCue"
       }
+    },
+    "gestures": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/gestureCue"
+      }
     }
   },
   "$defs": {
@@ -579,6 +585,93 @@
           }
         }
       }
+    },
+    "gestureId": {
+      "type": "string",
+      "pattern": "^gesture_[0-9]{3,}$"
+    },
+    "gestureCue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "at", "placement", "params"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/gestureId"
+        },
+        "kind": {
+          "enum": ["grind_ink", "press_seal"]
+        },
+        "at": {
+          "$ref": "#/$defs/paragraphId"
+        },
+        "beat": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "placement": {
+          "enum": ["auto", "center", "above_text"]
+        },
+        "params": {
+          "type": "object"
+        },
+        "sound": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["asset_id", "gain"],
+          "properties": {
+            "asset_id": {
+              "$ref": "#/$defs/assetId"
+            },
+            "gain": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "grind_ink"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "additionalProperties": false,
+                "properties": {
+                  "direction": {
+                    "enum": ["cw", "ccw"]
+                  },
+                  "tone": {
+                    "enum": ["pale", "normal", "deep"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "press_seal"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "maxProperties": 0
+              }
+            }
+          }
+        }
+      ]
     }
   },
   "allOf": [
@@ -610,6 +703,9 @@
             },
             {
               "required": ["instruments"]
+            },
+            {
+              "required": ["gestures"]
             }
           ]
         }

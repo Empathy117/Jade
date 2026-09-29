@@ -83,14 +83,13 @@ ending-level information.
   {
     "id": "gesture_001", "kind": "grind_ink", "at": "p0229",
     "placement": "auto",
-    "params": { "direction": "ccw", "tone": "pale" },
-    "sound_asset_id": null
+    "params": { "direction": "ccw", "tone": "pale" }
   },
   {
     "id": "gesture_002", "kind": "press_seal", "at": "p0241",
     "placement": "auto",
     "params": {},
-    "sound_asset_id": "sfx_seal_press"
+    "sound": { "asset_id": "sfx_seal_press", "gain": 0.4 }
   }
 ]
 ```
@@ -104,7 +103,7 @@ ending-level information.
   default.
 - **`press_seal`** takes no parameters. The impression is an abstract
   vermilion mark with no legible glyph, because gestures never render text.
-- **`sound_asset_id`** optionally names a `sfx` asset that plays once on
+- **`sound`** optionally names a `sfx` asset and its gain. It plays once on
   completion, on the sound-effect bus.
 - **`placement`** is `auto` (centred above the adv text box; lower third in
   nvl), `center`, or `above_text`.
@@ -159,7 +158,7 @@ compete.
   carries a moment, and none inside a CG span.
 - Gestures in one book are at least 40 paragraphs apart, the same restraint
   rule as moments.
-- `sound_asset_id`, when present, names an `sfx` asset.
+- `sound.asset_id`, when present, names an `sfx` asset.
 
 ## Consequences
 
