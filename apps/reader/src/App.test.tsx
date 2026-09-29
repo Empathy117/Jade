@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { annotationsStorageKey } from "./reader/annotations";
 import { bookmarksStorageKey } from "./reader/bookmarks";
+import { parseShelfRecord, shelfStorageKey } from "./reader/shelf";
 import { progressStorageKey, readingBeatStorageKey } from "./reader/readerState";
 import type { Paragraph } from "./reader/types";
 import { stubBookFetch } from "./test/bookFixture";
@@ -19,7 +20,7 @@ async function openBook() {
   const card = await screen.findByRole("button", { name: /阅读《测试之书》/ });
   await user.click(card);
   // The cover, whichever start options it offers for this book.
-  await screen.findByText("原书负责说什么，导演只决定怎么呈现。");
+  await screen.findByRole("heading", { name: "测试之书" });
   return user;
 }
 
@@ -47,7 +48,19 @@ describe("App", () => {
     await openBook();
 
     expect(screen.getByRole("heading", { name: "测试之书" })).toBeDefined();
-    expect(screen.getByText("沉浸阅读 · Agent 导演版")).toBeDefined();
+    expect(screen.getByText("无名")).toBeDefined();
+    expect(screen.getByText("一本用于测试的书。")).toBeDefined();
+  });
+
+  it("leads the library with the last book read and how far it got", async () => {
+    const user = await startReading();
+    await user.keyboard(" ");
+    await user.click(screen.getByRole("button", { name: "返回书库" }));
+
+    const recent = await screen.findByRole("button", { name: "继续阅读《测试之书》" });
+    expect(within(recent).getByText(/已读 \d+%/)).toBeDefined();
+    const record = parseShelfRecord(window.localStorage.getItem(shelfStorageKey("test-book")));
+    expect(record).toMatchObject({ revision: 1 });
   });
 
   it("records the selected book in the URL so it can be linked", async () => {

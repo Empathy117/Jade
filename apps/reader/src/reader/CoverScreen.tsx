@@ -1,8 +1,7 @@
-import type { BookProductionMode } from "./types";
-
 interface CoverScreenProps {
   title: string;
-  production: BookProductionMode;
+  author: string | null;
+  summary: string;
   hasProgress: boolean;
   hasPreferredStart: boolean;
   progress: number;
@@ -12,15 +11,10 @@ interface CoverScreenProps {
   onLibrary: () => void;
 }
 
-const coverKickers: Record<BookProductionMode, string> = {
-  manual: "沉浸阅读 · 手工导演版",
-  "agent-assisted": "沉浸阅读 · Agent 导演版",
-  automated: "沉浸阅读 · 自动导演版",
-};
-
 export function CoverScreen({
   title,
-  production,
+  author,
+  summary,
   hasProgress,
   hasPreferredStart,
   progress,
@@ -34,9 +28,9 @@ export function CoverScreen({
       <button className="cover-library-action" type="button" onClick={onLibrary}>
         <span aria-hidden="true">←</span> 返回书库
       </button>
-      <p className="cover-kicker">{coverKickers[production]}</p>
+      {author ? <p className="cover-kicker">{author}</p> : null}
       <h1>{title}</h1>
-      <p className="cover-summary">原书负责说什么，导演只决定怎么呈现。</p>
+      {summary ? <p className="cover-summary">{summary}</p> : null}
       <div className="cover-actions">
         <button
           className="primary-action"

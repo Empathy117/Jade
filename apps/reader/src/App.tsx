@@ -69,6 +69,7 @@ import {
 } from "./reader/bookmarks";
 import type { Bookmark } from "./reader/bookmarks";
 import { SearchPanel } from "./reader/SearchPanel";
+import { parseShelfRecord, shelfEntries, shelfStorageKey } from "./reader/shelf";
 import {
   firstReadableIndex,
   moveReadingCursor,
@@ -634,6 +635,20 @@ export function App() {
     safeSet(sourceReadingBeatStorageKey(bundle.source), String(activeBeatIndex));
   }, [activeBeatIndex, bundle, currentIndex, furthestReadIndex, started]);
 
+  // The library draws each card from this record rather than loading the book.
+  const shelfPercent = Math.round(progress);
+  useEffect(() => {
+    if (!started || !bundle) return;
+    safeSet(
+      shelfStorageKey(bundle.source.book_id),
+      JSON.stringify({
+        revision: bundle.source.revision,
+        percent: shelfPercent,
+        readAt: Date.now(),
+      }),
+    );
+  }, [bundle, furthestReadIndex, shelfPercent, started]);
+
   useEffect(() => {
     if (!started || historyOpen) return;
     const animationFrame = window.requestAnimationFrame(() => {
@@ -997,10 +1012,11 @@ export function App() {
   if (!selectedBook) {
     return (
       <LibraryScreen
-        books={library.books}
-        hasProgress={(book) =>
-          Boolean(safeGet(progressStorageKey(book.book_id, book.source_revision)))
-        }
+        entries={shelfEntries(
+          library.books,
+          (book) => Boolean(safeGet(progressStorageKey(book.book_id, book.source_revision))),
+          (book) => parseShelfRecord(safeGet(shelfStorageKey(book.book_id))),
+        )}
         onSelect={selectBook}
       />
     );
@@ -1044,7 +1060,8 @@ export function App() {
       {!started ? (
         <CoverScreen
           title={bundle.source.title}
-          production={selectedBook.production}
+          author={selectedBook.author}
+          summary={selectedBook.summary}
           hasProgress={hasSavedProgress}
           hasPreferredStart={preferredIndex > sourceFirstIndex}
           progress={progress}
