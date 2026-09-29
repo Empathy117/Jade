@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { reactiveLevel, reactiveWaveform } from "./reactiveBus";
 import type { InstrumentReading } from "./staging";
-import type { InstrumentKey, Layout } from "./types";
+import type { Layout, RadioKey, WindKey } from "./types";
+import { BEARING, flowBearing, nearestTurn } from "./wind";
 
 interface InstrumentProps {
   reading: InstrumentReading | null;
@@ -9,12 +10,99 @@ interface InstrumentProps {
   stepped: boolean;
   layout: Layout;
   reducedMotion: boolean;
-  /** Sound is audible, so the meter may react to it. */
+  /** Sound is audible, so the instrument may react to it. */
   reactive: boolean;
   /** Event art is on screen; the instrument steps back. */
   dimmed: boolean;
   hidden: boolean;
   viewportRef: React.RefObject<HTMLElement | null>;
+}
+
+/** What every face needs to follow the reading. */
+interface FaceProps {
+  stepped: boolean;
+  reducedMotion: boolean;
+  reactive: boolean;
+  visible: boolean;
+}
+
+/**
+ * The instrument channel's shell (ADR-0006): it fades a panel in and out with
+ * its span, places it for the layout, and dims it under event art. What the
+ * panel shows belongs to its kind's face.
+ */
+export function Instrument({
+  reading,
+  stepped,
+  layout,
+  reducedMotion,
+  reactive,
+  dimmed,
+  hidden,
+  viewportRef,
+}: InstrumentProps) {
+  // Keep the last reading after a span ends so the panel can fade out whole.
+  const [shown, setShown] = useState(reading);
+  if (reading && reading !== shown) setShown(reading);
+  const visible = Boolean(reading) && !hidden;
+  // Placement follows the layout only while visible, so a panel fading out as
+  // its scene ends does not jump to where the next scene would put it.
+  const [placedLayout, setPlacedLayout] = useState(layout);
+  if (visible && layout !== placedLayout) setPlacedLayout(layout);
+
+  const placement =
+    shown?.cue.placement === "auto" || !shown
+      ? placedLayout === "adv"
+        ? "above_text"
+        : "top_right"
+      : shown.cue.placement;
+
+  // Above the adv text box, right-aligned with it, following its height.
+  const [anchor, setAnchor] = useState<{ right: number; bottom: number } | null>(null);
+  const [retry, setRetry] = useState(0);
+  useLayoutEffect(() => {
+    // Stop measuring once hidden: a fading panel keeps its last position.
+    if (placement !== "above_text" || !visible) return;
+    const viewport = viewportRef.current;
+    if (!viewport) {
+      // The text box mounts after the reader starts; look again next frame.
+      const frame = window.requestAnimationFrame(() => setRetry((count) => count + 1));
+      return () => window.cancelAnimationFrame(frame);
+    }
+    const measure = () => {
+      const rect = viewport.getBoundingClientRect();
+      setAnchor({ right: window.innerWidth - rect.right, bottom: window.innerHeight - rect.top + 12 });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(viewport);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [placement, retry, viewportRef, visible]);
+
+  // A stale measurement from an earlier adv scene must not place an nvl panel.
+  const placed = placement === "above_text" ? anchor : null;
+
+  if (!shown) return null;
+  const face = { stepped, reducedMotion, reactive, visible };
+  const state = shown.key.state;
+
+  return (
+    <div
+      className={`instrument instrument--${shown.cue.kind} instrument--${placement}${visible ? " is-visible" : ""}${dimmed ? " is-dimmed" : ""}${state === "off" ? " is-off" : ""}${state === "calm" ? " is-calm" : ""}${placement === "above_text" && !placed ? " is-unplaced" : ""}`}
+      style={placed ? { right: placed.right, bottom: placed.bottom } : undefined}
+      aria-hidden="true"
+    >
+      {shown.cue.kind === "wind" ? (
+        <WindFace windKey={shown.key as WindKey} {...face} />
+      ) : (
+        <RadioFace radioKey={shown.key as RadioKey} {...face} />
+      )}
+    </div>
+  );
 }
 
 // The S-meter sweeps 110°, from S1 at the left stop to +20 dB at the right.
@@ -55,44 +143,18 @@ const BLANK = "--.---";
  * comes from playback keys; the only live input is the loudness of the
  * scene's sounds, which makes the needle tremble and the trace move.
  */
-export function Instrument({
-  reading,
-  stepped,
-  layout,
-  reducedMotion,
-  reactive,
-  dimmed,
-  hidden,
-  viewportRef,
-}: InstrumentProps) {
-  // Keep the last reading after a span ends so the panel can fade out whole.
-  const [shown, setShown] = useState(reading);
-  if (reading && reading !== shown) setShown(reading);
-  const visible = Boolean(reading) && !hidden;
-  // Placement follows the layout only while visible, so a panel fading out as
-  // its scene ends does not jump to where the next scene would put it.
-  const [placedLayout, setPlacedLayout] = useState(layout);
-  if (visible && layout !== placedLayout) setPlacedLayout(layout);
-
+function RadioFace({ radioKey: key, stepped, reducedMotion, reactive, visible }: FaceProps & { radioKey: RadioKey }) {
   const needleRef = useRef<SVGGElement | null>(null);
   const digitsRef = useRef<HTMLSpanElement | null>(null);
   const traceRef = useRef<HTMLCanvasElement | null>(null);
   const motion = useRef({ needle: 0, velocity: 0, roll: null as null | { from: number; to: number; places: number; start: number } });
-  const lastKey = useRef<InstrumentKey | null>(null);
-
-  const key = shown?.key ?? null;
-  const placement =
-    shown?.cue.placement === "auto" || !shown
-      ? placedLayout === "adv"
-        ? "above_text"
-        : "top_right"
-      : shown.cue.placement;
+  const lastKey = useRef<RadioKey | null>(null);
 
   // A new key: roll the digits on a tuning page turn, snap everything on a jump.
   // The digits are written here and by the frame loop only, never by React, so
   // a roll in progress is never overwritten by a re-render.
   useLayoutEffect(() => {
-    if (!key || key === lastKey.current) return;
+    if (key === lastKey.current) return;
     const previous = lastKey.current;
     lastKey.current = key;
     const state = motion.current;
@@ -111,7 +173,7 @@ export function Instrument({
 
   // The panel's life: needle physics, digit roll, and the trace, per frame.
   useEffect(() => {
-    if (!key || !visible) return;
+    if (!visible) return;
     const draw = (level: number, wave: Float32Array | null) => {
       const state = motion.current;
       needleRef.current?.setAttribute(
@@ -182,43 +244,8 @@ export function Instrument({
     return () => window.cancelAnimationFrame(frame);
   }, [key, reactive, reducedMotion, visible]);
 
-  // Above the adv text box, right-aligned with it, following its height.
-  const [anchor, setAnchor] = useState<{ right: number; bottom: number } | null>(null);
-  const [retry, setRetry] = useState(0);
-  useLayoutEffect(() => {
-    // Stop measuring once hidden: a fading panel keeps its last position.
-    if (placement !== "above_text" || !visible) return;
-    const viewport = viewportRef.current;
-    if (!viewport) {
-      // The text box mounts after the reader starts; look again next frame.
-      const frame = window.requestAnimationFrame(() => setRetry((count) => count + 1));
-      return () => window.cancelAnimationFrame(frame);
-    }
-    const measure = () => {
-      const rect = viewport.getBoundingClientRect();
-      setAnchor({ right: window.innerWidth - rect.right, bottom: window.innerHeight - rect.top + 12 });
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(viewport);
-    window.addEventListener("resize", measure);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", measure);
-    };
-  }, [placement, retry, viewportRef, visible]);
-
-  // A stale measurement from an earlier adv scene must not place an nvl panel.
-  const placed = placement === "above_text" ? anchor : null;
-
-  if (!shown || !key) return null;
-
   return (
-    <div
-      className={`instrument instrument--${shown.cue.kind} instrument--${placement}${visible ? " is-visible" : ""}${dimmed ? " is-dimmed" : ""}${key.state === "off" ? " is-off" : ""}${placement === "above_text" && !placed ? " is-unplaced" : ""}`}
-      style={placed ? { right: placed.right, bottom: placed.bottom } : undefined}
-      aria-hidden="true"
-    >
+    <>
       <div className="instrument__readout">
         <span className="instrument__digits" ref={digitsRef} />
         <span className="instrument__unit">MHz</span>
@@ -254,6 +281,173 @@ export function Instrument({
         </g>
       </svg>
       <canvas className="instrument__trace" ref={traceRef} />
-    </div>
+    </>
+  );
+}
+
+// A compass dial on the left, five strength bars on the right.
+const WIND = { width: 220, height: 82, cx: 44, cy: 41, radius: 33 };
+const BARS = [0, 1, 2, 3, 4].map((index) => ({
+  x: 104 + index * 22,
+  height: 12 + index * 12,
+}));
+const BAR_BASE = 70;
+const STREAKS = [
+  { x: -12, phase: 0 },
+  { x: 6, phase: 0.35 },
+  { x: -3, phase: 0.62 },
+  { x: 14, phase: 0.85 },
+];
+const STREAK_LENGTH = 11;
+
+/**
+ * The wind (ADR-0008): an arrow across a compass dial showing where it blows,
+ * streaks drifting along it, and a bar of five segments for its strength. The
+ * direction appears only when the text names one; gusts in the scene's sounds
+ * swing the arrow and flicker the bar.
+ */
+function WindFace({ windKey: key, stepped, reducedMotion, reactive, visible }: FaceProps & { windKey: WindKey }) {
+  const arrowRef = useRef<SVGGElement | null>(null);
+  const streakRefs = useRef<(SVGLineElement | null)[]>([]);
+  const barRefs = useRef<(SVGRectElement | null)[]>([]);
+  const motion = useRef({ angle: 0, velocity: 0, strength: 0, drift: 0 });
+  const lastKey = useRef<WindKey | null>(null);
+  const hasArrow = Boolean(key.from) && key.state !== "calm";
+
+  const paint = (angle: number, strength: number, drift: number) => {
+    arrowRef.current?.setAttribute("transform", `rotate(${angle.toFixed(2)} ${WIND.cx} ${WIND.cy})`);
+    barRefs.current.forEach((bar, index) => {
+      // Each segment lights as the strength passes its share, softly at the edge.
+      const lit = Math.min(1, Math.max(0, strength * BARS.length - index));
+      bar?.style.setProperty("--lit", lit.toFixed(3));
+    });
+    streakRefs.current.forEach((streak, index) => {
+      if (!streak) return;
+      const along = ((drift + STREAKS[index].phase) % 1) * (WIND.radius * 2) - WIND.radius;
+      // Streaks fade in and out at the rim of the dial.
+      const edge = 1 - Math.abs(along) / WIND.radius;
+      streak.setAttribute("y1", (WIND.cy - along).toFixed(2));
+      streak.setAttribute("y2", (WIND.cy - along + STREAK_LENGTH).toFixed(2));
+      streak.style.opacity = (Math.max(0, edge) * 0.55 * Math.min(1, strength * 1.6)).toFixed(3);
+    });
+  };
+
+  // A new key: swing the short way on a page turn, set at once on a jump.
+  useLayoutEffect(() => {
+    if (key === lastKey.current) return;
+    const previous = lastKey.current;
+    lastKey.current = key;
+    const state = motion.current;
+    const target = key.from ? flowBearing(key.from) : state.angle;
+    if (!stepped || reducedMotion || !previous || !previous.from) {
+      state.angle = key.from ? nearestTurn(state.angle, target) : state.angle;
+      state.velocity = 0;
+      state.strength = key.strength;
+    }
+    paint(state.angle, state.strength, state.drift);
+  }, [key, reducedMotion, stepped]);
+
+  useEffect(() => {
+    if (!visible || reducedMotion) {
+      const state = motion.current;
+      if (key.from) state.angle = nearestTurn(state.angle, flowBearing(key.from));
+      state.strength = key.strength;
+      paint(state.angle, state.strength, 0.5);
+      return;
+    }
+    let frame = 0;
+    let last = performance.now();
+    const tick = (now: number) => {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      const state = motion.current;
+      const level = reactive && key.state !== "calm" ? reactiveLevel() : 0;
+      const gust = key.gust * level;
+      // Gusts swing the vane a few degrees either side of the wind's line.
+      const sway = gust * 14 * Math.sin(now / 173) * Math.sin(now / 61);
+      const target = key.from ? nearestTurn(state.angle, flowBearing(key.from)) + sway : state.angle;
+      // A damped spring, heavier than the radio's needle: a vane swings, then settles.
+      state.velocity += ((target - state.angle) * 22 - state.velocity * 7) * dt;
+      state.angle += state.velocity * dt;
+      // Strength eases toward the key, and gusts push it up for a moment.
+      const strengthTarget = Math.min(1, key.strength + gust * 0.25);
+      state.strength += (strengthTarget - state.strength) * Math.min(1, dt * 4);
+      state.drift = (state.drift + dt * (0.12 + state.strength * 0.9)) % 1;
+      paint(state.angle, state.strength, state.drift);
+      frame = window.requestAnimationFrame(tick);
+    };
+    frame = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(frame);
+  }, [key, reactive, reducedMotion, visible]);
+
+  const ticks = Object.values(BEARING);
+
+  return (
+    <svg className="instrument__wind" viewBox={`0 0 ${WIND.width} ${WIND.height}`}>
+      <defs>
+        <clipPath id="instrument-wind-dial">
+          <circle cx={WIND.cx} cy={WIND.cy} r={WIND.radius - 3} />
+        </clipPath>
+      </defs>
+      <circle className="instrument__dial" cx={WIND.cx} cy={WIND.cy} r={WIND.radius} />
+      {ticks.map((bearing) => {
+        const radians = ((bearing - 90) * Math.PI) / 180;
+        const inner = bearing % 90 === 0 ? WIND.radius - 6 : WIND.radius - 3;
+        return (
+          <line
+            key={bearing}
+            className="instrument__tick"
+            x1={WIND.cx + WIND.radius * Math.cos(radians)}
+            y1={WIND.cy + WIND.radius * Math.sin(radians)}
+            x2={WIND.cx + inner * Math.cos(radians)}
+            y2={WIND.cy + inner * Math.sin(radians)}
+          />
+        );
+      })}
+      <text className="instrument__label instrument__label--north" x={WIND.cx} y={WIND.cy - WIND.radius - 3}>
+        N
+      </text>
+      <circle className="instrument__hub" cx={WIND.cx} cy={WIND.cy} r={1.6} />
+      <g className={`instrument__vane${hasArrow ? " is-shown" : ""}`} ref={arrowRef}>
+        <g clipPath="url(#instrument-wind-dial)">
+          {STREAKS.map((streak, index) => (
+            <line
+              key={streak.phase}
+              className="instrument__streak"
+              ref={(element) => {
+                streakRefs.current[index] = element;
+              }}
+              x1={WIND.cx + streak.x}
+              x2={WIND.cx + streak.x}
+              y1={WIND.cy}
+              y2={WIND.cy + STREAK_LENGTH}
+            />
+          ))}
+        </g>
+        <line className="instrument__arrow" x1={WIND.cx} y1={WIND.cy + WIND.radius - 8} x2={WIND.cx} y2={WIND.cy - WIND.radius + 9} />
+        <path
+          className="instrument__arrowhead"
+          d={`M ${WIND.cx} ${WIND.cy - WIND.radius + 5} l -4.5 8 l 9 0 z`}
+        />
+        <path
+          className="instrument__fletch"
+          d={`M ${WIND.cx - 4} ${WIND.cy + WIND.radius - 5} L ${WIND.cx} ${WIND.cy + WIND.radius - 10} L ${WIND.cx + 4} ${WIND.cy + WIND.radius - 5}`}
+        />
+      </g>
+      {BARS.map((bar, index) => (
+        <rect
+          key={bar.x}
+          className="instrument__bar"
+          ref={(element) => {
+            barRefs.current[index] = element;
+          }}
+          x={bar.x}
+          y={BAR_BASE - bar.height}
+          width={14}
+          height={bar.height}
+          rx={1}
+        />
+      ))}
+    </svg>
   );
 }

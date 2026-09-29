@@ -399,6 +399,24 @@ button { color: inherit; }
 .instrument__needle { stroke: rgba(255,238,205,.95); stroke-width: 1.2; stroke-linecap: round; }
 .instrument__trace { display: block; width: 100%; height: 26px; margin-top: 2px; }
 .instrument.is-off .instrument__digits { opacity: .25; text-shadow: none; }
+/* The wind (ADR-0008): a compass dial, an arrow the way it blows, five bars. */
+.instrument__wind { display: block; width: 100%; overflow: visible; }
+.instrument__dial { fill: rgba(236,196,120,.03); stroke: rgba(236,196,120,.45); stroke-width: 1; }
+.instrument__hub { fill: rgba(255,238,205,.8); }
+.instrument__label--north { font-size: 8px; }
+.instrument__vane { opacity: 0; transition: opacity 900ms ease; }
+.instrument__vane.is-shown { opacity: 1; }
+.instrument__arrow { stroke: rgba(255,238,205,.95); stroke-width: 1.2; stroke-linecap: round; }
+.instrument__arrowhead { fill: rgba(255,238,205,.95); }
+.instrument__fletch { fill: none; stroke: rgba(255,238,205,.7); stroke-width: 1; stroke-linejoin: round; }
+.instrument__streak { stroke: rgba(236,196,120,.9); stroke-width: 1; stroke-linecap: round; opacity: 0; }
+.instrument__bar {
+  --lit: 0;
+  fill: rgba(236,196,120,calc(.1 + .75 * var(--lit)));
+  stroke: rgba(236,196,120,.3);
+  stroke-width: .6;
+}
+.instrument.is-calm .instrument__hub { fill: rgba(255,238,205,.45); }
 
 /* Gesture beats (ADR-0007): one quiet object that invites one motion. */
 .gesture {

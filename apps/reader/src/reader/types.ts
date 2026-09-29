@@ -304,12 +304,15 @@ export interface EffectCue {
   duration_ms?: number;
 }
 
-export type InstrumentKind = "radio";
+export type InstrumentKind = "radio" | "wind";
 export type RadioState = "off" | "listening" | "tuning" | "contact" | "transmitting" | "lost";
+export type WindState = "calm" | "breeze" | "wind" | "gale" | "storm";
+/** The compass point a wind blows from, as the text names it (ADR-0008). */
+export type CompassPoint = "n" | "ne" | "e" | "se" | "s" | "sw" | "w" | "nw";
 export type InstrumentPlacement = "auto" | "top_right" | "above_text";
 
-/** One resolved reading of an instrument; it holds until the next key. */
-export interface InstrumentKey {
+/** One resolved reading of a radio; it holds until the next key. */
+export interface RadioKey {
   at: string;
   beat?: number;
   state: RadioState;
@@ -322,17 +325,32 @@ export interface InstrumentKey {
   tuning?: boolean;
 }
 
-/** An instrument on screen from `at` through `until`, inclusive (ADR-0006). */
-export interface InstrumentCue {
+/** One resolved reading of the wind; it holds until the next key. */
+export interface WindKey {
+  at: string;
+  beat?: number;
+  state: WindState;
+  /** Absent when the text names no direction; then no arrow is drawn. */
+  from?: CompassPoint;
+  strength: number;
+  gust: number;
+}
+
+export type InstrumentKey = RadioKey | WindKey;
+
+interface InstrumentSpan<Kind extends InstrumentKind, Key> {
   id: string;
-  kind: InstrumentKind;
+  kind: Kind;
   at: string;
   beat?: number;
   until: string;
   until_beat?: number;
   placement: InstrumentPlacement;
-  keys: InstrumentKey[];
+  keys: Key[];
 }
+
+/** An instrument on screen from `at` through `until`, inclusive (ADR-0006, ADR-0008). */
+export type InstrumentCue = InstrumentSpan<"radio", RadioKey> | InstrumentSpan<"wind", WindKey>;
 
 export type GestureKind = "grind_ink" | "press_seal";
 export type GesturePlacement = "auto" | "center" | "above_text";

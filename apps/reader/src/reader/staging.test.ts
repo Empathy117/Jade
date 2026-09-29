@@ -16,7 +16,7 @@ import {
   oneShotsAt,
   trembleAt,
 } from "./staging";
-import type { PlaybackDocument, SourceDocument } from "./types";
+import type { PlaybackDocument, RadioKey, SourceDocument } from "./types";
 
 // p0003 is long enough to split into several reading beats.
 const longText = "这一句写得很长，".repeat(30) + "。";
@@ -216,8 +216,8 @@ describe("instrumentAt", () => {
 
   it("holds the latest key and remembers the one before", () => {
     const reading = instrumentAt(positions, radio, { index: 4, beat: 0 });
-    expect(reading?.key.frequency).toBe("14.255");
-    expect(reading?.previous?.frequency).toBe("14.195");
+    expect((reading?.key as RadioKey).frequency).toBe("14.255");
+    expect((reading?.previous as RadioKey).frequency).toBe("14.195");
   });
 });
 
