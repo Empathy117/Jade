@@ -4,6 +4,7 @@ import { Howl, Howler } from "howler";
 import { pageVisibilityGain } from "./audioPolicy";
 import { assetUrl } from "./data";
 import { tapReactive } from "./reactiveBus";
+import { SeamlessLoop } from "./seamlessLoop";
 import type { Asset, ResolvedPlaybackState } from "./types";
 
 export interface AudioSettings {
@@ -44,7 +45,7 @@ export function useAudioDirector({
   settings,
 }: AudioDirectorOptions): string | null {
   const music = useRef<PlayingTrack | null>(null);
-  const ambience = useRef<Map<string, Howl>>(new Map());
+  const ambience = useRef<Map<string, SeamlessLoop>>(new Map());
   const cleanupTimers = useRef<Set<number>>(new Set());
   const [audioError, setAudioError] = useState<string | null>(null);
   const [visibilityGain, setVisibilityGain] = useState(() =>
@@ -122,9 +123,9 @@ export function useAudioDirector({
     const desiredTracks = started && bookPath && !settings.pureMode ? playback.ambience : [];
     const desiredIds = new Set(desiredTracks.map((track) => track.asset_id));
 
-    for (const [assetId, howl] of ambience.current) {
+    for (const [assetId, loop] of ambience.current) {
       if (!desiredIds.has(assetId)) {
-        fadeAndUnload(howl, 900, cleanupTimers.current);
+        loop.stop(900, () => undefined);
         ambience.current.delete(assetId);
       }
     }
@@ -135,16 +136,18 @@ export function useAudioDirector({
         desired.gain * settings.ambienceVolume * visibilityGain;
       const existing = ambience.current.get(desired.asset_id);
       if (existing) {
-        existing.fade(existing.volume(), targetVolume, 250);
+        existing.setVolume(targetVolume, 250);
         continue;
       }
       const asset = assets.get(desired.asset_id);
       if (!asset) {
         continue;
       }
+      // Looping is done by SeamlessLoop, which crossfades each pass into the
+      // next so encoder padding or a rough seam is never heard as a gap.
       const howl = new Howl({
         src: [assetUrl(bookPath, asset)],
-        loop: asset.loop ?? true,
+        loop: false,
         volume: 0,
         onloaderror: (_id, error) => {
           setAudioError(`环境音加载失败：${String(error)}`);
@@ -153,10 +156,10 @@ export function useAudioDirector({
           setAudioError(`环境音播放失败：${String(error)}`);
         },
       });
-      ambience.current.set(desired.asset_id, howl);
       tapReactive(howl);
-      howl.play();
-      howl.fade(0, targetVolume, 900);
+      const loop = new SeamlessLoop(howl);
+      ambience.current.set(desired.asset_id, loop);
+      loop.start(targetVolume, 900, asset.loop !== false);
     }
   }, [
     assets,
@@ -176,8 +179,8 @@ export function useAudioDirector({
         window.clearTimeout(timeout);
       }
       music.current?.howl.unload();
-      for (const howl of ambienceTracks.values()) {
-        howl.unload();
+      for (const loop of ambienceTracks.values()) {
+        loop.unload();
       }
     };
   }, []);
