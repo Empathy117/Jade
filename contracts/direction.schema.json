@@ -605,7 +605,7 @@
           "$ref": "#/$defs/gestureId"
         },
         "kind": {
-          "enum": ["grind_ink", "press_seal"]
+          "enum": ["grind_ink", "press_seal", "carve_wood"]
         },
         "at": {
           "$ref": "#/$defs/paragraphId"

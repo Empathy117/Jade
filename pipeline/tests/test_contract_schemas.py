@@ -634,3 +634,49 @@ def test_gesture_kinds_and_params_are_closed() -> None:
     playback = _gesture_playback()
     playback["gestures"][1]["params"] = {"direction": "cw"}
     assert not _validator("playback.schema.json").is_valid(playback)
+
+
+def _carve_direction() -> dict:
+    direction = _direction_visual_novel()
+    direction["gestures"] = [
+        {"id": "gesture_001", "kind": "carve_wood", "at": "p0002", "intent": "carving_in_the_snow"},
+    ]
+    return direction
+
+
+def _carve_playback() -> dict:
+    playback = _playback_visual_novel()
+    playback["gestures"] = [
+        {
+            "id": "gesture_001",
+            "kind": "carve_wood",
+            "at": "p0002",
+            "placement": "auto",
+            "params": {"stage": "rough"},
+            "sound": {"asset_id": "sfx_seal", "gain": 0.35},
+        },
+    ]
+    return playback
+
+
+def test_carve_wood_matches_its_schemas() -> None:
+    _validator("direction.schema.json").validate(_carve_direction())
+    _validator("playback.schema.json").validate(_carve_playback())
+
+    playback = _carve_playback()
+    playback["gestures"][0]["params"] = {}
+    _validator("playback.schema.json").validate(playback)
+
+
+def test_carve_wood_takes_only_a_stage() -> None:
+    playback = _carve_playback()
+    playback["gestures"][0]["params"]["stage"] = "polished"
+    assert not _validator("playback.schema.json").is_valid(playback)
+
+    playback = _carve_playback()
+    playback["gestures"][0]["params"]["figure"] = "woman"
+    assert not _validator("playback.schema.json").is_valid(playback)
+
+    playback = _carve_playback()
+    playback["gestures"][0]["params"] = {"tone": "pale"}
+    assert not _validator("playback.schema.json").is_valid(playback)

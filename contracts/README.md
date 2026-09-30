@@ -38,7 +38,8 @@ Version 2 also carries the opt-in `visual_novel` profile
 ([ADR-0009](../docs/adr/0009-letter-instrument.md)), the pianola
 ([ADR-0010](../docs/adr/0010-pianola-instrument.md)), and incense
 ([ADR-0011](../docs/adr/0011-incense-instrument.md)), and gesture beats such as
-grinding ink ([ADR-0007](../docs/adr/0007-gesture-beats.md)). Assets gain the
+grinding ink ([ADR-0007](../docs/adr/0007-gesture-beats.md)) and carving wood
+([ADR-0012](../docs/adr/0012-carve-wood-gesture.md)). Assets gain the
 `cg` and `sfx` types.
 
 Playback v2 semantics the Compiler must honour:
