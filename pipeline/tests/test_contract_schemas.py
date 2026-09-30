@@ -680,3 +680,41 @@ def test_carve_wood_takes_only_a_stage() -> None:
     playback = _carve_playback()
     playback["gestures"][0]["params"] = {"tone": "pale"}
     assert not _validator("playback.schema.json").is_valid(playback)
+
+
+def _cosmetics_direction() -> dict:
+    direction = _direction_visual_novel()
+    direction["gestures"] = [
+        {"id": "gesture_001", "kind": "apply_cosmetics", "at": "p0002", "intent": "at_the_mirror"},
+    ]
+    return direction
+
+
+def _cosmetics_playback() -> dict:
+    playback = _playback_visual_novel()
+    playback["gestures"] = [
+        {
+            "id": "gesture_001",
+            "kind": "apply_cosmetics",
+            "at": "p0002",
+            "placement": "auto",
+            "params": {},
+        },
+    ]
+    return playback
+
+
+def test_apply_cosmetics_matches_its_schemas() -> None:
+    _validator("direction.schema.json").validate(_cosmetics_direction())
+    _validator("playback.schema.json").validate(_cosmetics_playback())
+
+    playback = _cosmetics_playback()
+    playback["gestures"][0]["sound"] = {"asset_id": "sfx_seal", "gain": 0.3}
+    _validator("playback.schema.json").validate(playback)
+
+
+def test_apply_cosmetics_takes_no_parameters() -> None:
+    for params in ({"finish": "sheen"}, {"colour": "#e8b8a0"}, {"stage": "finish"}):
+        playback = _cosmetics_playback()
+        playback["gestures"][0]["params"] = params
+        assert not _validator("playback.schema.json").is_valid(playback)

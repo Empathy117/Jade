@@ -735,7 +735,7 @@
           "$ref": "#/$defs/gestureId"
         },
         "kind": {
-          "enum": ["grind_ink", "press_seal", "carve_wood"]
+          "enum": ["grind_ink", "press_seal", "carve_wood", "apply_cosmetics"]
         },
         "at": {
           "$ref": "#/$defs/paragraphId"
@@ -824,6 +824,22 @@
                     "enum": ["rough", "finish"]
                   }
                 }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "apply_cosmetics"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "maxProperties": 0
               }
             }
           }
