@@ -320,6 +320,7 @@ def validate_playback_staging(
     issues.extend(_validate_visual_novel_playback(catalog, direction, playback))
     issues.extend(_instrument_span_issues("playback.json", positions, playback, "keys"))
     issues.extend(_instrument_state_issues(positions, direction, playback))
+    issues.extend(_incense_burnt_issues(playback))
     return issues
 
 
@@ -410,6 +411,7 @@ def _validate_visual_novel_direction(
 
     issues.extend(_instrument_span_issues("direction.json", positions, direction, "states"))
     issues.extend(_letter_issues(positions, direction))
+    issues.extend(_incense_state_issues(direction))
     return issues
 
 
@@ -667,6 +669,59 @@ def _letter_issues(positions: dict[str, int], direction: JsonObject) -> list[Val
                     "letter_resealed",
                     f"the letter was already opened before {state['at']}",
                 )
+    return issues
+
+
+INCENSE_ORDER = ("unlit", "burning", "ember", "out")
+
+
+def _incense_state_issues(direction: JsonObject) -> list[ValidationIssue]:
+    """Within a span a stick only burns forward: unlit, burning, ember, out."""
+
+    issues: list[ValidationIssue] = []
+    for index, instrument in enumerate(direction.get("instruments", [])):
+        if instrument["kind"] != "incense":
+            continue
+        reached = 0
+        for state_index, state in enumerate(instrument["states"]):
+            if state["state"] not in INCENSE_ORDER:
+                continue  # reported by the schema
+            order = INCENSE_ORDER.index(state["state"])
+            if order < reached:
+                issues.append(
+                    ValidationIssue(
+                        "direction.json",
+                        f"$.instruments[{index}].states[{state_index}].state",
+                        "incense_state_regressed",
+                        f"{state['state']} at {state['at']} after {INCENSE_ORDER[reached]}",
+                    )
+                )
+            reached = max(reached, order)
+    return issues
+
+
+def _incense_burnt_issues(playback: JsonObject) -> list[ValidationIssue]:
+    """Within a span the share of a stick burnt never decreases from key to key."""
+
+    issues: list[ValidationIssue] = []
+    for index, instrument in enumerate(playback.get("instruments", [])):
+        if instrument["kind"] != "incense":
+            continue
+        previous = 0.0
+        for key_index, key in enumerate(instrument["keys"]):
+            burnt = key.get("burnt")
+            if not isinstance(burnt, int | float):
+                continue  # reported by the schema
+            if burnt < previous:
+                issues.append(
+                    ValidationIssue(
+                        "playback.json",
+                        f"$.instruments[{index}].keys[{key_index}].burnt",
+                        "incense_burnt_decreases",
+                        f"{burnt} at {key['at']} is less than {previous} before it",
+                    )
+                )
+            previous = max(previous, burnt)
     return issues
 
 

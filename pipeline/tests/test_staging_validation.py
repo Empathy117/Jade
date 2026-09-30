@@ -672,6 +672,106 @@ def test_pianola_tempo_is_rejected_on_a_silent_machine(tmp_path: Path) -> None:
     assert "schema_not" in issue_codes(validate_bundle(bundle, contracts_dir=CONTRACTS))
 
 
+def incense_bundle(tmp_path: Path) -> Path:
+    bundle = visual_novel_bundle(tmp_path)
+
+    def direction(document: dict) -> None:
+        document["instruments"] = [
+            {
+                "id": "instrument_001",
+                "kind": "incense",
+                "at": "p0002",
+                "until": "p0004",
+                "intent": "the_first_contest",
+                "states": [
+                    {"at": "p0002", "state": "unlit"},
+                    {"at": "p0003", "state": "burning"},
+                    {"at": "p0004", "state": "ember"},
+                ],
+            }
+        ]
+
+    def playback(document: dict) -> None:
+        document["instruments"] = [
+            {
+                "id": "instrument_001",
+                "kind": "incense",
+                "at": "p0002",
+                "until": "p0004",
+                "placement": "auto",
+                "keys": [
+                    {"at": "p0002", "state": "unlit", "burnt": 0},
+                    {"at": "p0003", "state": "burning", "burnt": 0.1},
+                    {"at": "p0004", "state": "ember", "burnt": 0.8},
+                ],
+            }
+        ]
+
+    edit(bundle, "direction.json", direction)
+    edit(bundle, "playback.json", playback)
+    return bundle
+
+
+def test_incense_bundle_is_valid(tmp_path: Path) -> None:
+    assert validate_bundle(incense_bundle(tmp_path), contracts_dir=CONTRACTS) == []
+
+
+def test_incense_keys_repeat_the_directed_state(tmp_path: Path) -> None:
+    bundle = incense_bundle(tmp_path)
+    edit(bundle, "playback.json", lambda p: p["instruments"][0]["keys"][2].update(state="out"))
+    assert "instrument_state_mismatch" in issue_codes(
+        validate_bundle(bundle, contracts_dir=CONTRACTS)
+    )
+
+
+def test_incense_never_unburns(tmp_path: Path) -> None:
+    bundle = incense_bundle(tmp_path)
+    edit(bundle, "playback.json", lambda p: p["instruments"][0]["keys"][2].update(burnt=0.05))
+    assert "incense_burnt_decreases" in issue_codes(
+        validate_bundle(bundle, contracts_dir=CONTRACTS)
+    )
+
+
+def test_incense_states_only_burn_forward(tmp_path: Path) -> None:
+    bundle = incense_bundle(tmp_path)
+
+    def relit(document: dict, inner: str) -> None:
+        document["instruments"][0][inner][2]["state"] = "unlit"
+        if inner == "keys":
+            document["instruments"][0][inner][2]["burnt"] = 0
+
+    edit(bundle, "direction.json", lambda d: relit(d, "states"))
+    edit(bundle, "playback.json", lambda p: relit(p, "keys"))
+    codes = issue_codes(validate_bundle(bundle, contracts_dir=CONTRACTS))
+    assert "incense_state_regressed" in codes
+    assert "incense_burnt_decreases" in codes
+
+
+def test_a_new_span_may_light_a_new_stick() -> None:
+    source = long_source(1, 20)
+
+    def span(number: int, at: int, states: list[str]) -> dict:
+        return {
+            "id": f"instrument_{number:03d}",
+            "kind": "incense",
+            "at": f"p{at:04d}",
+            "until": f"p{at + len(states):04d}",
+            "intent": "x",
+            "states": [
+                {"at": f"p{at + offset:04d}", "state": state}
+                for offset, state in enumerate(states)
+            ],
+        }
+
+    direction = {
+        "schema_version": 2,
+        "profile": "visual_novel",
+        "scenes": [],
+        "instruments": [span(1, 2, ["burning", "out"]), span(2, 10, ["unlit", "burning"])],
+    }
+    assert validate_direction_staging(source, direction) == []
+
+
 def gesture_bundle(tmp_path: Path) -> Path:
     bundle = visual_novel_bundle(tmp_path)
 
