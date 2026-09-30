@@ -29,6 +29,8 @@ BUDGETS = {
 VISUAL_NOVEL_FIELDS = ("sounds", "effects", "cgs", "instruments", "gestures")
 VISUAL_NOVEL_SCENE_FIELDS = ("layout", "atmosphere")
 VISUAL_NOVEL_TRANSITIONS = ("iris", "wipe")
+# Gesture kinds whose whole effect is a single turn in the book (ADR-0013).
+ONCE_PER_BOOK_GESTURES = frozenset({"apply_cosmetics"})
 # Scale a background may be pushed to when its catalog entry records no
 # headroom: enough for a gentle drift or a medium framing, not a close-up.
 DEFAULT_SCALE_HEADROOM = 1.2
@@ -483,7 +485,8 @@ def _gesture_issues(
     direction: JsonObject,
     budget: Budget,
 ) -> list[ValidationIssue]:
-    """Gestures are spaced like moments and never share a beat with a moment or a CG."""
+    """Gestures are spaced like moments, never share a beat with a moment or a CG,
+    and a once-per-book kind appears only once."""
 
     issues: list[ValidationIssue] = []
 
@@ -503,6 +506,7 @@ def _gesture_issues(
     ]
 
     gesture_ids: set[str] = set()
+    once_seen: dict[str, str] = {}
     previous: tuple[Position, str] | None = None
     for index, gesture in enumerate(direction.get("gestures", [])):
         path = f"$.gestures[{index}]"
@@ -513,6 +517,16 @@ def _gesture_issues(
                 f"gesture id is already used: {gesture['id']}",
             )
         gesture_ids.add(gesture["id"])
+        if gesture["kind"] in ONCE_PER_BOOK_GESTURES:
+            if gesture["kind"] in once_seen:
+                issue(
+                    f"{path}.kind",
+                    "gesture_once_per_book",
+                    f"{gesture['kind']} may appear once per book; "
+                    f"{once_seen[gesture['kind']]} already has it",
+                )
+            else:
+                once_seen[gesture["kind"]] = gesture["id"]
         key = point(gesture["at"], gesture.get("beat", 0))
         if key is None:
             issue(

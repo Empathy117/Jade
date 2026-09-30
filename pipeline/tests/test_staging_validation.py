@@ -924,3 +924,72 @@ def test_carving_rejects_an_invented_parameter(tmp_path: Path) -> None:
     assert "schema_additionalProperties" in issue_codes(
         validate_bundle(bundle, contracts_dir=CONTRACTS)
     )
+
+
+def cosmetics_bundle(tmp_path: Path) -> Path:
+    bundle = visual_novel_bundle(tmp_path)
+
+    def direction(document: dict) -> None:
+        document["gestures"] = [
+            {"id": "gesture_001", "kind": "apply_cosmetics", "at": "p0004", "intent": "mirror"}
+        ]
+
+    def playback(document: dict) -> None:
+        document["gestures"] = [
+            {
+                "id": "gesture_001",
+                "kind": "apply_cosmetics",
+                "at": "p0004",
+                "placement": "auto",
+                "params": {},
+            }
+        ]
+
+    edit(bundle, "direction.json", direction)
+    edit(bundle, "playback.json", playback)
+    return bundle
+
+
+def test_cosmetics_bundle_is_valid(tmp_path: Path) -> None:
+    assert validate_bundle(cosmetics_bundle(tmp_path), contracts_dir=CONTRACTS) == []
+
+
+def test_playback_cosmetics_mirror_direction(tmp_path: Path) -> None:
+    bundle = cosmetics_bundle(tmp_path)
+    edit(bundle, "playback.json", lambda p: p["gestures"][0].update(kind="press_seal"))
+    assert "gestures_mismatch" in issue_codes(validate_bundle(bundle, contracts_dir=CONTRACTS))
+
+
+def test_cosmetics_reject_an_authored_colour(tmp_path: Path) -> None:
+    bundle = cosmetics_bundle(tmp_path)
+    edit(bundle, "playback.json", lambda p: p["gestures"][0]["params"].update(tint="#e0b0a0"))
+    assert "schema_maxProperties" in issue_codes(
+        validate_bundle(bundle, contracts_dir=CONTRACTS)
+    )
+
+
+def test_cosmetics_appear_once_per_book() -> None:
+    source = long_source(1, 100)
+
+    def direction(*kinds: str) -> dict:
+        return {
+            "schema_version": 2,
+            "profile": "visual_novel",
+            "scenes": [],
+            "gestures": [
+                {"id": f"gesture_{n:03d}", "kind": kind, "at": f"p{2 + 20 * n:04d}", "intent": "x"}
+                for n, kind in enumerate(kinds, start=1)
+            ],
+        }
+
+    once = direction("apply_cosmetics", "press_seal")
+    assert validate_direction_staging(source, once) == []
+
+    twice = validate_direction_staging(
+        source, direction("apply_cosmetics", "press_seal", "apply_cosmetics")
+    )
+    assert issue_codes(twice) == {"gesture_once_per_book"}
+    assert twice[0].path == "$.gestures[2].kind"
+
+    # Other kinds may repeat within the spacing rules.
+    assert validate_direction_staging(source, direction("grind_ink", "grind_ink")) == []
