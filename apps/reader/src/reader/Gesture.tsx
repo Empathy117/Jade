@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
+import { CarveWood, type CarveHandle } from "./CarveWood";
 import type { GestureKind, Layout } from "./types";
 import type { GestureRun } from "./useStaging";
 
@@ -21,10 +22,12 @@ const INK_OPACITY = { pale: 0.42, normal: 0.72, deep: 0.92 } as const;
 const HINTS: Record<GestureKind, string> = {
   grind_ink: "转动墨条",
   press_seal: "按下封印",
+  carve_wood: "削木",
 };
 const LABELS: Record<GestureKind, string> = {
   grind_ink: "磨墨，可跳过",
   press_seal: "盖上封印，可跳过",
+  carve_wood: "削木，可跳过",
 };
 
 const STONE = { cx: 100, cy: 76, rx: 62, ry: 38 };
@@ -81,9 +84,12 @@ export function Gesture({
   const stoneRef = useRef<SVGEllipseElement | null>(null);
   const lastAngle = useRef<number | null>(null);
   const turned = useRef(0);
+  const carveRef = useRef<CarveHandle | null>(null);
+  const lastPoint = useRef<{ x: number; y: number } | null>(null);
   useEffect(() => {
     turned.current = 0;
     lastAngle.current = null;
+    lastPoint.current = null;
   }, [shown?.serial]);
 
   const angleAt = (event: React.PointerEvent) => {
@@ -99,7 +105,8 @@ export function Gesture({
       complete();
       return;
     }
-    lastAngle.current = angleAt(event);
+    if (shown?.cue.kind === "carve_wood") lastPoint.current = { x: event.clientX, y: event.clientY };
+    else lastAngle.current = angleAt(event);
     // Capture keeps a drag that leaves the plate grinding; it is a nicety,
     // and it throws for a pointer the browser no longer considers active.
     try {
@@ -109,6 +116,15 @@ export function Gesture({
     }
   };
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (lastPoint.current && !finished) {
+      // Each drag across the block is a knife stroke.
+      const from = lastPoint.current;
+      lastPoint.current = { x: event.clientX, y: event.clientY };
+      const next = carveRef.current?.pare(from.x, from.y, event.clientX, event.clientY) ?? 0;
+      setProgress(next);
+      if (next >= 1) complete();
+      return;
+    }
     if (lastAngle.current === null || finished) return;
     const angle = angleAt(event);
     if (angle === null) return;
@@ -125,6 +141,12 @@ export function Gesture({
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
     lastAngle.current = null;
+    if (lastPoint.current) {
+      lastPoint.current = null;
+      const next = carveRef.current?.lift() ?? 0;
+      setProgress(next);
+      if (next >= 1 && !finished) complete();
+    }
   };
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== "Enter") return;
@@ -185,7 +207,15 @@ export function Gesture({
       onClick={(event) => event.stopPropagation()}
       onKeyDown={onKeyDown}
     >
-      {kind === "grind_ink" ? (
+      {kind === "carve_wood" ? (
+        <CarveWood
+          key={shown.serial}
+          ref={carveRef}
+          stage={params.stage ?? "finish"}
+          finished={finished}
+          reducedMotion={reducedMotion}
+        />
+      ) : kind === "grind_ink" ? (
         <svg className="gesture__art" viewBox="0 0 200 140" aria-hidden="true">
           <ellipse className="gesture__stone" cx="100" cy="72" rx="86" ry="58" />
           <ellipse className="gesture__well" cx="100" cy="30" rx="38" ry="9" />

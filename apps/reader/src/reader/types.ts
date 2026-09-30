@@ -391,7 +391,7 @@ export type InstrumentCue =
   | InstrumentSpan<"pianola", PianolaKey>
   | InstrumentSpan<"incense", IncenseKey>;
 
-export type GestureKind = "grind_ink" | "press_seal";
+export type GestureKind = "grind_ink" | "press_seal" | "carve_wood";
 export type GesturePlacement = "auto" | "center" | "above_text";
 
 /** Per-kind parameters, each taken from what the text says (ADR-0007). */
@@ -400,6 +400,8 @@ export interface GestureParams {
   direction?: "cw" | "ccw";
   /** grind_ink: how dark the ink gets when grinding completes. */
   tone?: "pale" | "normal" | "deep";
+  /** carve_wood: how far the text takes the figure; `finish` when absent (ADR-0012). */
+  stage?: "rough" | "finish";
 }
 
 /** One simple motion the reader may make, or skip by turning the page. */
