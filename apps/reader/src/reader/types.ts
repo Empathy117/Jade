@@ -304,9 +304,10 @@ export interface EffectCue {
   duration_ms?: number;
 }
 
-export type InstrumentKind = "radio" | "wind";
+export type InstrumentKind = "radio" | "wind" | "letter";
 export type RadioState = "off" | "listening" | "tuning" | "contact" | "transmitting" | "lost";
 export type WindState = "calm" | "breeze" | "wind" | "gale" | "storm";
+export type LetterState = "sealed" | "reading" | "faltering" | "set_down";
 /** The compass point a wind blows from, as the text names it (ADR-0008). */
 export type CompassPoint = "n" | "ne" | "e" | "se" | "s" | "sw" | "w" | "nw";
 export type InstrumentPlacement = "auto" | "top_right" | "above_text";
@@ -336,7 +337,20 @@ export interface WindKey {
   gust: number;
 }
 
-export type InstrumentKey = RadioKey | WindKey;
+/** One state of a letter in hand (ADR-0009); how far it is read comes from reading position. */
+export interface LetterKey {
+  at: string;
+  beat?: number;
+  state: LetterState;
+}
+
+/** The paragraphs a letter's own text runs across, first line to last. */
+export interface LetterExtent {
+  at: string;
+  until: string;
+}
+
+export type InstrumentKey = RadioKey | WindKey | LetterKey;
 
 interface InstrumentSpan<Kind extends InstrumentKind, Key> {
   id: string;
@@ -349,8 +363,11 @@ interface InstrumentSpan<Kind extends InstrumentKind, Key> {
   keys: Key[];
 }
 
-/** An instrument on screen from `at` through `until`, inclusive (ADR-0006, ADR-0008). */
-export type InstrumentCue = InstrumentSpan<"radio", RadioKey> | InstrumentSpan<"wind", WindKey>;
+/** An instrument on screen from `at` through `until`, inclusive (ADR-0006, ADR-0008, ADR-0009). */
+export type InstrumentCue =
+  | InstrumentSpan<"radio", RadioKey>
+  | InstrumentSpan<"wind", WindKey>
+  | (InstrumentSpan<"letter", LetterKey> & { extent?: LetterExtent });
 
 export type GestureKind = "grind_ink" | "press_seal";
 export type GesturePlacement = "auto" | "center" | "above_text";

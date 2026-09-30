@@ -237,6 +237,31 @@ export interface InstrumentReading {
   key: InstrumentKey;
   /** The key before `key`, for rolling digits on a page turn. */
   previous: InstrumentKey | null;
+  /**
+   * A value that follows the reader between keys rather than holding: the
+   * share of a letter already turned over (ADR-0009). Null for kinds whose
+   * keys simply hold.
+   */
+  progress: number | null;
+}
+
+/**
+ * The share of a letter turned over at a reading point (ADR-0009): reading
+ * ordinal through its extent, from the start of the first paragraph to the end
+ * of the last. The span is the extent when none is given.
+ */
+export function letterTurned(
+  source: SourceDocument,
+  positions: ParagraphPositions,
+  cue: InstrumentCue,
+  point: ReadingPoint,
+): number {
+  const extent = (cue.kind === "letter" && cue.extent) || cue;
+  const start = positions.get(extent.at);
+  const last = positions.get(extent.until);
+  if (start === undefined || last === undefined || last < start) return 0;
+  const turned = (readingOrdinal(source, point) - start) / (last + 1 - start);
+  return Math.min(1, Math.max(0, turned));
 }
 
 /**
@@ -244,6 +269,7 @@ export interface InstrumentReading {
  * first key, a span shows that first key: the object is already there.
  */
 export function instrumentAt(
+  source: SourceDocument,
   positions: ParagraphPositions,
   playback: PlaybackDocument,
   point: ReadingPoint,
@@ -258,7 +284,12 @@ export function instrumentAt(
       const keyPoint = anchorPoint(positions, key);
       if (keyPoint && comparePoints(keyPoint, point) <= 0) index = keyIndex;
     });
-    return { cue, key: cue.keys[index], previous: index > 0 ? cue.keys[index - 1] : null };
+    return {
+      cue,
+      key: cue.keys[index],
+      previous: index > 0 ? cue.keys[index - 1] : null,
+      progress: cue.kind === "letter" ? letterTurned(source, positions, cue, point) : null,
+    };
   }
   return null;
 }

@@ -11,12 +11,13 @@ import {
   IDENTITY_CAMERA,
   instrumentAt,
   layoutAt,
+  letterTurned,
   momentAt,
   NO_ATMOSPHERE,
   oneShotsAt,
   trembleAt,
 } from "./staging";
-import type { PlaybackDocument, RadioKey, SourceDocument } from "./types";
+import type { InstrumentCue, PlaybackDocument, RadioKey, SourceDocument } from "./types";
 
 // p0003 is long enough to split into several reading beats.
 const longText = "这一句写得很长，".repeat(30) + "。";
@@ -204,20 +205,62 @@ describe("instrumentAt", () => {
   };
 
   it("is absent outside the span", () => {
-    expect(instrumentAt(positions, radio, { index: 1, beat: 0 })).toBeNull();
-    expect(instrumentAt(positions, radio, { index: 5, beat: 0 })).toBeNull();
+    expect(instrumentAt(source, positions, radio, { index: 1, beat: 0 })).toBeNull();
+    expect(instrumentAt(source, positions, radio, { index: 5, beat: 0 })).toBeNull();
   });
 
   it("shows the first key from the start of the span", () => {
-    const reading = instrumentAt(positions, radio, { index: 2, beat: 0 });
+    const reading = instrumentAt(source, positions, radio, { index: 2, beat: 0 });
     expect(reading?.key.state).toBe("listening");
     expect(reading?.previous).toBeNull();
   });
 
   it("holds the latest key and remembers the one before", () => {
-    const reading = instrumentAt(positions, radio, { index: 4, beat: 0 });
+    const reading = instrumentAt(source, positions, radio, { index: 4, beat: 0 });
     expect((reading?.key as RadioKey).frequency).toBe("14.255");
     expect((reading?.previous as RadioKey).frequency).toBe("14.195");
+    expect(reading?.progress).toBeNull();
+  });
+});
+
+describe("letterTurned", () => {
+  const letter: InstrumentCue = {
+    id: "instrument_001",
+    kind: "letter",
+    at: "p0002",
+    until: "p0006",
+    placement: "auto",
+    extent: { at: "p0003", until: "p0005" },
+    keys: [
+      { at: "p0002", state: "sealed" },
+      { at: "p0003", state: "reading" },
+    ],
+  };
+
+  it("runs through the extent from its first paragraph to the end of its last", () => {
+    expect(letterTurned(source, positions, letter, { index: 1, beat: 0 })).toBe(0);
+    expect(letterTurned(source, positions, letter, { index: 2, beat: 0 })).toBe(0);
+    expect(letterTurned(source, positions, letter, { index: 3, beat: 0 })).toBeCloseTo(1 / 3);
+    expect(letterTurned(source, positions, letter, { index: 4, beat: 0 })).toBeCloseTo(2 / 3);
+    expect(letterTurned(source, positions, letter, { index: 5, beat: 0 })).toBe(1);
+  });
+
+  it("follows reading beats inside a long paragraph", () => {
+    const partway = letterTurned(source, positions, letter, { index: 2, beat: 1 });
+    expect(partway).toBeGreaterThan(0);
+    expect(partway).toBeLessThan(1 / 3);
+  });
+
+  it("uses the span when no extent is given", () => {
+    const { extent: _extent, ...spanOnly } = letter as Extract<InstrumentCue, { kind: "letter" }>;
+    expect(letterTurned(source, positions, spanOnly, { index: 3, beat: 0 })).toBeCloseTo(2 / 5);
+  });
+
+  it("is carried in the instrument reading for a letter only", () => {
+    const withLetter: PlaybackDocument = { ...playback, instruments: [letter] };
+    const reading = instrumentAt(source, positions, withLetter, { index: 4, beat: 0 });
+    expect(reading?.key.state).toBe("reading");
+    expect(reading?.progress).toBeCloseTo(2 / 3);
   });
 });
 

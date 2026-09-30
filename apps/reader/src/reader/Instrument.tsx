@@ -1,7 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { FaceProps } from "./instrumentFace";
+import { LetterFace } from "./LetterFace";
 import { reactiveLevel, reactiveWaveform } from "./reactiveBus";
 import type { InstrumentReading } from "./staging";
-import type { Layout, RadioKey, WindKey } from "./types";
+import type { InstrumentKey, Layout, LetterKey, RadioKey, WindKey } from "./types";
 import { BEARING, flowBearing, nearestTurn } from "./wind";
 
 interface InstrumentProps {
@@ -18,13 +20,12 @@ interface InstrumentProps {
   viewportRef: React.RefObject<HTMLElement | null>;
 }
 
-/** What every face needs to follow the reading. */
-interface FaceProps {
-  stepped: boolean;
-  reducedMotion: boolean;
-  reactive: boolean;
-  visible: boolean;
-}
+/** States in which an instrument rests, each with the class that quiets its plate. */
+const RESTING: Partial<Record<InstrumentKey["state"], string>> = {
+  off: " is-off",
+  calm: " is-calm",
+  set_down: " is-set-down",
+};
 
 /**
  * The instrument channel's shell (ADR-0006): it fades a panel in and out with
@@ -92,12 +93,14 @@ export function Instrument({
 
   return (
     <div
-      className={`instrument instrument--${shown.cue.kind} instrument--${placement}${visible ? " is-visible" : ""}${dimmed ? " is-dimmed" : ""}${state === "off" ? " is-off" : ""}${state === "calm" ? " is-calm" : ""}${placement === "above_text" && !placed ? " is-unplaced" : ""}`}
+      className={`instrument instrument--${shown.cue.kind} instrument--${placement}${visible ? " is-visible" : ""}${dimmed ? " is-dimmed" : ""}${RESTING[state] ?? ""}${placement === "above_text" && !placed ? " is-unplaced" : ""}`}
       style={placed ? { right: placed.right, bottom: placed.bottom } : undefined}
       aria-hidden="true"
     >
       {shown.cue.kind === "wind" ? (
         <WindFace windKey={shown.key as WindKey} {...face} />
+      ) : shown.cue.kind === "letter" ? (
+        <LetterFace letterKey={shown.key as LetterKey} turned={shown.progress ?? 0} {...face} />
       ) : (
         <RadioFace radioKey={shown.key as RadioKey} {...face} />
       )}

@@ -197,7 +197,7 @@ export function useStaging(
             atmosphere: atmosphereAt(positions, bundle.playback, point),
             cg: cgAt(positions, bundle.playback, point),
             tremble: trembleAt(positions, bundle.playback, point),
-            instrument: instrumentAt(positions, bundle.playback, point),
+            instrument: instrumentAt(bundle.source, positions, bundle.playback, point),
           }
         : {
             layout: "nvl" as const,
