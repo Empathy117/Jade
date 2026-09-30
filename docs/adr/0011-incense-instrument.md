@@ -121,8 +121,9 @@ dark translucent ground and hairline gold border.
 
 - **A burner.** A low, dark bronze bowl at the foot of the plate, a faint
   rim, a little pale ash inside.
-- **The stick.** A thin reddish-brown line rising from the bowl. Its length
-  is `1 − burnt` of the full stick.
+- **The stick.** A thin reddish-brown line rising from a short pale handle
+  that stands in the bowl and never burns. What is left above the handle is
+  `1 − burnt` of the burnable length.
 - **The ember.** A small orange glow at the top of what is left, breathing
   slowly; lower and redder in `ember`.
 - **Ash.** A short grey column above the ember that grows as the stick burns

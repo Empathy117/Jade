@@ -239,10 +239,43 @@ export interface InstrumentReading {
   previous: InstrumentKey | null;
   /**
    * A value that follows the reader between keys rather than holding: the
-   * share of a letter already turned over (ADR-0009). Null for kinds whose
-   * keys simply hold.
+   * share of a letter already turned over (ADR-0009), or the share of an
+   * incense stick burnt away (ADR-0011). Null for kinds whose keys simply
+   * hold.
    */
   progress: number | null;
+}
+
+/**
+ * The share of an incense stick burnt at a reading point (ADR-0011). While the
+ * key in force is lit (`burning` or `ember`), `burnt` runs by reading ordinal
+ * toward the next key's; an unlit or spent stick holds. Before the first key
+ * the first key holds, and after the last the last.
+ */
+export function incenseBurnt(
+  source: SourceDocument,
+  positions: ParagraphPositions,
+  cue: InstrumentCue,
+  point: ReadingPoint,
+): number {
+  if (cue.kind !== "incense" || cue.keys.length === 0) return 0;
+  let index = -1;
+  cue.keys.forEach((key, keyIndex) => {
+    const keyPoint = anchorPoint(positions, key);
+    if (keyPoint && comparePoints(keyPoint, point) <= 0) index = keyIndex;
+  });
+  if (index < 0) return cue.keys[0].burnt;
+  const from = cue.keys[index];
+  const to = cue.keys[index + 1];
+  const fromPoint = anchorPoint(positions, from);
+  const toPoint = to ? anchorPoint(positions, to) : null;
+  if (!to || !fromPoint || !toPoint || (from.state !== "burning" && from.state !== "ember")) {
+    return from.burnt;
+  }
+  const start = readingOrdinal(source, fromPoint);
+  const end = readingOrdinal(source, toPoint);
+  const t = end > start ? (readingOrdinal(source, point) - start) / (end - start) : 1;
+  return from.burnt + (to.burnt - from.burnt) * Math.min(1, Math.max(0, t));
 }
 
 /**
@@ -288,7 +321,12 @@ export function instrumentAt(
       cue,
       key: cue.keys[index],
       previous: index > 0 ? cue.keys[index - 1] : null,
-      progress: cue.kind === "letter" ? letterTurned(source, positions, cue, point) : null,
+      progress:
+        cue.kind === "letter"
+          ? letterTurned(source, positions, cue, point)
+          : cue.kind === "incense"
+            ? incenseBurnt(source, positions, cue, point)
+            : null,
     };
   }
   return null;

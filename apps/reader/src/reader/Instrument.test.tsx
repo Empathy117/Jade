@@ -6,7 +6,15 @@ import { sheetsTurned } from "./letter";
 import { holeAt, PIANOLA_ROWS, PIANOLA_TRACKS, punchRoll } from "./pianola";
 import type { InstrumentReading } from "./staging";
 import { fakeCanvasContext } from "./testCanvas";
-import type { InstrumentCue, InstrumentKey, LetterKey, PianolaKey, RadioKey, WindKey } from "./types";
+import type {
+  IncenseKey,
+  InstrumentCue,
+  InstrumentKey,
+  LetterKey,
+  PianolaKey,
+  RadioKey,
+  WindKey,
+} from "./types";
 
 const listening: RadioKey = {
   at: "p0002",
@@ -393,5 +401,82 @@ describe("Instrument: pianola", () => {
     });
     expect(request).not.toHaveBeenCalled();
     expect(calls).toContain("fillRect");
+  });
+});
+
+const incenseCue: InstrumentCue = {
+  id: "instrument_003",
+  kind: "incense",
+  at: "p0002",
+  until: "p0006",
+  placement: "top_right",
+  keys: [{ at: "p0002", state: "unlit", burnt: 0 }],
+};
+
+function incense(key: IncenseKey, burnt: number, stepped: boolean, reducedMotion = false, hidden = false) {
+  return panel(key, null, stepped, reducedMotion, incenseCue, burnt, hidden);
+}
+
+describe("Instrument: incense", () => {
+  let calls: string[];
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame", "performance"] });
+    calls = fakeCanvasContext().calls;
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  function advance(ms: number) {
+    act(() => {
+      vi.advanceTimersByTime(ms);
+    });
+  }
+
+  it("stands still while unlit", () => {
+    render(incense({ at: "p0002", state: "unlit", burnt: 0 }, 0, false));
+    expect(document.querySelector(".instrument")?.classList.contains("is-unlit")).toBe(true);
+    const request = vi.spyOn(window, "requestAnimationFrame");
+    advance(200);
+    expect(request).not.toHaveBeenCalled();
+    // No ember is drawn on an unlit stick.
+    expect(calls).not.toContain("arc");
+  });
+
+  it("keeps the smoke rising while it burns", () => {
+    render(incense({ at: "p0003", state: "burning", burnt: 0.2 }, 0.24, false));
+    const request = vi.spyOn(window, "requestAnimationFrame");
+    advance(500);
+    expect(request.mock.calls.length).toBeGreaterThan(20);
+    expect(calls).toContain("arc");
+  });
+
+  it("drops the ash once enough of the stick has burnt", () => {
+    const view = render(incense({ at: "p0003", state: "burning", burnt: 0.2 }, 0.2, false));
+    calls.length = 0;
+    view.rerender(incense({ at: "p0003", state: "burning", burnt: 0.2 }, 0.34, true));
+    advance(1500);
+    // The falling piece is drawn turned as it drops.
+    expect(calls).toContain("rotate");
+  });
+
+  it("lets the last smoke thin away once out, then rests", () => {
+    const view = render(incense({ at: "p0005", state: "ember", burnt: 0.85 }, 0.9, false));
+    view.rerender(incense({ at: "p0006", state: "out", burnt: 1 }, 1, true));
+    expect(document.querySelector(".instrument")?.classList.contains("is-out")).toBe(true);
+    advance(4000);
+    const request = vi.spyOn(window, "requestAnimationFrame");
+    advance(200);
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("does not animate with reduced motion or while hidden", () => {
+    const request = vi.spyOn(window, "requestAnimationFrame");
+    const view = render(incense({ at: "p0003", state: "burning", burnt: 0.2 }, 0.3, false, true));
+    view.rerender(incense({ at: "p0003", state: "burning", burnt: 0.2 }, 0.3, false, false, true));
+    advance(200);
+    expect(request).not.toHaveBeenCalled();
+    expect(calls).toContain("stroke");
   });
 });

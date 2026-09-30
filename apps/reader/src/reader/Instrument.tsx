@@ -1,10 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { FaceProps } from "./instrumentFace";
+import { IncenseFace } from "./IncenseFace";
 import { LetterFace } from "./LetterFace";
 import { PianolaFace } from "./PianolaFace";
 import { reactiveLevel, reactiveWaveform } from "./reactiveBus";
 import type { InstrumentReading } from "./staging";
-import type { InstrumentKey, Layout, LetterKey, PianolaKey, RadioKey, WindKey } from "./types";
+import type { IncenseKey, InstrumentKey, Layout, LetterKey, PianolaKey, RadioKey, WindKey } from "./types";
 import { BEARING, flowBearing, nearestTurn } from "./wind";
 
 interface InstrumentProps {
@@ -28,6 +29,8 @@ const RESTING: Partial<Record<InstrumentKey["state"], string>> = {
   set_down: " is-set-down",
   closed: " is-closed",
   dismantled: " is-dismantled",
+  unlit: " is-unlit",
+  out: " is-out",
 };
 
 /**
@@ -106,6 +109,8 @@ export function Instrument({
         <LetterFace letterKey={shown.key as LetterKey} turned={shown.progress ?? 0} {...face} />
       ) : shown.cue.kind === "pianola" ? (
         <PianolaFace pianolaKey={shown.key as PianolaKey} seed={shown.cue.id} {...face} />
+      ) : shown.cue.kind === "incense" ? (
+        <IncenseFace incenseKey={shown.key as IncenseKey} burnt={shown.progress ?? 0} {...face} />
       ) : (
         <RadioFace radioKey={shown.key as RadioKey} {...face} />
       )}

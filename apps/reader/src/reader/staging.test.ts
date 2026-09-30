@@ -9,6 +9,7 @@ import {
   gestureAt,
   gradeAt,
   IDENTITY_CAMERA,
+  incenseBurnt,
   instrumentAt,
   layoutAt,
   letterTurned,
@@ -261,6 +262,60 @@ describe("letterTurned", () => {
     const reading = instrumentAt(source, positions, withLetter, { index: 4, beat: 0 });
     expect(reading?.key.state).toBe("reading");
     expect(reading?.progress).toBeCloseTo(2 / 3);
+  });
+});
+
+describe("incenseBurnt", () => {
+  const incense: InstrumentCue = {
+    id: "instrument_001",
+    kind: "incense",
+    at: "p0002",
+    until: "p0006",
+    placement: "auto",
+    keys: [
+      { at: "p0002", state: "unlit", burnt: 0 },
+      { at: "p0003", state: "burning", burnt: 0.1 },
+      { at: "p0005", state: "ember", burnt: 0.7 },
+      { at: "p0006", state: "out", burnt: 1 },
+    ],
+  };
+  const at = (index: number, beat = 0) => incenseBurnt(source, positions, incense, { index, beat });
+
+  it("holds while the stick is unlit", () => {
+    expect(at(0)).toBe(0);
+    expect(at(1)).toBe(0);
+  });
+
+  it("burns by reading ordinal between lit keys", () => {
+    expect(at(2)).toBeCloseTo(0.1);
+    // p0003 to p0005 is two paragraphs: p0004 is halfway.
+    expect(at(3)).toBeCloseTo(0.4);
+    expect(at(4)).toBeCloseTo(0.7);
+    const early = at(2, 1);
+    expect(early).toBeGreaterThan(0.1);
+    expect(early).toBeLessThan(0.4);
+  });
+
+  it("burns through the last stretch and holds once out", () => {
+    expect(at(5)).toBe(1);
+    const spent: InstrumentCue = {
+      ...incense,
+      keys: [
+        { at: "p0003", state: "burning", burnt: 0.2 },
+        { at: "p0004", state: "out", burnt: 0.5 },
+        { at: "p0006", state: "out", burnt: 0.5 },
+      ],
+    } as InstrumentCue;
+    expect(incenseBurnt(source, positions, spent, { index: 4, beat: 0 })).toBe(0.5);
+    // Before the first key the first key holds.
+    expect(incenseBurnt(source, positions, spent, { index: 1, beat: 0 })).toBe(0.2);
+  });
+
+  it("is carried in the instrument reading", () => {
+    const withIncense: PlaybackDocument = { ...playback, instruments: [incense] };
+    const reading = instrumentAt(source, positions, withIncense, { index: 3, beat: 0 });
+    expect(reading?.key.state).toBe("burning");
+    expect(reading?.progress).toBeCloseTo(0.4);
   });
 });
 

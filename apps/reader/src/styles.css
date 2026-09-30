@@ -422,6 +422,9 @@ button { color: inherit; }
 .instrument__letter { display: block; width: 100%; aspect-ratio: 220 / 92; }
 /* The pianola (ADR-0010): a roll past a brass bar, keys that dip by themselves. */
 .instrument__pianola { display: block; width: 100%; aspect-ratio: 220 / 96; }
+/* Incense (ADR-0011): a narrow plate, a stick in a bowl, one thread of smoke. */
+.instrument--incense { width: clamp(84px, 8vw, 108px); padding: 8px 8px 6px; }
+.instrument__incense { display: block; width: 100%; aspect-ratio: 100 / 150; }
 
 /* Gesture beats (ADR-0007): one quiet object that invites one motion. */
 .gesture {

@@ -304,11 +304,12 @@ export interface EffectCue {
   duration_ms?: number;
 }
 
-export type InstrumentKind = "radio" | "wind" | "letter" | "pianola";
+export type InstrumentKind = "radio" | "wind" | "letter" | "pianola" | "incense";
 export type RadioState = "off" | "listening" | "tuning" | "contact" | "transmitting" | "lost";
 export type WindState = "calm" | "breeze" | "wind" | "gale" | "storm";
 export type LetterState = "sealed" | "reading" | "faltering" | "set_down";
 export type PianolaState = "closed" | "playing" | "faltering" | "dismantled";
+export type IncenseState = "unlit" | "burning" | "ember" | "out";
 /** The compass point a wind blows from, as the text names it (ADR-0008). */
 export type CompassPoint = "n" | "ne" | "e" | "se" | "s" | "sw" | "w" | "nw";
 export type InstrumentPlacement = "auto" | "top_right" | "above_text";
@@ -360,7 +361,16 @@ export interface PianolaKey {
   tempo?: number;
 }
 
-export type InstrumentKey = RadioKey | WindKey | LetterKey | PianolaKey;
+/** One state of a stick of incense keeping time (ADR-0011); `burnt` runs between keys while lit. */
+export interface IncenseKey {
+  at: string;
+  beat?: number;
+  state: IncenseState;
+  /** Share of the stick burnt away at this key, 0 to 1; never less than the key before. */
+  burnt: number;
+}
+
+export type InstrumentKey = RadioKey | WindKey | LetterKey | PianolaKey | IncenseKey;
 
 interface InstrumentSpan<Kind extends InstrumentKind, Key> {
   id: string;
@@ -373,12 +383,13 @@ interface InstrumentSpan<Kind extends InstrumentKind, Key> {
   keys: Key[];
 }
 
-/** An instrument on screen from `at` through `until`, inclusive (ADR-0006, ADR-0008–0010). */
+/** An instrument on screen from `at` through `until`, inclusive (ADR-0006, ADR-0008–0011). */
 export type InstrumentCue =
   | InstrumentSpan<"radio", RadioKey>
   | InstrumentSpan<"wind", WindKey>
   | (InstrumentSpan<"letter", LetterKey> & { extent?: LetterExtent })
-  | InstrumentSpan<"pianola", PianolaKey>;
+  | InstrumentSpan<"pianola", PianolaKey>
+  | InstrumentSpan<"incense", IncenseKey>;
 
 export type GestureKind = "grind_ink" | "press_seal";
 export type GesturePlacement = "auto" | "center" | "above_text";
