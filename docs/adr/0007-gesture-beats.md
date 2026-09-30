@@ -148,6 +148,13 @@ press-in. There is no skeuomorphic texture and no brand marks. While a CG is on
 screen, no gesture may be anchored (see validator rules), so the two never
 compete.
 
+> **Amendment (2026-10-01):** the per-book devices added in ADR-0009 to
+> ADR-0013 sit beside painted backgrounds, and flat fills read as interface
+> chrome there. They may carry a restrained procedural material — paper grain,
+> wood grain, glaze crazing — drawn once to an offscreen canvas, felt more than
+> seen. The ink and seal gestures keep the flat look above. Brand marks, glyphs
+> and faces remain excluded.
+
 ### 6. Validator rules
 
 - Gestures require `profile: "visual_novel"`.
