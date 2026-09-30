@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { easeInOut, easeOut, prepareCanvas, type FaceProps } from "./instrumentFace";
 import { LETTER_SHEETS, sheetsTurned } from "./letter";
+import { offscreen, paintPaper } from "./material";
 import type { LetterKey, LetterState } from "./types";
 
 // Drawing space: two piles of portrait sheets side by side.
@@ -36,9 +37,42 @@ const LAYER = 0.9;
 const PAPER = "#ece3cf";
 const PAPER_BACK = "#ddd2ba";
 const ENVELOPE = "#e5dac3";
+/** The stack once set down: the same paper, dimmer, still cream rather than grey. */
+const PAPER_DIM = "#f2d9a8";
 const EDGE = "rgba(92, 74, 48, 0.45)";
 const INK = "#262c46";
 const SHADOW = "rgba(0, 0, 0, 0.3)";
+
+/** Offscreen pixels per drawing unit for the paper textures. */
+const RES = 4;
+const ENVELOPE_SIZE = { w: 104, h: 60 };
+
+interface Papers {
+  face: HTMLCanvasElement;
+  back: HTMLCanvasElement;
+  dim: HTMLCanvasElement;
+  envelope: HTMLCanvasElement;
+  inside: HTMLCanvasElement;
+}
+let papers: Papers | null = null;
+
+/** The sheets' and envelope's paper, grain and edge-light drawn once for every letter. */
+function paperTextures(): Papers | null {
+  if (papers) return papers;
+  const face = offscreen(SHEET.w, SHEET.h, RES);
+  const back = offscreen(SHEET.w, SHEET.h, RES);
+  const dim = offscreen(SHEET.w, SHEET.h, RES);
+  const envelope = offscreen(ENVELOPE_SIZE.w, ENVELOPE_SIZE.h, RES);
+  const inside = offscreen(ENVELOPE_SIZE.w, ENVELOPE_SIZE.h, RES);
+  if (!face || !back || !dim || !envelope || !inside) return null;
+  paintPaper(face.context, SHEET.w, SHEET.h, PAPER, 11);
+  paintPaper(back.context, SHEET.w, SHEET.h, PAPER_BACK, 12, 0.8);
+  paintPaper(dim.context, SHEET.w, SHEET.h, PAPER_DIM, 13, 0.5);
+  paintPaper(envelope.context, ENVELOPE_SIZE.w, ENVELOPE_SIZE.h, ENVELOPE, 14);
+  paintPaper(inside.context, ENVELOPE_SIZE.w, ENVELOPE_SIZE.h, PAPER_BACK, 15, 0.4);
+  papers = { face: face.canvas, back: back.canvas, dim: dim.canvas, envelope: envelope.canvas, inside: inside.canvas };
+  return papers;
+}
 
 const FLIP_MS = 620;
 const FADE_MS = 520;
@@ -72,21 +106,26 @@ function sheet(
   tremble: number,
   blot: number,
   now: number,
+  dim = false,
 ) {
   const alpha = context.globalAlpha;
   context.save();
   context.translate(x, y);
   context.rotate(angle);
   context.scale(Math.max(0.04, squeeze), 1);
-  context.fillStyle = face ? PAPER : PAPER_BACK;
-  context.fillRect(-SHEET.w / 2, -SHEET.h / 2, SHEET.w, SHEET.h);
+  const textures = paperTextures();
+  if (textures) {
+    context.drawImage(dim ? textures.dim : face ? textures.face : textures.back, -SHEET.w / 2, -SHEET.h / 2, SHEET.w, SHEET.h);
+  } else {
+    context.fillStyle = dim ? PAPER_DIM : face ? PAPER : PAPER_BACK;
+    context.fillRect(-SHEET.w / 2, -SHEET.h / 2, SHEET.w, SHEET.h);
+  }
   context.strokeStyle = EDGE;
   context.lineWidth = 0.5;
   context.strokeRect(-SHEET.w / 2, -SHEET.h / 2, SHEET.w, SHEET.h);
   if (face) {
     context.strokeStyle = INK;
     context.globalAlpha = alpha * 0.72;
-    context.lineWidth = 0.75;
     context.lineCap = "round";
     let endX = 0;
     let endY = 0;
@@ -95,17 +134,19 @@ function sheet(
       const shake = tremble * Math.sin(now / 41 + row * 1.9);
       const rowY = -SHEET.h / 2 + ROW_TOP + row * ROW_GAP + shake;
       let x = -SHEET.w / 2 + (row === 0 ? INDENT : MARGIN);
-      context.beginPath();
       for (let word = 0; word < words.length; word += 1) {
         const length = words[word];
         // A word dips and rises a little along the line; faltering ink wavers more.
         const lean = ((row * 7 + word * 3) % 5) * 0.12 - 0.24;
         const wobble = 0.5 + tremble * 1.4 * Math.sin(now / 29 + word * 2.3 + row);
+        // The pen presses a little harder on some words than others.
+        context.lineWidth = 0.6 + ((row * 5 + word * 3) % 4) * 0.1;
+        context.beginPath();
         context.moveTo(x, rowY + lean);
         context.quadraticCurveTo(x + length / 2, rowY + lean - wobble, x + length, rowY - lean);
+        context.stroke();
         x += length + WORD_GAP;
       }
-      context.stroke();
       endX = x;
       endY = rowY;
     }
@@ -159,23 +200,29 @@ function pile(
 }
 
 function envelope(context: CanvasRenderingContext2D) {
-  const w = 104;
-  const h = 60;
+  const { w, h } = ENVELOPE_SIZE;
   context.save();
   context.translate(CENTRE.x, CENTRE.y);
   context.rotate(-0.03);
   context.fillStyle = SHADOW;
   context.fillRect(-w / 2 + 2, -h / 2 + 4, w, h);
   // The thickness of the sheets inside, as edges under the front.
+  const textures = paperTextures();
   for (let layer = 3; layer > 0; layer -= 1) {
-    context.fillStyle = PAPER_BACK;
-    context.fillRect(-w / 2, -h / 2 + layer * 1.1, w, h);
+    if (textures) context.drawImage(textures.inside, -w / 2, -h / 2 + layer * 1.1, w, h);
+    else {
+      context.fillStyle = PAPER_BACK;
+      context.fillRect(-w / 2, -h / 2 + layer * 1.1, w, h);
+    }
     context.strokeStyle = EDGE;
     context.lineWidth = 0.4;
     context.strokeRect(-w / 2, -h / 2 + layer * 1.1, w, h);
   }
-  context.fillStyle = ENVELOPE;
-  context.fillRect(-w / 2, -h / 2, w, h);
+  if (textures) context.drawImage(textures.envelope, -w / 2, -h / 2, w, h);
+  else {
+    context.fillStyle = ENVELOPE;
+    context.fillRect(-w / 2, -h / 2, w, h);
+  }
   context.strokeStyle = EDGE;
   context.lineWidth = 0.6;
   context.strokeRect(-w / 2, -h / 2, w, h);
@@ -201,7 +248,7 @@ function squared(context: CanvasRenderingContext2D) {
   context.fillStyle = SHADOW;
   context.fillRect(-SHEET.w / 2 + 2, -SHEET.h / 2 + 3, SHEET.w, SHEET.h);
   for (let layer = 0; layer < LETTER_SHEETS; layer += 1) {
-    sheet(context, 0, -layer * 0.5, 0, false, 1, 0, 0, 0);
+    sheet(context, 0, -layer * 0.5, 0, false, 1, 0, 0, 0, true);
   }
   context.restore();
 }

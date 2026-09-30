@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { easeInOut, prepareCanvas, type FaceProps } from "./instrumentFace";
+import { offscreen, paintGrain, paintPaper } from "./material";
 import { holeAt, PIANOLA_TRACKS, punchRoll, scatterKeys } from "./pianola";
 import type { PianolaKey, PianolaState } from "./types";
 
@@ -19,7 +20,9 @@ const STILL_ROW = 7.5;
 const LID_MS = 900;
 
 const WOOD = "#2b2019";
-const WOOD_LID = "#241a14";
+const WOOD_LID = "#35271d";
+const GRAIN_DARK = "rgba(12, 8, 5, 0.2)";
+const GRAIN_LIGHT = "rgba(222, 180, 128, 0.07)";
 const WOOD_EDGE = "rgba(214, 180, 120, 0.22)";
 const DARK = "#120e0b";
 const ROLL = "#cdb58a";
@@ -29,6 +32,81 @@ const IVORY = "#dcd2bb";
 const IVORY_DOWN = "#b9ad95";
 const EBONY = "#2c2420";
 const EBONY_DOWN = "#4a3e36";
+
+/** Offscreen pixels per drawing unit for the wood and paper textures. */
+const RES = 4;
+const LID = { w: CASE.w - 6, h: CASE.h - 6 };
+
+interface Materials {
+  case: HTMLCanvasElement;
+  lid: HTMLCanvasElement;
+  roll: HTMLCanvasElement;
+}
+let materials: Materials | null = null;
+
+/** The case's and lid's wood and the roll's paper, drawn once for every pianola. */
+function pianolaMaterials(): Materials | null {
+  if (materials) return materials;
+  const body = offscreen(CASE.w, CASE.h, RES);
+  const lid = offscreen(LID.w, LID.h, RES);
+  const roll = offscreen(PAPER.w, WINDOW.h, RES);
+  if (!body || !lid || !roll) return null;
+  body.context.fillStyle = WOOD;
+  body.context.fillRect(0, 0, CASE.w, CASE.h);
+  paintGrain(body.context, CASE.w, CASE.h, 31, false, GRAIN_DARK, GRAIN_LIGHT, 0.6);
+
+  // The closed lid: a fallboard of warmer wood lit from above, a panel line,
+  // two brass hinges along the top, and a small knob to lift it by.
+  const wood = lid.context;
+  wood.fillStyle = WOOD_LID;
+  wood.fillRect(0, 0, LID.w, LID.h);
+  paintGrain(wood, LID.w, LID.h, 37, false, GRAIN_DARK, GRAIN_LIGHT, 0.7);
+  const lamp = wood.createLinearGradient(0, 0, 0, LID.h);
+  lamp.addColorStop(0, "rgba(236, 196, 140, 0.12)");
+  lamp.addColorStop(0.4, "rgba(236, 196, 140, 0)");
+  lamp.addColorStop(1, "rgba(0, 0, 0, 0.22)");
+  wood.fillStyle = lamp;
+  wood.fillRect(0, 0, LID.w, LID.h);
+  wood.fillStyle = "rgba(236, 200, 150, 0.2)";
+  wood.fillRect(0, 0, LID.w, 0.6);
+  wood.strokeStyle = WOOD_EDGE;
+  wood.lineWidth = 0.6;
+  wood.beginPath();
+  wood.moveTo(7, 6);
+  wood.lineTo(LID.w - 7, 6);
+  wood.stroke();
+  wood.strokeStyle = "rgba(0, 0, 0, 0.45)";
+  wood.beginPath();
+  wood.moveTo(7, LID.h - 19);
+  wood.lineTo(LID.w - 7, LID.h - 19);
+  wood.stroke();
+  wood.strokeStyle = WOOD_EDGE;
+  wood.beginPath();
+  wood.moveTo(7, LID.h - 18.4);
+  wood.lineTo(LID.w - 7, LID.h - 18.4);
+  wood.stroke();
+  for (const x of [22, LID.w - 30]) {
+    wood.fillStyle = BRASS;
+    wood.globalAlpha = 0.75;
+    wood.fillRect(x, 1.2, 8, 2);
+    wood.globalAlpha = 1;
+    wood.fillStyle = "rgba(0, 0, 0, 0.4)";
+    wood.fillRect(x + 2.6, 1.2, 0.35, 2);
+    wood.fillRect(x + 5.3, 1.2, 0.35, 2);
+  }
+  wood.fillStyle = BRASS;
+  wood.beginPath();
+  wood.arc(LID.w / 2, LID.h - 12, 1.8, 0, Math.PI * 2);
+  wood.fill();
+  wood.fillStyle = "rgba(255, 240, 200, 0.5)";
+  wood.beginPath();
+  wood.arc(LID.w / 2 - 0.5, LID.h - 12.5, 0.6, 0, Math.PI * 2);
+  wood.fill();
+
+  paintPaper(roll.context, PAPER.w, WINDOW.h, ROLL, 41, 0);
+  materials = { case: body.canvas, lid: lid.canvas, roll: roll.canvas };
+  return materials;
+}
 
 /** Rows per second at a tempo. */
 function rowsPerSecond(tempo: number): number {
@@ -107,9 +185,13 @@ export function PianolaFace({
     const faltering = key.state === "faltering";
 
     const draw = (context: CanvasRenderingContext2D, still: boolean) => {
+      const textures = pianolaMaterials();
       context.globalAlpha = 0.7;
-      context.fillStyle = WOOD;
-      context.fillRect(CASE.x, CASE.y, CASE.w, CASE.h);
+      if (textures) context.drawImage(textures.case, CASE.x, CASE.y, CASE.w, CASE.h);
+      else {
+        context.fillStyle = WOOD;
+        context.fillRect(CASE.x, CASE.y, CASE.w, CASE.h);
+      }
       context.globalAlpha = 1;
       context.fillStyle = DARK;
       context.fillRect(WINDOW.x, WINDOW.y, WINDOW.w, WINDOW.h);
@@ -125,10 +207,17 @@ export function PianolaFace({
       context.beginPath();
       context.rect(WINDOW.x, WINDOW.y, WINDOW.w, WINDOW.h);
       context.clip();
-      context.fillStyle = ROLL;
-      context.fillRect(PAPER.x, WINDOW.y, PAPER.w, WINDOW.h);
-      context.fillStyle = HOLE_INK;
       const offset = state.offset;
+      if (textures) {
+        // The paper's grain travels with the roll.
+        const shift = (((offset * PITCH) % WINDOW.h) + WINDOW.h) % WINDOW.h;
+        context.drawImage(textures.roll, PAPER.x, WINDOW.y + shift, PAPER.w, WINDOW.h);
+        context.drawImage(textures.roll, PAPER.x, WINDOW.y + shift - WINDOW.h, PAPER.w, WINDOW.h);
+      } else {
+        context.fillStyle = ROLL;
+        context.fillRect(PAPER.x, WINDOW.y, PAPER.w, WINDOW.h);
+      }
+      context.fillStyle = HOLE_INK;
       // Rows still to come sit above the bar; rows already played, below it.
       const first = Math.floor(offset - (WINDOW.y + WINDOW.h - BAR_Y) / PITCH) - 1;
       const last = Math.ceil(offset + (BAR_Y - WINDOW.y) / PITCH) + 1;
@@ -184,22 +273,13 @@ export function PianolaFace({
         context.rect(CASE.x, CASE.y, CASE.w, CASE.h);
         context.clip();
         context.globalAlpha = 1 - lift * 0.6;
-        const top = CASE.y + 3 - lift * (CASE.h - 6);
-        context.fillStyle = WOOD_LID;
-        context.fillRect(CASE.x + 3, top, CASE.w - 6, CASE.h - 6);
-        context.strokeStyle = WOOD_EDGE;
-        context.lineWidth = 0.6;
-        context.beginPath();
-        context.moveTo(CASE.x + 10, top + 9);
-        context.lineTo(CASE.x + CASE.w - 10, top + 9);
-        context.moveTo(CASE.x + 10, top + CASE.h - 22);
-        context.lineTo(CASE.x + CASE.w - 10, top + CASE.h - 22);
-        context.stroke();
-        // A small brass knob to lift it by.
-        context.fillStyle = BRASS;
-        context.beginPath();
-        context.arc(CASE.x + CASE.w / 2, top + CASE.h - 15, 1.8, 0, Math.PI * 2);
-        context.fill();
+        const top = CASE.y + 3 - lift * LID.h;
+        if (textures) {
+          context.drawImage(textures.lid, CASE.x + 3, top, LID.w, LID.h);
+        } else {
+          context.fillStyle = WOOD_LID;
+          context.fillRect(CASE.x + 3, top, LID.w, LID.h);
+        }
         context.restore();
       }
     };

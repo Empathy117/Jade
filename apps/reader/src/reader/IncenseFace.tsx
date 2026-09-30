@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { prepareCanvas, type FaceProps } from "./instrumentFace";
+import { offscreen } from "./material";
 import { reactiveLevel } from "./reactiveBus";
 import type { IncenseKey, IncenseState } from "./types";
 
@@ -24,6 +25,24 @@ const ASH = "#a7a198";
 const EMBER = "#ff9a4a";
 const EMBER_LOW = "#df5a2e";
 const SMOKE = "#d7dbe0";
+
+/** The ember's warm light as it falls on the bowl, drawn once and reused. */
+let bowlGlow: HTMLCanvasElement | null = null;
+const GLOW = { w: 60, h: 20 };
+function emberGlow(): HTMLCanvasElement | null {
+  if (bowlGlow) return bowlGlow;
+  const glow = offscreen(GLOW.w, GLOW.h, 4);
+  if (!glow) return null;
+  glow.context.scale(1, GLOW.h / GLOW.w);
+  const light = glow.context.createRadialGradient(GLOW.w / 2, GLOW.w / 2, 0, GLOW.w / 2, GLOW.w / 2, GLOW.w / 2);
+  light.addColorStop(0, "rgba(255, 150, 80, 1)");
+  light.addColorStop(0.5, "rgba(255, 130, 70, 0.35)");
+  light.addColorStop(1, "rgba(255, 120, 60, 0)");
+  glow.context.fillStyle = light;
+  glow.context.fillRect(0, 0, GLOW.w, GLOW.w);
+  bowlGlow = glow.canvas;
+  return bowlGlow;
+}
 
 interface IncenseMotion {
   /** Share of the stick burnt as drawn; eases toward `target` on a page turn. */
@@ -181,13 +200,16 @@ export function IncenseFace({
       }
 
       // The burner in front of the stick's foot.
+      const bowl = () => {
+        context.beginPath();
+        context.moveTo(BASE.x - 27, BASE.y);
+        context.quadraticCurveTo(BASE.x - 25, BASE.y + 11, BASE.x - 14, BASE.y + 12);
+        context.lineTo(BASE.x + 14, BASE.y + 12);
+        context.quadraticCurveTo(BASE.x + 25, BASE.y + 11, BASE.x + 27, BASE.y);
+        context.closePath();
+      };
       context.fillStyle = BRONZE;
-      context.beginPath();
-      context.moveTo(BASE.x - 27, BASE.y);
-      context.quadraticCurveTo(BASE.x - 25, BASE.y + 11, BASE.x - 14, BASE.y + 12);
-      context.lineTo(BASE.x + 14, BASE.y + 12);
-      context.quadraticCurveTo(BASE.x + 25, BASE.y + 11, BASE.x + 27, BASE.y);
-      context.closePath();
+      bowl();
       context.fill();
       context.fillStyle = ASH_BED;
       context.globalAlpha = 0.55;
@@ -200,6 +222,20 @@ export function IncenseFace({
       context.beginPath();
       context.ellipse(BASE.x, BASE.y, 27, 4.4, 0, 0, Math.PI * 2);
       context.stroke();
+
+      // The ember's faint warmth on the bronze and the ash bed, stronger as it burns down.
+      const light = glow > 0 && length > 0.5 ? emberGlow() : null;
+      if (light) {
+        const near = 1 - Math.min(1, (BASE.y - tipY) / STICK);
+        const breath = still ? 1 : 0.85 + 0.15 * Math.sin(now / 760);
+        context.save();
+        bowl();
+        context.rect(BASE.x - 27, BASE.y - 5, 54, 5);
+        context.clip();
+        context.globalAlpha = glow * breath * (0.06 + 0.3 * near * near);
+        context.drawImage(light, BASE.x - GLOW.w / 2, BASE.y - GLOW.h / 2 + 1, GLOW.w, GLOW.h);
+        context.restore();
+      }
     };
 
     const paint = (now: number, level: number, still: boolean) => {

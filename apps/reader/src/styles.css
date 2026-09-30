@@ -361,7 +361,7 @@ button { color: inherit; }
   transition: opacity 900ms ease, transform 900ms ease;
 }
 .instrument.is-visible { opacity: 1; transform: none; }
-.instrument.is-visible.is-set-down { opacity: .55; }
+.instrument.is-visible.is-set-down { opacity: .72; }
 .instrument.is-visible.is-dimmed { opacity: .32; }
 /* Never flash in a default corner before the text box has been measured. */
 .instrument.is-unplaced { visibility: hidden; }
