@@ -870,3 +870,57 @@ def test_gestures_are_spaced_like_moments() -> None:
         validate_direction_staging(source, direction(2, 6))
     )
     assert validate_direction_staging(source, direction(2, 14)) == []
+
+
+def carve_bundle(tmp_path: Path) -> Path:
+    bundle = visual_novel_bundle(tmp_path)
+
+    def direction(document: dict) -> None:
+        document["gestures"] = [
+            {"id": "gesture_001", "kind": "carve_wood", "at": "p0004", "intent": "carving"}
+        ]
+
+    def playback(document: dict) -> None:
+        document["gestures"] = [
+            {
+                "id": "gesture_001",
+                "kind": "carve_wood",
+                "at": "p0004",
+                "placement": "auto",
+                "params": {"stage": "finish"},
+                "sound": {"asset_id": "sfx_door", "gain": 0.35},
+            }
+        ]
+
+    edit(bundle, "direction.json", direction)
+    edit(bundle, "playback.json", playback)
+    return bundle
+
+
+def test_carve_bundle_is_valid(tmp_path: Path) -> None:
+    assert validate_bundle(carve_bundle(tmp_path), contracts_dir=CONTRACTS) == []
+
+
+def test_playback_carving_mirrors_direction(tmp_path: Path) -> None:
+    bundle = carve_bundle(tmp_path)
+    edit(bundle, "playback.json", lambda p: p["gestures"][0].update(kind="press_seal", params={}))
+    assert "gestures_mismatch" in issue_codes(validate_bundle(bundle, contracts_dir=CONTRACTS))
+
+
+def test_carving_keeps_clear_of_moments_and_cgs(tmp_path: Path) -> None:
+    bundle = carve_bundle(tmp_path)
+
+    def onto_cg(document: dict) -> None:
+        document["gestures"][0]["at"] = "p0002"
+
+    edit(bundle, "direction.json", onto_cg)
+    edit(bundle, "playback.json", onto_cg)
+    assert "gesture_under_cg" in issue_codes(validate_bundle(bundle, contracts_dir=CONTRACTS))
+
+
+def test_carving_rejects_an_invented_parameter(tmp_path: Path) -> None:
+    bundle = carve_bundle(tmp_path)
+    edit(bundle, "playback.json", lambda p: p["gestures"][0]["params"].update(pose="standing"))
+    assert "schema_additionalProperties" in issue_codes(
+        validate_bundle(bundle, contracts_dir=CONTRACTS)
+    )
