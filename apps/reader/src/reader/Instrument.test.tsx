@@ -3,9 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Instrument } from "./Instrument";
 import { sheetsTurned } from "./letter";
+import { holeAt, PIANOLA_ROWS, PIANOLA_TRACKS, punchRoll } from "./pianola";
 import type { InstrumentReading } from "./staging";
 import { fakeCanvasContext } from "./testCanvas";
-import type { InstrumentCue, InstrumentKey, LetterKey, RadioKey, WindKey } from "./types";
+import type { InstrumentCue, InstrumentKey, LetterKey, PianolaKey, RadioKey, WindKey } from "./types";
 
 const listening: RadioKey = {
   at: "p0002",
@@ -291,5 +292,106 @@ describe("Instrument: letter", () => {
     const request = vi.spyOn(window, "requestAnimationFrame");
     view.rerender(letter(faltering, 0.34, true, false, true));
     expect(request).not.toHaveBeenCalled();
+  });
+});
+
+const pianolaCue: InstrumentCue = {
+  id: "instrument_002",
+  kind: "pianola",
+  at: "p0002",
+  until: "p0006",
+  placement: "top_right",
+  keys: [{ at: "p0002", state: "closed" }],
+};
+
+function pianola(key: PianolaKey, stepped: boolean, reducedMotion = false, hidden = false) {
+  return panel(key, null, stepped, reducedMotion, pianolaCue, null, hidden);
+}
+
+describe("Instrument: pianola", () => {
+  let calls: string[];
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame", "performance"] });
+    calls = fakeCanvasContext().calls;
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("punches the same roll for the same span and a different one for another", () => {
+    const roll = punchRoll("instrument_002");
+    expect(punchRoll("instrument_002")).toEqual(roll);
+    expect(punchRoll("instrument_003")).not.toEqual(roll);
+    const holes = roll.reduce((sum, hole) => sum + hole, 0);
+    // Sparse enough to read as notes, dense enough to keep the keys busy.
+    expect(holes / (PIANOLA_TRACKS * PIANOLA_ROWS)).toBeGreaterThan(0.08);
+    expect(holes / (PIANOLA_TRACKS * PIANOLA_ROWS)).toBeLessThan(0.3);
+    // The roll loops.
+    for (let track = 0; track < PIANOLA_TRACKS; track += 1) {
+      expect(holeAt(roll, track, PIANOLA_ROWS + 3)).toBe(holeAt(roll, track, 3));
+      expect(holeAt(roll, track, -1)).toBe(holeAt(roll, track, PIANOLA_ROWS - 1));
+    }
+  });
+
+  it("keeps the roll moving while it plays", () => {
+    render(pianola({ at: "p0003", state: "playing", tempo: 0.7 }, false));
+    const request = vi.spyOn(window, "requestAnimationFrame");
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+    expect(request.mock.calls.length).toBeGreaterThan(20);
+    expect(document.querySelector(".instrument__pianola")).not.toBeNull();
+  });
+
+  it("stands still when closed or dismantled", () => {
+    const view = render(pianola({ at: "p0002", state: "closed" }, false));
+    expect(document.querySelector(".instrument")?.classList.contains("is-closed")).toBe(true);
+    const request = vi.spyOn(window, "requestAnimationFrame");
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+    expect(request).not.toHaveBeenCalled();
+
+    calls.length = 0;
+    view.rerender(pianola({ at: "p0005", state: "dismantled" }, false));
+    expect(calls).toContain("bezierCurveTo");
+    expect(document.querySelector(".instrument")?.classList.contains("is-dismantled")).toBe(true);
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("lifts the lid over a page turn, then settles", () => {
+    const view = render(pianola({ at: "p0002", state: "closed" }, false));
+    view.rerender(pianola({ at: "p0003", state: "faltering" }, true));
+    const request = vi.spyOn(window, "requestAnimationFrame");
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(request.mock.calls.length).toBeGreaterThan(30);
+
+    // Closing again on a turn animates the lid down and the roll to a stop, then rests.
+    view.rerender(pianola({ at: "p0004", state: "closed" }, true));
+    act(() => {
+      vi.advanceTimersByTime(6000);
+    });
+    request.mockClear();
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("does not animate with reduced motion or while hidden", () => {
+    const request = vi.spyOn(window, "requestAnimationFrame");
+    const view = render(pianola({ at: "p0003", state: "playing" }, false, true));
+    view.rerender(pianola({ at: "p0003", state: "playing" }, false, false, true));
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+    expect(request).not.toHaveBeenCalled();
+    expect(calls).toContain("fillRect");
   });
 });

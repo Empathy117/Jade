@@ -420,6 +420,8 @@ button { color: inherit; }
 .instrument.is-calm .instrument__hub { fill: rgba(255,238,205,.45); }
 /* The letter (ADR-0009): cream sheets in two piles, read and still to read. */
 .instrument__letter { display: block; width: 100%; aspect-ratio: 220 / 92; }
+/* The pianola (ADR-0010): a roll past a brass bar, keys that dip by themselves. */
+.instrument__pianola { display: block; width: 100%; aspect-ratio: 220 / 96; }
 
 /* Gesture beats (ADR-0007): one quiet object that invites one motion. */
 .gesture {

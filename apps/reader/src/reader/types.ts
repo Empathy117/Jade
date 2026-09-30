@@ -304,10 +304,11 @@ export interface EffectCue {
   duration_ms?: number;
 }
 
-export type InstrumentKind = "radio" | "wind" | "letter";
+export type InstrumentKind = "radio" | "wind" | "letter" | "pianola";
 export type RadioState = "off" | "listening" | "tuning" | "contact" | "transmitting" | "lost";
 export type WindState = "calm" | "breeze" | "wind" | "gale" | "storm";
 export type LetterState = "sealed" | "reading" | "faltering" | "set_down";
+export type PianolaState = "closed" | "playing" | "faltering" | "dismantled";
 /** The compass point a wind blows from, as the text names it (ADR-0008). */
 export type CompassPoint = "n" | "ne" | "e" | "se" | "s" | "sw" | "w" | "nw";
 export type InstrumentPlacement = "auto" | "top_right" | "above_text";
@@ -350,7 +351,16 @@ export interface LetterExtent {
   until: string;
 }
 
-export type InstrumentKey = RadioKey | WindKey | LetterKey;
+/** One state of a self-playing piano (ADR-0010); its roll is seeded by the span id. */
+export interface PianolaKey {
+  at: string;
+  beat?: number;
+  state: PianolaState;
+  /** How fast the roll travels, 0 to 1, as the text describes the music; 0.5 when absent. */
+  tempo?: number;
+}
+
+export type InstrumentKey = RadioKey | WindKey | LetterKey | PianolaKey;
 
 interface InstrumentSpan<Kind extends InstrumentKind, Key> {
   id: string;
@@ -363,11 +373,12 @@ interface InstrumentSpan<Kind extends InstrumentKind, Key> {
   keys: Key[];
 }
 
-/** An instrument on screen from `at` through `until`, inclusive (ADR-0006, ADR-0008, ADR-0009). */
+/** An instrument on screen from `at` through `until`, inclusive (ADR-0006, ADR-0008–0010). */
 export type InstrumentCue =
   | InstrumentSpan<"radio", RadioKey>
   | InstrumentSpan<"wind", WindKey>
-  | (InstrumentSpan<"letter", LetterKey> & { extent?: LetterExtent });
+  | (InstrumentSpan<"letter", LetterKey> & { extent?: LetterExtent })
+  | InstrumentSpan<"pianola", PianolaKey>;
 
 export type GestureKind = "grind_ink" | "press_seal";
 export type GesturePlacement = "auto" | "center" | "above_text";
