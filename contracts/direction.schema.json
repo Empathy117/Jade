@@ -471,7 +471,11 @@
           "minimum": 0
         },
         "state": {
-          "anyOf": [{ "$ref": "#/$defs/radioState" }, { "$ref": "#/$defs/windState" }]
+          "anyOf": [
+            { "$ref": "#/$defs/radioState" },
+            { "$ref": "#/$defs/windState" },
+            { "$ref": "#/$defs/letterState" }
+          ]
         }
       }
     },
@@ -480,6 +484,22 @@
     },
     "windState": {
       "enum": ["calm", "breeze", "wind", "gale", "storm"]
+    },
+    "letterState": {
+      "enum": ["sealed", "reading", "faltering", "set_down"]
+    },
+    "letterExtent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["at", "until"],
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/paragraphId"
+        },
+        "until": {
+          "$ref": "#/$defs/paragraphId"
+        }
+      }
     },
     "instrument": {
       "type": "object",
@@ -490,7 +510,7 @@
           "$ref": "#/$defs/instrumentId"
         },
         "kind": {
-          "enum": ["radio", "wind"]
+          "enum": ["radio", "wind", "letter"]
         },
         "at": {
           "$ref": "#/$defs/paragraphId"
@@ -508,6 +528,9 @@
         },
         "intent": {
           "$ref": "#/$defs/tag"
+        },
+        "extent": {
+          "$ref": "#/$defs/letterExtent"
         },
         "states": {
           "type": "array",
@@ -533,6 +556,15 @@
               "states": { "items": { "properties": { "state": { "$ref": "#/$defs/windState" } } } }
             }
           }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "letter" } } },
+          "then": {
+            "properties": {
+              "states": { "items": { "properties": { "state": { "$ref": "#/$defs/letterState" } } } }
+            }
+          },
+          "else": { "not": { "required": ["extent"] } }
         }
       ]
     },

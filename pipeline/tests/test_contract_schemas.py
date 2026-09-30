@@ -367,6 +367,83 @@ def test_wind_direction_is_a_closed_compass_point_and_calm_has_none() -> None:
     assert not _validator("playback.schema.json").is_valid(playback)
 
 
+def _letter_direction() -> dict:
+    direction = _direction_visual_novel()
+    direction["instruments"] = [
+        {
+            "id": "instrument_001",
+            "kind": "letter",
+            "at": "p0002",
+            "until": "p0004",
+            "intent": "opening_the_letter",
+            "extent": {"at": "p0003", "until": "p0004"},
+            "states": [
+                {"at": "p0002", "state": "sealed"},
+                {"at": "p0003", "state": "reading"},
+                {"at": "p0004", "beat": 1, "state": "faltering"},
+            ],
+        }
+    ]
+    return direction
+
+
+def _letter_playback() -> dict:
+    playback = _playback_visual_novel()
+    playback["instruments"] = [
+        {
+            "id": "instrument_001",
+            "kind": "letter",
+            "at": "p0002",
+            "until": "p0004",
+            "placement": "auto",
+            "extent": {"at": "p0003", "until": "p0004"},
+            "keys": [
+                {"at": "p0002", "state": "sealed"},
+                {"at": "p0003", "state": "reading"},
+                {"at": "p0004", "beat": 1, "state": "faltering"},
+            ],
+        }
+    ]
+    return playback
+
+
+def test_letter_instrument_matches_its_schemas() -> None:
+    _validator("direction.schema.json").validate(_letter_direction())
+    _validator("playback.schema.json").validate(_letter_playback())
+
+    direction = _letter_direction()
+    del direction["instruments"][0]["extent"]
+    _validator("direction.schema.json").validate(direction)
+
+
+def test_letter_keeps_its_own_vocabulary_and_carries_no_count() -> None:
+    direction = _letter_direction()
+    direction["instruments"][0]["states"][1]["state"] = "listening"
+    assert not _validator("direction.schema.json").is_valid(direction)
+
+    playback = _letter_playback()
+    playback["instruments"][0]["keys"][1]["page"] = 3
+    assert not _validator("playback.schema.json").is_valid(playback)
+
+    playback = _letter_playback()
+    playback["instruments"][0]["keys"][1]["state"] = "torn"
+    assert not _validator("playback.schema.json").is_valid(playback)
+
+
+def test_only_a_letter_has_an_extent() -> None:
+    direction = _wind_direction()
+    direction["instruments"][0]["extent"] = {"at": "p0002", "until": "p0003"}
+    assert not _validator("direction.schema.json").is_valid(direction)
+
+    playback = _radio_playback()
+    playback["instruments"][0]["extent"] = {"at": "p0002", "until": "p0003"}
+    assert not _validator("playback.schema.json").is_valid(playback)
+
+    playback = _letter_playback()
+    playback["instruments"][0]["extent"]["beat"] = 1
+    assert not _validator("playback.schema.json").is_valid(playback)
+
+
 def _gesture_direction() -> dict:
     direction = _direction_visual_novel()
     direction["gestures"] = [
