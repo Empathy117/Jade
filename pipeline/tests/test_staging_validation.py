@@ -614,6 +614,64 @@ def test_spans_sharing_an_extent_are_one_letter() -> None:
     assert validate_direction_staging(source, direction(False)) == []
 
 
+def pianola_bundle(tmp_path: Path) -> Path:
+    bundle = visual_novel_bundle(tmp_path)
+
+    def direction(document: dict) -> None:
+        document["instruments"] = [
+            {
+                "id": "instrument_001",
+                "kind": "pianola",
+                "at": "p0002",
+                "until": "p0004",
+                "intent": "the_house_opens",
+                "states": [
+                    {"at": "p0002", "state": "closed"},
+                    {"at": "p0003", "state": "playing"},
+                    {"at": "p0004", "state": "dismantled"},
+                ],
+            }
+        ]
+
+    def playback(document: dict) -> None:
+        document["instruments"] = [
+            {
+                "id": "instrument_001",
+                "kind": "pianola",
+                "at": "p0002",
+                "until": "p0004",
+                "placement": "auto",
+                "keys": [
+                    {"at": "p0002", "state": "closed"},
+                    {"at": "p0003", "state": "playing", "tempo": 0.7},
+                    {"at": "p0004", "state": "dismantled"},
+                ],
+            }
+        ]
+
+    edit(bundle, "direction.json", direction)
+    edit(bundle, "playback.json", playback)
+    return bundle
+
+
+def test_pianola_bundle_is_valid(tmp_path: Path) -> None:
+    assert validate_bundle(pianola_bundle(tmp_path), contracts_dir=CONTRACTS) == []
+
+
+def test_pianola_keys_repeat_the_directed_state(tmp_path: Path) -> None:
+    bundle = pianola_bundle(tmp_path)
+    edit(bundle, "playback.json", lambda p: p["instruments"][0]["keys"][2].update(state="playing"))
+    assert "instrument_state_mismatch" in issue_codes(
+        validate_bundle(bundle, contracts_dir=CONTRACTS)
+    )
+
+
+def test_pianola_tempo_is_rejected_on_a_silent_machine(tmp_path: Path) -> None:
+    bundle = pianola_bundle(tmp_path)
+    edit(bundle, "playback.json", lambda p: p["instruments"][0]["keys"][2].update(tempo=0.4))
+    assert "schema_not" in issue_codes(validate_bundle(bundle, contracts_dir=CONTRACTS))
+
+
 def gesture_bundle(tmp_path: Path) -> Path:
     bundle = visual_novel_bundle(tmp_path)
 
