@@ -611,6 +611,30 @@
         }
       }
     },
+    "pianolaKey": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["at", "state"],
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/paragraphId"
+        },
+        "beat": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "state": {
+          "enum": ["closed", "playing", "faltering", "dismantled"]
+        },
+        "tempo": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "if": { "properties": { "state": { "enum": ["closed", "dismantled"] } } },
+      "then": { "not": { "required": ["tempo"] } }
+    },
     "instrumentCue": {
       "type": "object",
       "additionalProperties": false,
@@ -620,7 +644,7 @@
           "$ref": "#/$defs/instrumentId"
         },
         "kind": {
-          "enum": ["radio", "wind", "letter"]
+          "enum": ["radio", "wind", "letter", "pianola"]
         },
         "at": {
           "$ref": "#/$defs/paragraphId"
@@ -663,6 +687,10 @@
           "if": { "properties": { "kind": { "const": "letter" } } },
           "then": { "properties": { "keys": { "items": { "$ref": "#/$defs/letterKey" } } } },
           "else": { "not": { "required": ["extent"] } }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "pianola" } } },
+          "then": { "properties": { "keys": { "items": { "$ref": "#/$defs/pianolaKey" } } } }
         }
       ]
     },

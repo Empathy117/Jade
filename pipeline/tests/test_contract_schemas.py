@@ -444,6 +444,70 @@ def test_only_a_letter_has_an_extent() -> None:
     assert not _validator("playback.schema.json").is_valid(playback)
 
 
+def _pianola_direction() -> dict:
+    direction = _direction_visual_novel()
+    direction["instruments"] = [
+        {
+            "id": "instrument_001",
+            "kind": "pianola",
+            "at": "p0002",
+            "until": "p0004",
+            "intent": "the_house_opens",
+            "states": [
+                {"at": "p0002", "state": "closed"},
+                {"at": "p0003", "state": "playing"},
+                {"at": "p0004", "state": "dismantled"},
+            ],
+        }
+    ]
+    return direction
+
+
+def _pianola_playback() -> dict:
+    playback = _playback_visual_novel()
+    playback["instruments"] = [
+        {
+            "id": "instrument_001",
+            "kind": "pianola",
+            "at": "p0002",
+            "until": "p0004",
+            "placement": "auto",
+            "keys": [
+                {"at": "p0002", "state": "closed"},
+                {"at": "p0003", "state": "playing", "tempo": 0.7},
+                {"at": "p0004", "state": "dismantled"},
+            ],
+        }
+    ]
+    return playback
+
+
+def test_pianola_instrument_matches_its_schemas() -> None:
+    _validator("direction.schema.json").validate(_pianola_direction())
+    _validator("playback.schema.json").validate(_pianola_playback())
+
+
+def test_pianola_keeps_its_own_vocabulary() -> None:
+    direction = _pianola_direction()
+    direction["instruments"][0]["states"][1]["state"] = "reading"
+    assert not _validator("direction.schema.json").is_valid(direction)
+
+    playback = _pianola_playback()
+    playback["instruments"][0]["keys"][1]["notes"] = [1, 5, 8]
+    assert not _validator("playback.schema.json").is_valid(playback)
+
+
+def test_pianola_tempo_is_bounded_and_only_where_the_roll_moves() -> None:
+    playback = _pianola_playback()
+    playback["instruments"][0]["keys"][1]["tempo"] = 1.4
+    assert not _validator("playback.schema.json").is_valid(playback)
+
+    for index in (0, 2):
+        playback = _pianola_playback()
+        playback["instruments"][0]["keys"][index]["tempo"] = 0.5
+        assert not _validator("playback.schema.json").is_valid(playback)
+
+
 def _gesture_direction() -> dict:
     direction = _direction_visual_novel()
     direction["gestures"] = [

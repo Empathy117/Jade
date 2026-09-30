@@ -474,7 +474,8 @@
           "anyOf": [
             { "$ref": "#/$defs/radioState" },
             { "$ref": "#/$defs/windState" },
-            { "$ref": "#/$defs/letterState" }
+            { "$ref": "#/$defs/letterState" },
+            { "$ref": "#/$defs/pianolaState" }
           ]
         }
       }
@@ -487,6 +488,9 @@
     },
     "letterState": {
       "enum": ["sealed", "reading", "faltering", "set_down"]
+    },
+    "pianolaState": {
+      "enum": ["closed", "playing", "faltering", "dismantled"]
     },
     "letterExtent": {
       "type": "object",
@@ -510,7 +514,7 @@
           "$ref": "#/$defs/instrumentId"
         },
         "kind": {
-          "enum": ["radio", "wind", "letter"]
+          "enum": ["radio", "wind", "letter", "pianola"]
         },
         "at": {
           "$ref": "#/$defs/paragraphId"
@@ -565,6 +569,14 @@
             }
           },
           "else": { "not": { "required": ["extent"] } }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "pianola" } } },
+          "then": {
+            "properties": {
+              "states": { "items": { "properties": { "state": { "$ref": "#/$defs/pianolaState" } } } }
+            }
+          }
         }
       ]
     },

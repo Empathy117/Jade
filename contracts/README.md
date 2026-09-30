@@ -34,8 +34,9 @@ Version 2 also carries the opt-in `visual_novel` profile
 `layout` and `atmosphere`, beat-anchored `sounds` and `effects`, CG spans
 (`cgs`), `iris`/`wipe` transitions, instrument spans such as the radio
 ([ADR-0006](../docs/adr/0006-instrument-channel.md)), the wind
-([ADR-0008](../docs/adr/0008-wind-instrument.md)), and the letter
-([ADR-0009](../docs/adr/0009-letter-instrument.md)), and gesture beats such as
+([ADR-0008](../docs/adr/0008-wind-instrument.md)), the letter
+([ADR-0009](../docs/adr/0009-letter-instrument.md)), and the pianola
+([ADR-0010](../docs/adr/0010-pianola-instrument.md)), and gesture beats such as
 grinding ink ([ADR-0007](../docs/adr/0007-gesture-beats.md)). Assets gain the
 `cg` and `sfx` types.
 
