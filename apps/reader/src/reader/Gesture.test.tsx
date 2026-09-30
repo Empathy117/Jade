@@ -286,3 +286,103 @@ describe("Gesture: carve_wood", () => {
     expect(request).not.toHaveBeenCalled();
   });
 });
+
+const cosmetics: GestureCue = {
+  id: "gesture_004",
+  kind: "apply_cosmetics",
+  at: "p0005",
+  placement: "center",
+  params: {},
+};
+
+describe("Gesture: apply_cosmetics", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame", "performance"] });
+    fakeCanvasContext();
+    // Lay the field's canvas out at its drawing size so screen and drawing units agree.
+    vi.spyOn(HTMLCanvasElement.prototype, "getBoundingClientRect").mockReturnValue({
+      left: 0, top: 0, right: 200, bottom: 140, width: 200, height: 140, x: 0, y: 0, toJSON: () => ({}),
+    } as DOMRect);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  /** Keep frames running for a while, then report whether the plate still asks for any. */
+  function settles(after: number): boolean {
+    act(() => {
+      vi.advanceTimersByTime(after);
+    });
+    const request = vi.spyOn(window, "requestAnimationFrame");
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+    return request.mock.calls.length === 0;
+  }
+
+  it("warms under the brush and finishes once most of the field is warm", () => {
+    const onComplete = vi.fn();
+    render(plate({ cue: cosmetics, serial: 1, active: true }, { onComplete }));
+    expect(document.querySelector(".gesture__cosmetics")).not.toBeNull();
+    expect(document.querySelector(".gesture__hint")?.textContent).toBe("上妆");
+    expect(element().getAttribute("aria-label")).toBe("上妆，可跳过");
+
+    stroke(element(), 60, 40, 160);
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(element().classList.contains("is-finished")).toBe(false);
+
+    for (const y of [34, 48, 74, 88, 100]) stroke(element(), y, 30, 170);
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(element().classList.contains("is-finished")).toBe(true);
+    // The rest warms in, then the plate rests.
+    expect(settles(1500)).toBe(true);
+  });
+
+  it("lays nothing outside the field", () => {
+    const onComplete = vi.fn();
+    render(plate({ cue: cosmetics, serial: 1, active: true }, { onComplete }));
+    for (let count = 0; count < 20; count += 1) stroke(element(), 2, 0, 30);
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  it("keeps its input from turning the page", () => {
+    const onParent = vi.fn();
+    render(plate({ cue: cosmetics, serial: 1, active: true }, { onParent }));
+    stroke(element(), 60, 40, 160);
+    fireEvent.click(element());
+    expect(onParent).not.toHaveBeenCalled();
+  });
+
+  it("completes on Enter, and with one press under reduced motion", () => {
+    const onComplete = vi.fn();
+    const { unmount } = render(plate({ cue: cosmetics, serial: 1, active: true }, { onComplete }));
+    fireEvent.keyDown(element(), { key: "Enter" });
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(element().classList.contains("is-finished")).toBe(true);
+    unmount();
+
+    const pressed = vi.fn();
+    render(plate({ cue: cosmetics, serial: 2, active: true }, { onComplete: pressed, reducedMotion: true }));
+    fireEvent.pointerDown(element(), { pointerId: 1, clientX: 100, clientY: 70 });
+    expect(pressed).toHaveBeenCalledTimes(1);
+    expect(element().classList.contains("is-finished")).toBe(true);
+    // Under reduced motion the warmth still arrives, as a short fade.
+    expect(settles(800)).toBe(true);
+  });
+
+  it("shows the field warm at once when the reader turns past it", () => {
+    const onComplete = vi.fn();
+    const { rerender } = render(plate({ cue: cosmetics, serial: 1, active: true }, { onComplete }));
+    stroke(element(), 60, 40, 160);
+    const request = vi.spyOn(window, "requestAnimationFrame");
+    rerender(plate({ cue: cosmetics, serial: 1, active: false }, { onComplete }));
+    expect(element().classList.contains("is-finished")).toBe(true);
+    expect(onComplete).not.toHaveBeenCalled();
+    // No warm-in: the finished field is drawn in one go.
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+    expect(request).not.toHaveBeenCalled();
+  });
+});

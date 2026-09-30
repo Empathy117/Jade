@@ -493,6 +493,12 @@ button { color: inherit; }
 .gesture--carve_wood { cursor: crosshair; }
 .gesture--carve_wood.is-finished { cursor: default; }
 .gesture__carving { aspect-ratio: 200 / 140; }
+/* Making up (ADR-0013): a pale glazed field warmed by the brush. The plate
+   goes neutral so the finished warmth is the only warm thing on it. */
+.gesture--apply_cosmetics { cursor: crosshair; border-color: rgba(196,200,204,.18); color: rgba(214,218,222,.78); }
+.gesture--apply_cosmetics.is-finished { cursor: default; }
+.gesture--apply_cosmetics:focus-visible { border-color: rgba(214,218,222,.6); }
+.gesture__cosmetics { aspect-ratio: 200 / 140; }
 .gesture__hint {
   display: block;
   margin-top: 4px;

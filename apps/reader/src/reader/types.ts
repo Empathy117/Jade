@@ -391,7 +391,7 @@ export type InstrumentCue =
   | InstrumentSpan<"pianola", PianolaKey>
   | InstrumentSpan<"incense", IncenseKey>;
 
-export type GestureKind = "grind_ink" | "press_seal" | "carve_wood";
+export type GestureKind = "grind_ink" | "press_seal" | "carve_wood" | "apply_cosmetics";
 export type GesturePlacement = "auto" | "center" | "above_text";
 
 /** Per-kind parameters, each taken from what the text says (ADR-0007). */

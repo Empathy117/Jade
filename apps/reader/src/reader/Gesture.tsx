@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
+import { ApplyCosmetics, type CosmeticsHandle } from "./ApplyCosmetics";
 import { CarveWood, type CarveHandle } from "./CarveWood";
 import type { GestureKind, Layout } from "./types";
 import type { GestureRun } from "./useStaging";
@@ -23,11 +24,13 @@ const HINTS: Record<GestureKind, string> = {
   grind_ink: "转动墨条",
   press_seal: "按下封印",
   carve_wood: "削木",
+  apply_cosmetics: "上妆",
 };
 const LABELS: Record<GestureKind, string> = {
   grind_ink: "磨墨，可跳过",
   press_seal: "盖上封印，可跳过",
   carve_wood: "削木，可跳过",
+  apply_cosmetics: "上妆，可跳过",
 };
 
 const STONE = { cx: 100, cy: 76, rx: 62, ry: 38 };
@@ -85,6 +88,7 @@ export function Gesture({
   const lastAngle = useRef<number | null>(null);
   const turned = useRef(0);
   const carveRef = useRef<CarveHandle | null>(null);
+  const cosmeticsRef = useRef<CosmeticsHandle | null>(null);
   const lastPoint = useRef<{ x: number; y: number } | null>(null);
   useEffect(() => {
     turned.current = 0;
@@ -105,7 +109,9 @@ export function Gesture({
       complete();
       return;
     }
-    if (shown?.cue.kind === "carve_wood") lastPoint.current = { x: event.clientX, y: event.clientY };
+    if (shown?.cue.kind === "carve_wood" || shown?.cue.kind === "apply_cosmetics") {
+      lastPoint.current = { x: event.clientX, y: event.clientY };
+    }
     else lastAngle.current = angleAt(event);
     // Capture keeps a drag that leaves the plate grinding; it is a nicety,
     // and it throws for a pointer the browser no longer considers active.
@@ -117,10 +123,13 @@ export function Gesture({
   };
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     if (lastPoint.current && !finished) {
-      // Each drag across the block is a knife stroke.
+      // Each drag across the block is a knife stroke; across the field, a brush stroke.
       const from = lastPoint.current;
       lastPoint.current = { x: event.clientX, y: event.clientY };
-      const next = carveRef.current?.pare(from.x, from.y, event.clientX, event.clientY) ?? 0;
+      const next =
+        (shown?.cue.kind === "apply_cosmetics"
+          ? cosmeticsRef.current?.brush(from.x, from.y, event.clientX, event.clientY)
+          : carveRef.current?.pare(from.x, from.y, event.clientX, event.clientY)) ?? 0;
       setProgress(next);
       if (next >= 1) complete();
       return;
@@ -143,6 +152,7 @@ export function Gesture({
     lastAngle.current = null;
     if (lastPoint.current) {
       lastPoint.current = null;
+      if (shown?.cue.kind !== "carve_wood") return;
       const next = carveRef.current?.lift() ?? 0;
       setProgress(next);
       if (next >= 1 && !finished) complete();
@@ -207,7 +217,15 @@ export function Gesture({
       onClick={(event) => event.stopPropagation()}
       onKeyDown={onKeyDown}
     >
-      {kind === "carve_wood" ? (
+      {kind === "apply_cosmetics" ? (
+        <ApplyCosmetics
+          key={shown.serial}
+          ref={cosmeticsRef}
+          finished={finished}
+          instant={finished && !done}
+          reducedMotion={reducedMotion}
+        />
+      ) : kind === "carve_wood" ? (
         <CarveWood
           key={shown.serial}
           ref={carveRef}
