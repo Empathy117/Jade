@@ -35,8 +35,9 @@ Version 2 also carries the opt-in `visual_novel` profile
 (`cgs`), `iris`/`wipe` transitions, instrument spans such as the radio
 ([ADR-0006](../docs/adr/0006-instrument-channel.md)), the wind
 ([ADR-0008](../docs/adr/0008-wind-instrument.md)), the letter
-([ADR-0009](../docs/adr/0009-letter-instrument.md)), and the pianola
-([ADR-0010](../docs/adr/0010-pianola-instrument.md)), and gesture beats such as
+([ADR-0009](../docs/adr/0009-letter-instrument.md)), the pianola
+([ADR-0010](../docs/adr/0010-pianola-instrument.md)), and incense
+([ADR-0011](../docs/adr/0011-incense-instrument.md)), and gesture beats such as
 grinding ink ([ADR-0007](../docs/adr/0007-gesture-beats.md)). Assets gain the
 `cg` and `sfx` types.
 
@@ -47,6 +48,8 @@ Playback v2 semantics the Compiler must honour:
   reading position and never across a background cue.
 - A grade stays in force until the next cue grade or `grade_shift`; emit a
   grade with `shade: 0` to return a scene to the ungraded plate.
+- Instrument keys hold until the next key, except an `incense` key's
+  `burnt`, which interpolates by reading position while the stick is lit.
 
 The `$id` of each schema still carries the `/v1/` path of the first contract.
 A document's version is its `schema_version`; `direction` and `playback`

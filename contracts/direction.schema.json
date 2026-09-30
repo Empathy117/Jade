@@ -475,7 +475,8 @@
             { "$ref": "#/$defs/radioState" },
             { "$ref": "#/$defs/windState" },
             { "$ref": "#/$defs/letterState" },
-            { "$ref": "#/$defs/pianolaState" }
+            { "$ref": "#/$defs/pianolaState" },
+            { "$ref": "#/$defs/incenseState" }
           ]
         }
       }
@@ -491,6 +492,9 @@
     },
     "pianolaState": {
       "enum": ["closed", "playing", "faltering", "dismantled"]
+    },
+    "incenseState": {
+      "enum": ["unlit", "burning", "ember", "out"]
     },
     "letterExtent": {
       "type": "object",
@@ -514,7 +518,7 @@
           "$ref": "#/$defs/instrumentId"
         },
         "kind": {
-          "enum": ["radio", "wind", "letter", "pianola"]
+          "enum": ["radio", "wind", "letter", "pianola", "incense"]
         },
         "at": {
           "$ref": "#/$defs/paragraphId"
@@ -575,6 +579,14 @@
           "then": {
             "properties": {
               "states": { "items": { "properties": { "state": { "$ref": "#/$defs/pianolaState" } } } }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "incense" } } },
+          "then": {
+            "properties": {
+              "states": { "items": { "properties": { "state": { "$ref": "#/$defs/incenseState" } } } }
             }
           }
         }

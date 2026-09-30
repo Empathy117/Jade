@@ -508,6 +508,73 @@ def test_pianola_tempo_is_bounded_and_only_where_the_roll_moves() -> None:
         assert not _validator("playback.schema.json").is_valid(playback)
 
 
+def _incense_direction() -> dict:
+    direction = _direction_visual_novel()
+    direction["instruments"] = [
+        {
+            "id": "instrument_001",
+            "kind": "incense",
+            "at": "p0002",
+            "until": "p0004",
+            "intent": "the_first_contest",
+            "states": [
+                {"at": "p0002", "state": "unlit"},
+                {"at": "p0003", "state": "burning"},
+                {"at": "p0004", "state": "out"},
+            ],
+        }
+    ]
+    return direction
+
+
+def _incense_playback() -> dict:
+    playback = _playback_visual_novel()
+    playback["instruments"] = [
+        {
+            "id": "instrument_001",
+            "kind": "incense",
+            "at": "p0002",
+            "until": "p0004",
+            "placement": "auto",
+            "keys": [
+                {"at": "p0002", "state": "unlit", "burnt": 0},
+                {"at": "p0003", "state": "burning", "burnt": 0.1},
+                {"at": "p0004", "state": "out", "burnt": 1},
+            ],
+        }
+    ]
+    return playback
+
+
+def test_incense_instrument_matches_its_schemas() -> None:
+    _validator("direction.schema.json").validate(_incense_direction())
+    _validator("playback.schema.json").validate(_incense_playback())
+
+
+def test_incense_keeps_its_own_vocabulary() -> None:
+    direction = _incense_direction()
+    direction["instruments"][0]["states"][1]["state"] = "playing"
+    assert not _validator("direction.schema.json").is_valid(direction)
+
+    playback = _incense_playback()
+    playback["instruments"][0]["keys"][1]["state"] = "smouldering"
+    assert not _validator("playback.schema.json").is_valid(playback)
+
+
+def test_incense_burnt_is_required_bounded_and_zero_while_unlit() -> None:
+    playback = _incense_playback()
+    del playback["instruments"][0]["keys"][1]["burnt"]
+    assert not _validator("playback.schema.json").is_valid(playback)
+
+    playback = _incense_playback()
+    playback["instruments"][0]["keys"][2]["burnt"] = 1.2
+    assert not _validator("playback.schema.json").is_valid(playback)
+
+    playback = _incense_playback()
+    playback["instruments"][0]["keys"][0]["burnt"] = 0.3
+    assert not _validator("playback.schema.json").is_valid(playback)
+
+
 def _gesture_direction() -> dict:
     direction = _direction_visual_novel()
     direction["gestures"] = [
