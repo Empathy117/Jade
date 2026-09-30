@@ -409,6 +409,7 @@ def _validate_visual_novel_direction(
         previous_end = max(previous_end or end, end)
 
     issues.extend(_instrument_span_issues("direction.json", positions, direction, "states"))
+    issues.extend(_letter_issues(positions, direction))
     return issues
 
 
@@ -460,7 +461,7 @@ def _validate_visual_novel_playback(
     mirror("sounds", ("id", "at", "beat"))
     mirror("effects", ("at", "beat", "type"))
     mirror("cgs", ("id", "at", "beat", "until", "until_beat"))
-    mirror("instruments", ("id", "kind", "at", "beat", "until", "until_beat"))
+    mirror("instruments", ("id", "kind", "at", "beat", "until", "until_beat", "extent"))
     mirror("gestures", ("id", "kind", "at", "beat"))
 
     for index, sound in enumerate(playback.get("sounds", [])):
@@ -616,6 +617,56 @@ def _instrument_span_issues(
                     f"{inner} must advance: {entry['at']}",
                 )
             previous = key
+    return issues
+
+
+def _letter_issues(positions: dict[str, int], direction: JsonObject) -> list[ValidationIssue]:
+    """A letter's extent is real and meets its span; once opened, it is never sealed again."""
+
+    issues: list[ValidationIssue] = []
+
+    def issue(path: str, code: str, message: str) -> None:
+        issues.append(ValidationIssue("direction.json", path, code, message))
+
+    opened: set[tuple[str, str]] = set()
+    for index, instrument in enumerate(direction.get("instruments", [])):
+        if instrument["kind"] != "letter":
+            continue
+        path = f"$.instruments[{index}]"
+        extent = instrument.get("extent", instrument)
+        letter = (extent["at"], extent["until"])
+        if "extent" in instrument:
+            ends = [positions.get(extent["at"]), positions.get(extent["until"])]
+            for field, position in zip(("at", "until"), ends, strict=True):
+                if position is None:
+                    issue(
+                        f"{path}.extent.{field}",
+                        "paragraph_not_found",
+                        f"paragraph does not exist: {extent[field]}",
+                    )
+            span = [positions.get(instrument["at"]), positions.get(instrument["until"])]
+            if None not in ends and None not in span:
+                if ends[1] < ends[0]:
+                    issue(
+                        f"{path}.extent.until",
+                        "letter_extent_inverted",
+                        f"extent ends before it starts: {instrument['id']}",
+                    )
+                elif ends[1] < span[0] or ends[0] > span[1]:
+                    issue(
+                        f"{path}.extent",
+                        "letter_extent_outside_span",
+                        f"extent {letter[0]}..{letter[1]} does not meet {instrument['id']}",
+                    )
+        for state_index, state in enumerate(instrument["states"]):
+            if state["state"] != "sealed":
+                opened.add(letter)
+            elif letter in opened:
+                issue(
+                    f"{path}.states[{state_index}].state",
+                    "letter_resealed",
+                    f"the letter was already opened before {state['at']}",
+                )
     return issues
 
 

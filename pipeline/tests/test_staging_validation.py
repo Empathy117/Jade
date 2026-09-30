@@ -489,6 +489,131 @@ def test_wind_keys_repeat_the_directed_state(tmp_path: Path) -> None:
     )
 
 
+def letter_bundle(tmp_path: Path) -> Path:
+    bundle = visual_novel_bundle(tmp_path)
+    states = [
+        {"at": "p0002", "state": "sealed"},
+        {"at": "p0003", "state": "reading"},
+        {"at": "p0004", "state": "faltering"},
+    ]
+
+    def direction(document: dict) -> None:
+        document["instruments"] = [
+            {
+                "id": "instrument_001",
+                "kind": "letter",
+                "at": "p0002",
+                "until": "p0004",
+                "intent": "opening_the_letter",
+                "extent": {"at": "p0003", "until": "p0004"},
+                "states": states,
+            }
+        ]
+
+    def playback(document: dict) -> None:
+        document["instruments"] = [
+            {
+                "id": "instrument_001",
+                "kind": "letter",
+                "at": "p0002",
+                "until": "p0004",
+                "placement": "auto",
+                "extent": {"at": "p0003", "until": "p0004"},
+                "keys": states,
+            }
+        ]
+
+    edit(bundle, "direction.json", direction)
+    edit(bundle, "playback.json", playback)
+    return bundle
+
+
+def edit_letter(bundle: Path, change) -> None:
+    """Apply one change to the letter span in both direction and playback."""
+
+    edit(bundle, "direction.json", lambda d: change(d["instruments"][0], "states"))
+    edit(bundle, "playback.json", lambda p: change(p["instruments"][0], "keys"))
+
+
+def test_letter_bundle_is_valid(tmp_path: Path) -> None:
+    assert validate_bundle(letter_bundle(tmp_path), contracts_dir=CONTRACTS) == []
+
+
+def test_letter_keys_repeat_the_directed_state(tmp_path: Path) -> None:
+    bundle = letter_bundle(tmp_path)
+    edit(bundle, "playback.json", lambda p: p["instruments"][0]["keys"][2].update(state="reading"))
+    assert "instrument_state_mismatch" in issue_codes(
+        validate_bundle(bundle, contracts_dir=CONTRACTS)
+    )
+
+
+def test_letter_extent_must_run_forward_and_meet_its_span(tmp_path: Path) -> None:
+    inverted = letter_bundle(tmp_path / "inverted")
+    edit_letter(inverted, lambda span, _: span.update(extent={"at": "p0004", "until": "p0003"}))
+    assert "letter_extent_inverted" in issue_codes(
+        validate_bundle(inverted, contracts_dir=CONTRACTS)
+    )
+
+    def elsewhere(span: dict, inner: str) -> None:
+        span.update(until="p0003", extent={"at": "p0004", "until": "p0004"})
+        span[inner].pop()
+
+    apart = letter_bundle(tmp_path / "apart")
+    edit_letter(apart, elsewhere)
+    assert "letter_extent_outside_span" in issue_codes(
+        validate_bundle(apart, contracts_dir=CONTRACTS)
+    )
+
+    missing = letter_bundle(tmp_path / "missing")
+    edit_letter(missing, lambda span, _: span["extent"].update(until="p0099"))
+    assert "paragraph_not_found" in issue_codes(
+        validate_bundle(missing, contracts_dir=CONTRACTS)
+    )
+
+
+def test_playback_letter_mirrors_the_extent(tmp_path: Path) -> None:
+    bundle = letter_bundle(tmp_path)
+    edit(bundle, "playback.json", lambda p: p["instruments"][0]["extent"].update(at="p0002"))
+    assert "instruments_mismatch" in issue_codes(
+        validate_bundle(bundle, contracts_dir=CONTRACTS)
+    )
+
+
+def test_an_opened_letter_is_never_sealed_again(tmp_path: Path) -> None:
+    bundle = letter_bundle(tmp_path)
+    edit_letter(bundle, lambda span, inner: span[inner][2].update(state="sealed"))
+    assert "letter_resealed" in issue_codes(validate_bundle(bundle, contracts_dir=CONTRACTS))
+
+
+def test_spans_sharing_an_extent_are_one_letter() -> None:
+    source = long_source(1, 20)
+
+    def span(number: int, at: int, state: str, extent: bool) -> dict:
+        instrument = {
+            "id": f"instrument_{number:03d}",
+            "kind": "letter",
+            "at": f"p{at:04d}",
+            "until": f"p{at + 2:04d}",
+            "intent": "x",
+            "states": [{"at": f"p{at:04d}", "state": state}],
+        }
+        if extent:
+            instrument["extent"] = {"at": "p0002", "until": "p0020"}
+        return instrument
+
+    def direction(extent: bool) -> dict:
+        return {
+            "schema_version": 2,
+            "profile": "visual_novel",
+            "scenes": [],
+            "instruments": [span(1, 4, "reading", extent), span(2, 12, "sealed", extent)],
+        }
+
+    assert "letter_resealed" in issue_codes(validate_direction_staging(source, direction(True)))
+    # Without a shared extent each span is its own letter.
+    assert validate_direction_staging(source, direction(False)) == []
+
+
 def gesture_bundle(tmp_path: Path) -> Path:
     bundle = visual_novel_bundle(tmp_path)
 
