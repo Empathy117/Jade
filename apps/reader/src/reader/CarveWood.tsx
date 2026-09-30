@@ -1,6 +1,7 @@
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 import { CARVE_COLS, CARVE_ROWS, Carving, figureOutline, KNIFE_REACH, type CarveStage } from "./carve";
 import { easeOut, prepareCanvas } from "./instrumentFace";
+import { paintGrain } from "./material";
 
 // Drawing space: the gesture plate's 200 × 140, a block standing in the middle.
 const WIDTH = 200;
@@ -18,6 +19,11 @@ const GRAVITY = 150;
 const WOOD = "#d6c097";
 const WOOD_SHADE = "rgba(92, 64, 32, 0.16)";
 const GRAIN = "rgba(112, 80, 44, 0.2)";
+const FINE_GRAIN = "rgba(112, 80, 44, 0.13)";
+const FINE_GRAIN_LIGHT = "rgba(255, 242, 214, 0.1)";
+/** The cut faces: one catching the lamp, one turned from it. */
+const FACET_LIT = "rgba(255, 234, 196, 0.34)";
+const FACET_SHADE = "rgba(74, 48, 22, 0.26)";
 const SHAVING = "#ecdcb6";
 const SHAVING_EDGE = "rgba(92, 64, 32, 0.55)";
 const OUTLINE = "rgba(92, 64, 36, 0.45)";
@@ -53,6 +59,14 @@ function trace(context: CanvasRenderingContext2D, figure: Float32Array) {
 function paintWood(context: CanvasRenderingContext2D) {
   context.fillStyle = WOOD;
   context.fillRect(0, 0, BLOCK.w, BLOCK.h);
+  // Warmer where the lamp falls on the left, and fine grain along the length.
+  const lamp = context.createLinearGradient(0, 0, BLOCK.w, 0);
+  lamp.addColorStop(0, "rgba(255, 222, 164, 0.2)");
+  lamp.addColorStop(0.45, "rgba(255, 222, 164, 0)");
+  lamp.addColorStop(1, "rgba(0, 0, 0, 0)");
+  context.fillStyle = lamp;
+  context.fillRect(0, 0, BLOCK.w, BLOCK.h);
+  paintGrain(context, BLOCK.w, BLOCK.h, 53, true, FINE_GRAIN, FINE_GRAIN_LIGHT, 1.3);
   // A little shade down the right face, and faint grain running the length.
   context.fillStyle = WOOD_SHADE;
   context.fillRect(BLOCK.w * 0.72, 0, BLOCK.w * 0.28, BLOCK.h);
@@ -68,6 +82,40 @@ function paintWood(context: CanvasRenderingContext2D) {
 }
 
 /**
+ * The figure as it stands once free, in block pixels: the same wood, lit a
+ * little warmer on the lamp side and shaded on the far one, and for a rough
+ * figure its straight facets catching the light in turn.
+ */
+function paintFigure(
+  context: CanvasRenderingContext2D,
+  pristine: HTMLCanvasElement,
+  figure: Float32Array,
+  stage: CarveStage,
+) {
+  context.scale(RES, RES);
+  context.translate(-BLOCK.x, -BLOCK.y);
+  trace(context, figure);
+  context.clip();
+  context.drawImage(pristine, BLOCK.x, BLOCK.y, BLOCK.w, BLOCK.h);
+  const left = BLOCK.x + BLOCK.w * 0.28;
+  const light = context.createLinearGradient(left, 0, BLOCK.x + BLOCK.w * 0.72, 0);
+  light.addColorStop(0, "rgba(255, 228, 178, 0.16)");
+  light.addColorStop(0.5, "rgba(255, 228, 178, 0)");
+  light.addColorStop(1, "rgba(70, 46, 20, 0.2)");
+  context.fillStyle = light;
+  context.fillRect(BLOCK.x, BLOCK.y, BLOCK.w, BLOCK.h);
+  if (stage === "rough") {
+    // The facets run between the outline's corners: the head block, then bands a tenth deep.
+    for (let band = 0; band < 9; band += 1) {
+      const top = band === 0 ? 0 : 0.15 + band * 0.1;
+      const bottom = 0.25 + band * 0.1;
+      context.fillStyle = band % 2 === 0 ? "rgba(255, 232, 190, 0.08)" : "rgba(70, 46, 20, 0.09)";
+      context.fillRect(BLOCK.x, BLOCK.y + top * BLOCK.h, BLOCK.w, (bottom - top) * BLOCK.h);
+    }
+  }
+}
+
+/**
  * A small block of pale wood pared away stroke by stroke toward a hidden
  * standing figure (ADR-0012). The figure is cut from the same wood, so it
  * shows only where the waste has come away; curling shavings fly off each
@@ -78,7 +126,7 @@ export function CarveWood({ stage, finished, reducedMotion, ref }: CarveWoodProp
   // One carving per mount: the gesture plate remounts this for each new beat.
   const [carving] = useState(() => new Carving(stage));
   const [figure] = useState(() => figureOutline(stage));
-  const layers = useRef<{ pristine: HTMLCanvasElement; material: HTMLCanvasElement } | null>(null);
+  const layers = useRef<{ pristine: HTMLCanvasElement; material: HTMLCanvasElement; figure: HTMLCanvasElement } | null>(null);
   // Shavings: x, y, vx, vy, age, spin, size for each, in a fixed pool.
   const shavings = useRef(new Float32Array(SHAVINGS * 7));
   const loop = useRef({ frame: 0, running: false, fadeStart: -1, next: 0, last: 0, since: 0 });
@@ -87,23 +135,26 @@ export function CarveWood({ stage, finished, reducedMotion, ref }: CarveWoodProp
   useEffect(() => {
     const pristine = document.createElement("canvas");
     const material = document.createElement("canvas");
-    pristine.width = material.width = BLOCK.w * RES;
-    pristine.height = material.height = BLOCK.h * RES;
+    const carved = document.createElement("canvas");
+    pristine.width = material.width = carved.width = BLOCK.w * RES;
+    pristine.height = material.height = carved.height = BLOCK.h * RES;
     const wood = pristine.getContext("2d");
     const cut = material.getContext("2d");
-    if (wood && cut) {
+    const shaped = carved.getContext("2d");
+    if (wood && cut && shaped) {
       wood.scale(RES, RES);
       paintWood(wood);
       cut.drawImage(pristine, 0, 0);
+      paintFigure(shaped, pristine, figure, stage);
     }
-    layers.current = { pristine, material };
+    layers.current = { pristine, material, figure: carved };
     redraw.current(performance.now());
     const state = loop.current;
     return () => {
       window.cancelAnimationFrame(state.frame);
       state.running = false;
     };
-  }, []);
+  }, [figure, stage]);
 
   useEffect(() => {
     const state = loop.current;
@@ -125,11 +176,7 @@ export function CarveWood({ stage, finished, reducedMotion, ref }: CarveWoodProp
       context.globalAlpha = 1;
 
       // The figure, always whole: the knife never reaches it.
-      context.save();
-      trace(context, figure);
-      context.clip();
-      context.drawImage(layers.current.pristine, BLOCK.x, BLOCK.y, BLOCK.w, BLOCK.h);
-      context.restore();
+      context.drawImage(layers.current.figure, BLOCK.x, BLOCK.y, BLOCK.w, BLOCK.h);
       if (fade > 0) {
         // Once free, the figure's edge and, when finished, two knife lines where the arms hang.
         context.strokeStyle = OUTLINE;
@@ -232,7 +279,17 @@ export function CarveWood({ stage, finished, reducedMotion, ref }: CarveWoodProp
         const cut = layers.current.material.getContext("2d");
         if (cut) {
           cut.save();
+          // A thin facet along the cut, lit or shaded by which way the knife went.
+          cut.globalCompositeOperation = "source-atop";
+          cut.strokeStyle = to.x - from.x + (to.y - from.y) * 0.5 < 0 ? FACET_LIT : FACET_SHADE;
+          cut.lineCap = "round";
+          cut.lineWidth = (KNIFE_REACH * 2 + 0.9) * CELL * RES;
+          cut.beginPath();
+          cut.moveTo((from.x - BLOCK.x) * RES, (from.y - BLOCK.y) * RES);
+          cut.lineTo((to.x - BLOCK.x) * RES, (to.y - BLOCK.y) * RES);
+          cut.stroke();
           cut.globalCompositeOperation = "destination-out";
+          cut.strokeStyle = "#000";
           cut.lineCap = "round";
           cut.lineWidth = KNIFE_REACH * 2 * CELL * RES;
           cut.beginPath();
